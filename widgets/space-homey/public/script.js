@@ -8,14 +8,14 @@ console.log('Space Homey widget script loaded');
 function showFloorSelector(floors) {
     const container = document.getElementById('floorSelector');
     const floorPlanContainer = document.getElementById('floorPlanContainer');
-    
+
     if (container) {
         container.style.cssText = 'display: flex; width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 9999; pointer-events: auto; justify-content: center; align-items: center; background-color: rgba(25, 118, 210, 0.95);';
     }
     if (floorPlanContainer) {
         floorPlanContainer.style.cssText = 'display: none;';
     }
-    
+
     if (!floors || floors.length === 0) {
         showNoFloorsMessage();
         return;
@@ -43,12 +43,12 @@ function showFloorSelector(floors) {
             </button>
         </div>
     `;
-    
+
     floorGrid.innerHTML = html;
 
     const select = document.getElementById('floorSelect');
     const applyButton = document.getElementById('applyButton');
-    
+
     // Add click handlers to debug event propagation
     select.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -62,15 +62,15 @@ function showFloorSelector(floors) {
         const selectedId = select.value;
         applyButton.disabled = !selectedId;
     });
-    
+
     applyButton.addEventListener('click', async () => {
         const selectedId = select.value;
         if (!selectedId) {
             return;
         }
-        
+
         const selectedFloor = floors.find(f => f.id === selectedId);
-        
+
         if (selectedFloor) {
             await selectFloor(selectedFloor);
         } else {
@@ -82,35 +82,29 @@ function showFloorSelector(floors) {
 function onHomeyReady(_Homey) {
     console.log('onHomeyReady called');
     Homey = _Homey;
-    
+
     // Initialize RendererManager
     rendererManager = new CapabilityRendererManager();
-    
-    // Debug log available renderers
-    Homey.api('POST', '/log', { message: `Available renderers: ${JSON.stringify(window.capabilityRenderers)}` });
-    
+
+
     // Register the onoff renderer
     if (window.capabilityRenderers && window.capabilityRenderers.onoff) {
         rendererManager.registerRenderer(window.capabilityRenderers.onoff);
-        Homey.api('POST', '/log', { message: 'Registered onoff renderer' });
     }
-    
+
     // Register the dim renderer with debug
     if (window.capabilityRenderers && window.capabilityRenderers.dim) {
         rendererManager.registerRenderer(window.capabilityRenderers.dim);
-        Homey.api('POST', '/log', { message: 'Registered dim renderer' });
     } else {
         Homey.api('POST', '/log', { message: 'Dim renderer not available in window.capabilityRenderers' });
     }
-    
+
     // Get widget ID using the correct method
     const widgetId = Homey.getWidgetInstanceId();
-    
-    Homey.api('POST', '/log', { message: `Widget initialized with ID: ${widgetId}` });
-    
+
     // Store widget ID on Homey object for easier access
     Homey.widgetId = widgetId;
-    
+
     init();
     Homey.ready();
 }
@@ -130,10 +124,6 @@ async function init() {
 
         // First get all available floors
         const floors = await Homey.api('GET', '/floors');
-        
-        // Only log floor count, not the entire floor data
-        Homey.api('POST', '/log', { message: `Got ${floors?.length || 0} floors` });
-
         if (!floors || floors.length === 0) {
             showNoFloorsMessage();
             return;
@@ -142,7 +132,7 @@ async function init() {
         // Then check if this widget has a selected floor
         const selectedFloors = await Homey.api('GET', '/selectedFloors');
         const selectedFloor = selectedFloors[widgetId];
-        
+
         if (selectedFloor && selectedFloor.floorId) {
             // Get the latest floor data to ensure we have current information
             const currentFloor = floors.find(f => f.id === selectedFloor.floorId);
@@ -152,7 +142,7 @@ async function init() {
                 return;
             }
         }
-        
+
         // If no floor is selected or the selected floor wasn't found, show selector
         showFloorSelector(floors);
     } catch (error) {
@@ -174,7 +164,7 @@ function addSettingsButton() {
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
         </svg>`;
     settingsButton.style.cssText = 'position: absolute; top: 10px; right: 10px; z-index: 10000; border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; color: #666; background: transparent;';
-    
+
     // Add hover effect
     settingsButton.addEventListener('mouseover', () => {
         settingsButton.style.color = '#000';
@@ -182,7 +172,7 @@ function addSettingsButton() {
     settingsButton.addEventListener('mouseout', () => {
         settingsButton.style.color = '#666';
     });
-    
+
     // Add click handler
     settingsButton.addEventListener('click', async () => {
         try {
@@ -199,14 +189,14 @@ function addSettingsButton() {
 async function selectFloor(floor, saveSelection = true) {
     try {
         const widgetId = Homey.widgetId;
-        
+
         if (!widgetId) {
             Homey.api('POST', '/log', { message: 'No widget ID available when selecting floor' });
             return;
         }
 
         let response = { success: true };
-        
+
         // Only save to API if this is a new selection
         if (saveSelection) {
             response = await Homey.api('POST', '/selectedFloors', {
@@ -214,16 +204,16 @@ async function selectFloor(floor, saveSelection = true) {
                 widgetId: widgetId
             });
         }
-        
+
         if (response.success) {
             // Hide selector and show floor plan
             const floorSelector = document.getElementById('floorSelector');
             const floorPlanContainer = document.getElementById('floorPlanContainer');
-            
+
             if (floorSelector) floorSelector.style.display = 'none';
             if (floorPlanContainer) {
                 floorPlanContainer.style.display = 'block';
-                
+
                 // Set floor plan image
                 const floorPlan = floorPlanContainer.querySelector('.floor-plan');
                 if (floorPlan && floor.image) {
@@ -231,7 +221,7 @@ async function selectFloor(floor, saveSelection = true) {
                     addSettingsButton();
                 }
             }
-            
+
             // Create device container if it doesn't exist
             let deviceContainer = document.getElementById('deviceContainer');
             if (!deviceContainer) {
@@ -240,7 +230,7 @@ async function selectFloor(floor, saveSelection = true) {
                 deviceContainer.className = 'device-container';
                 floorPlanContainer.appendChild(deviceContainer);
             }
-            
+
             // Load and render devices
             if (floor.devices && floor.devices.length > 0) {
                 await renderDevices(floor.devices, deviceContainer);
@@ -252,8 +242,7 @@ async function selectFloor(floor, saveSelection = true) {
 }
 
 async function renderDevices(devices, container) {
-    Homey.api('POST', '/log', { message: `Rendering devices: ${JSON.stringify(devices)}` });
-    
+
     for (const device of devices) {
         await rendererManager.renderDevice(device, container);
     }
@@ -272,7 +261,7 @@ function openSettings() {
 function showLoadingState() {
     const container = document.getElementById('floorSelector');
     const floorPlanContainer = document.getElementById('floorPlanContainer');
-    
+
     if (container) {
         container.style.cssText = 'display: flex; width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 9999; pointer-events: auto; justify-content: center; align-items: center; background-color: transparent;';
     }
@@ -293,29 +282,26 @@ function showLoadingState() {
 
 // Update device update handler with more logging
 function handleDeviceUpdate(data) {
-    Homey.api('POST', '/log', { message: `Received device update: ${JSON.stringify(data)}` });
     const { deviceId, capability, value } = data;
-    
+
     if (!rendererManager) {
         Homey.api('POST', '/log', { message: 'RendererManager not initialized!' });
         return;
     }
-    
+
     // For dim devices, we need to find elements with both dim and onoff capabilities
     const deviceElements = document.querySelectorAll(`[data-device-id="${deviceId}"]`);
-    
+
     deviceElements.forEach(deviceEl => {
         const elementCapability = deviceEl.getAttribute('data-capability');
         const renderer = rendererManager.getRenderer(elementCapability);
-        
+
         if (renderer && typeof renderer.handleDeviceUpdate === 'function') {
             // For dim devices, handle both dim and onoff updates
             if (elementCapability === 'dim') {
-                Homey.api('POST', '/log', { message: `Updating dim device ${deviceId} ${capability} to ${value}` });
                 renderer.handleDeviceUpdate(deviceEl, value, capability);
             } else if (elementCapability === capability) {
                 // For other devices, only handle their specific capability
-                Homey.api('POST', '/log', { message: `Updating device ${deviceId} ${capability} to ${value}` });
                 renderer.handleDeviceUpdate(deviceEl, value);
             }
         }
@@ -343,7 +329,7 @@ window.addEventListener('beforeunload', cleanup);
 function showNoFloorsMessage() {
     const container = document.getElementById('floorSelector');
     const floorPlanContainer = document.getElementById('floorPlanContainer');
-    
+
     if (container) {
         container.style.cssText = 'display: flex; width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 9999; pointer-events: auto; justify-content: center; align-items: center; background-color: rgba(25, 118, 210, 0.95);';
     }

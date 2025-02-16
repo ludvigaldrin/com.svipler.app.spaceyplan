@@ -1,6 +1,6 @@
 const onOffRenderer = {
     id: 'onoff',
-    
+
     createDeviceElement(device, position) {
         // Add renderer-specific styles if not already present
         if (!document.getElementById('onoffStyles')) {
@@ -140,44 +140,37 @@ const onOffRenderer = {
         `;
 
         deviceEl.setAttribute('data-name', device.name);
-        
+
         if (device.iconObj?.url) {
             const img = document.createElement('img');
             img.src = device.iconObj.url;
             img.className = 'device-icon';
             deviceEl.appendChild(img);
         }
-        
+
         return deviceEl;
     },
 
     handleTouchStart(e, deviceEl, deviceId, capability) {
-        Homey.api('POST', '/log', { message: `[Renderer] Touch start on device ${deviceId}` });
         this.touchStartTime = Date.now();
         this.touchMoved = false;
-        
+
         // Clear any existing timer
         if (this.longPressTimer) {
-            Homey.api('POST', '/log', { message: 'Clearing existing timer' });
             clearTimeout(this.longPressTimer);
         }
-        
+
         // Set up long press timer
-        Homey.api('POST', '/log', { message: 'Setting up long press timer' });
         this.longPressTimer = setTimeout(() => {
-            Homey.api('POST', '/log', { message: 'Long press timer fired!' });
             if (!this.touchMoved) {
-                Homey.api('POST', '/log', { message: 'Showing modal due to long press' });
                 this.showDeviceModal(deviceEl, deviceId, capability);
             }
         }, 500);
     },
 
     handleTouchMove(e, deviceEl) {
-        Homey.api('POST', '/log', { message: `[Renderer] Touch move detected, moved=${this.touchMoved}` });
         this.touchMoved = true;
         if (this.longPressTimer) {
-            Homey.api('POST', '/log', { message: 'Canceling long press timer due to movement' });
             clearTimeout(this.longPressTimer);
             this.longPressTimer = null;
         }
@@ -185,57 +178,152 @@ const onOffRenderer = {
 
     handleTouchEnd(e, deviceEl, deviceId, capability) {
         const touchDuration = Date.now() - this.touchStartTime;
-        Homey.api('POST', '/log', { 
-            message: `[Renderer] Touch end: duration=${touchDuration}ms, moved=${this.touchMoved}`
-        });
-        
+
         if (this.longPressTimer) {
-            Homey.api('POST', '/log', { message: 'Clearing long press timer on touch end' });
             clearTimeout(this.longPressTimer);
             this.longPressTimer = null;
         }
-        
+
         if (!this.touchMoved && touchDuration < 500) {
-            Homey.api('POST', '/log', { message: 'Executing quick tap action' });
             this.handleClick(deviceEl, deviceId, capability);
         }
-        
+
         this.touchMoved = false;
         this.touchStartTime = 0;
     },
 
     showDeviceModal(deviceEl, deviceId, capability) {
-        Homey.api('POST', '/log', { message: 'Showing device modal' });
         const name = deviceEl.getAttribute('data-name');
         const currentState = deviceEl.getAttribute('data-state') === 'true';
-        
+
         // Create modal container
+        const overlay = document.createElement('div');
+        overlay.className = 'device-modal';
+
         const modal = document.createElement('div');
-        modal.className = 'device-modal';
+        modal.className = 'device-modal-content';
         modal.innerHTML = `
-            <div class="device-modal-content">
+            <div class="modal-header">
                 <h2>${name}</h2>
-                <div class="power-button ${currentState ? 'on' : ''}" role="button">
-                    <div class="power-icon"></div>
+                <button class="close-button" aria-label="Close">×</button>
+            </div>
+            <div class="dim-view-toggle">
+                <button class="view-button active" data-view="onoff">Power</button>
+            </div>
+            <div class="dim-views">
+                <div class="dim-view onoff-view active">
+                    <div class="power-button ${currentState ? 'on' : ''}" role="button">
+                        <div class="power-icon"></div>
+                    </div>
                 </div>
             </div>
         `;
 
         // Add styles if not present
-        if (!document.getElementById('powerButtonStyles')) {
+        if (!document.getElementById('onoffModalStyles')) {
             const styles = document.createElement('style');
-            styles.id = 'powerButtonStyles';
+            styles.id = 'onoffModalStyles';
             styles.textContent = `
+                .device-modal-content {
+                    background: rgba(245, 245, 245, 0.95);
+                    border-radius: 15px;
+                    padding: 20px;
+                    width: 300px;
+                    height: 300px;
+                }
+
+                .modal-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 20px;
+                }
+
+                .modal-header h2 {
+                    margin: 0;
+                    font-size: 18px;
+                    color: #333;
+                }
+
+                .close-button {
+                    background: none;
+                    border: none;
+                    font-size: 24px;
+                    color: #333;
+                    cursor: pointer;
+                    width: 24px;
+                    height: 24px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 50%;
+                    transition: background-color 0.2s ease;
+                    padding: 0;
+                    margin: 0;
+                }
+
+                .close-button:hover {
+                    background-color: rgba(0, 0, 0, 0.1);
+                }
+
+                .dim-view-toggle {
+                    background: rgba(0, 0, 0, 0.1);
+                    padding: 2px;
+                    border-radius: 20px;
+                    display: flex;
+                    margin: 20px 0;
+                }
+
+                .view-button {
+                    flex: 1;
+                    padding: 8px;
+                    border: none;
+                    border-radius: 18px;
+                    background: transparent;
+                    color: #000;
+                    font-size: 15px;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                }
+
+                .view-button.active {
+                    background: #fff;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }
+
+                .dim-views {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    height: 180px;
+                }
+
+                .dim-view {
+                    display: none;
+                    width: 100%;
+                    height: 100%;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .dim-view.active {
+                    display: flex;
+                }
+
+                /* Power button styles */
                 .power-button {
                     width: 120px;
                     height: 120px;
                     border-radius: 50%;
                     background: #1C1C1E;
-                    margin: 20px auto;
                     position: relative;
                     cursor: pointer;
                     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                    transition: background-color 0.2s ease;
+                    transition: all 0.2s ease;
+                }
+
+                .power-button.on {
+                    background: #FFFFFF;
                 }
 
                 .power-icon {
@@ -251,94 +339,57 @@ const onOffRenderer = {
                     pointer-events: none;
                 }
 
-                .power-button.on {
-                    background: #FFFFFF;
-                }
-
                 .power-button.on .power-icon {
-                    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2300FF00' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18.36 6.64a9 9 0 1 1-12.73 0'/%3E%3Cline x1='12' y1='2' x2='12' y2='12'/%3E%3C/svg%3E") no-repeat center center;
+                    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231C1C1E' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18.36 6.64a9 9 0 1 1-12.73 0'/%3E%3Cline x1='12' y1='2' x2='12' y2='12'/%3E%3C/svg%3E") no-repeat center center;
                     background-size: contain;
-                }
-
-                .power-button:active {
-                    transform: scale(0.95);
-                }
-
-                .power-button:active .power-icon {
-                    transform: translate(-50%, -50%) scale(1.05);
-                }
-
-                .device-modal {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background-color: rgba(0, 0, 0, 0.8);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    z-index: 1000;
-                }
-
-                .device-modal-content {
-                    background-color: #1C1C1E;
-                    padding: 30px;
-                    border-radius: 20px;
-                    min-width: 280px;
-                    text-align: center;
-                }
-
-                .device-modal-content h2 {
-                    margin: 0 0 20px 0;
-                    font-size: 24px;
-                    color: #333333;
-                    font-weight: 500;
-                    letter-spacing: 0.5px;
                 }
             `;
             document.head.appendChild(styles);
         }
 
-        // Handle power button clicks
-        const powerButton = modal.querySelector('.power-button');
-        powerButton.addEventListener('click', async () => {
-            powerButton.style.pointerEvents = 'none'; // Prevent multiple clicks
-            await this.handleClick(deviceEl, deviceId, capability);
-            powerButton.style.pointerEvents = 'auto';
-        });
-
-        // Update modal state when device state changes
-        const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                if (mutation.attributeName === 'data-state') {
-                    const newState = deviceEl.getAttribute('data-state') === 'true';
-                    powerButton.classList.toggle('on', newState);
-                }
-            });
-        });
-
-        observer.observe(deviceEl, { attributes: true });
-
-        // Store observer reference for cleanup
-        modal.dataset.observer = observer;
+        overlay.appendChild(modal);
 
         // Close modal when clicking outside
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                observer.disconnect();
-                modal.remove();
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
             }
         });
 
-        document.body.appendChild(modal);
+        // Handle power button clicks
+        const powerButton = modal.querySelector('.power-button');
+        powerButton.addEventListener('click', async () => {
+            try {
+                const newState = !powerButton.classList.contains('on');
+                powerButton.classList.toggle('on', newState);
+                await this.handleClick(deviceEl, deviceId, capability);
+            } catch (error) {
+                // Revert visual state if there was an error
+                powerButton.classList.toggle('on');
+                Homey.api('POST', '/log', { message: `Error toggling state: ${error.message}` });
+            }
+        });
+
+        // Add close button handler
+        const closeButton = modal.querySelector('.close-button');
+        closeButton.addEventListener('click', () => {
+            overlay.remove();
+        });
+
+        document.body.appendChild(overlay);
     },
 
     async handleDeviceUpdate(deviceEl, value) {
         try {
-            Homey.api('POST', '/log', { message: `Handling onoff update: ${value}` });
             deviceEl.style.backgroundColor = value ? 'rgba(255, 215, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)';
             deviceEl.setAttribute('data-state', value);
+            deviceEl.classList.toggle('on', value);
+            
+            // Update modal button if it exists
+            const modalButton = document.querySelector('.power-button');
+            if (modalButton) {
+                modalButton.classList.toggle('on', value);
+            }
         } catch (error) {
             Homey.api('POST', '/log', { message: `Error handling onoff update: ${error.message}` });
         }
@@ -365,10 +416,10 @@ const onOffRenderer = {
         try {
             const currentState = deviceEl.getAttribute('data-state') === 'true';
             const newState = !currentState;
-            
+
             // Update visual state immediately
             await this.handleDeviceUpdate(deviceEl, newState);
-            
+
             // Send the state change to the device
             await Homey.api('PUT', `/devices/${deviceId}/capabilities/${capability}`, {
                 value: newState

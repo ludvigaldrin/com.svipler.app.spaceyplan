@@ -5,12 +5,10 @@ class CapabilityRendererManager {
 
     registerRenderer(renderer) {
         this.renderers.set(renderer.id, renderer);
-        Homey.api('POST', '/log', { message: `Registered renderer: ${renderer.id}` });
     }
 
     getRenderer(capabilityId) {
         const renderer = this.renderers.get(capabilityId);
-        Homey.api('POST', '/log', { message: `Getting renderer for ${capabilityId}: ${renderer ? 'found' : 'not found'}` });
         return renderer;
     }
 
@@ -21,7 +19,6 @@ class CapabilityRendererManager {
             return;
         }
 
-        Homey.api('POST', '/log', { message: `Creating device element for ${device.name}` });
         const deviceEl = renderer.createDeviceElement(device, device.position);
 
         // Set data attributes
@@ -34,26 +31,22 @@ class CapabilityRendererManager {
 
         // Debug touch events
         deviceEl.addEventListener('touchstart', (e) => {
-            Homey.api('POST', '/log', { message: `[Manager] Touch start on ${device.name}` });
             e.preventDefault();
             e.stopPropagation();
             renderer.handleTouchStart.call(renderer, e, deviceEl, device.deviceId, device.capability);
         }, { passive: false });
-        
+
         deviceEl.addEventListener('touchmove', (e) => {
-            Homey.api('POST', '/log', { message: `[Manager] Touch move on ${device.name}` });
             e.stopPropagation();
             renderer.handleTouchMove.call(renderer, e, deviceEl);
         });
-        
+
         deviceEl.addEventListener('touchend', (e) => {
-            Homey.api('POST', '/log', { message: `[Manager] Touch end on ${device.name}` });
             e.preventDefault();
             e.stopPropagation();
             renderer.handleTouchEnd.call(renderer, e, deviceEl, device.deviceId, device.capability);
         });
 
-        Homey.api('POST', '/log', { message: `Adding device element to container` });
         container.appendChild(deviceEl);
     }
 }

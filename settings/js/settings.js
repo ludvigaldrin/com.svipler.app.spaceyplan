@@ -41,7 +41,7 @@ function onHomeyReady(Homey) {
             });
         });
     }
-    
+
     // Initialize
     async function init() {
         try {
@@ -51,7 +51,7 @@ function onHomeyReady(Homey) {
         } catch (err) {
             Homey.alert(err);
         }
-        
+
         Homey.ready();
     }
 
@@ -86,7 +86,7 @@ function onHomeyReady(Homey) {
         document.getElementById('saveNewFloor').addEventListener('click', async (event) => {
             const saveButton = event.target;
             const cancelButton = document.getElementById('cancelNewFloor');
-            
+
             try {
                 // Disable buttons and show loading state
                 saveButton.disabled = true;
@@ -95,7 +95,7 @@ function onHomeyReady(Homey) {
 
                 const name = document.getElementById('floorName').value;
                 const imageData = document.getElementById('imagePreview').querySelector('img')?.src;
-                
+
                 if (!name || !imageData) {
                     throw new Error('Please provide both a name and an image');
                 }
@@ -109,14 +109,14 @@ function onHomeyReady(Homey) {
 
                 floors.push(newFloor);
                 await saveFloors();
-                
+
                 // Close dialog and refresh
                 closeNewFloorDialog();
                 renderFloorsList();
-                
+
                 // Show success message
                 Homey.alert('Floor plan created successfully!', 'success');
-                
+
             } catch (err) {
                 Homey.alert(err.message || 'Failed to create floor plan');
             } finally {
@@ -147,7 +147,7 @@ function onHomeyReady(Homey) {
 
         document.getElementById('confirmDelete').addEventListener('click', async () => {
             if (!currentDeleteId) return;
-            
+
             const confirmButton = document.getElementById('confirmDelete');
             const cancelButton = document.getElementById('cancelDelete');
             const dialog = document.getElementById('deleteConfirmDialog');
@@ -156,19 +156,19 @@ function onHomeyReady(Homey) {
                 confirmButton.disabled = true;
                 cancelButton.disabled = true;
                 confirmButton.innerHTML = '<div class="button-content"><div class="spinner"></div>Deleting...</div>';
-                
+
                 // Remove the floor from the array
                 floors = floors.filter(f => f.id !== currentDeleteId);
-                
+
                 // Save to Homey settings
                 await saveFloors();
-                
+
                 // Close dialog
                 dialog.style.display = 'none';
-                
+
                 // Refresh the list
                 renderFloorsList();
-                
+
                 // Show success message
                 Homey.alert('Floor plan deleted successfully!', 'success');
             } catch (err) {
@@ -206,20 +206,20 @@ function onHomeyReady(Homey) {
         }
 
         // Update the device search handler
-        document.getElementById('deviceSearch').addEventListener('input', debounce(async function(e) {
+        document.getElementById('deviceSearch').addEventListener('input', debounce(async function (e) {
             const searchTerm = e.target.value.toLowerCase().trim();
             const resultsContainer = document.getElementById('searchResults');
-            
+
             if (searchTerm === '') {
                 resultsContainer.innerHTML = '<div class="initial-state">Start typing to search for devices</div>';
                 return;
             }
 
             try {
-                const filteredDevices = homeyDevices.filter(device => 
+                const filteredDevices = homeyDevices.filter(device =>
                     device.name.toLowerCase().includes(searchTerm)
                 );
-                
+
                 if (filteredDevices.length === 0) {
                     resultsContainer.innerHTML = '<div class="no-results">No devices found</div>';
                     return;
@@ -227,7 +227,7 @@ function onHomeyReady(Homey) {
 
                 // Support both onoff and dim capabilities
                 const supportedCapabilities = ['onoff', 'dim'];
-                
+
                 resultsContainer.innerHTML = filteredDevices.map(device => {
                     const deviceCapabilities = (device.capabilities || []).map(cap => cap.toLowerCase());
                     const supported = deviceCapabilities.filter(cap => supportedCapabilities.includes(cap));
@@ -249,10 +249,10 @@ function onHomeyReady(Homey) {
                                                 data-device-id="${device.id}" 
                                                 data-capability="${capabilityId}"
                                                 ${isDeviceCapabilityAdded(device.id, capabilityId) ? 'disabled' : ''}>
-                                            ${isDeviceCapabilityAdded(device.id, capabilityId) 
-                                                ? '✓'
-                                                : '+'
-                                            }
+                                            ${isDeviceCapabilityAdded(device.id, capabilityId)
+                            ? '✓'
+                            : '+'
+                        }
                                         </button>
                                     </div>
                                 `).join('')}
@@ -265,10 +265,10 @@ function onHomeyReady(Homey) {
                         </div>
                     `;
                 }).join('');
-                
+
                 // Add click handlers for capability buttons
                 document.querySelectorAll('.add-capability-btn').forEach(button => {
-                    button.addEventListener('click', function(e) {
+                    button.addEventListener('click', function (e) {
                         e.stopPropagation();
                         const deviceId = this.dataset.deviceId;
                         const capability = this.dataset.capability;
@@ -276,7 +276,7 @@ function onHomeyReady(Homey) {
                         addDeviceToFloor(device, capability);
                     });
                 });
-                
+
             } catch (err) {
                 resultsContainer.innerHTML = '<div class="error-message">Failed to load devices. Please try again.</div>';
             }
@@ -286,7 +286,7 @@ function onHomeyReady(Homey) {
         document.getElementById('addDevice').addEventListener('click', async () => {
             const resultsContainer = document.getElementById('searchResults');
             resultsContainer.innerHTML = '<div class="initial-state">Start typing to search for devices</div>';
-            
+
             try {
                 // Pre-load devices
                 await loadHomeyDevices();
@@ -309,15 +309,15 @@ function onHomeyReady(Homey) {
 
         const saveButton = document.getElementById('saveNewFloor');
         saveButton.disabled = true;
-        
+
         try {
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = function (e) {
                 const preview = document.getElementById('imagePreview');
                 preview.innerHTML = `<img src="${e.target.result}">`;
                 saveButton.disabled = false;
             };
-            reader.onerror = function(e) {
+            reader.onerror = function (e) {
                 Homey.alert('Failed to load image');
                 saveButton.disabled = false;
             };
@@ -331,7 +331,7 @@ function onHomeyReady(Homey) {
     function renderFloorsList() {
         const list = document.getElementById('floorsList');
         const emptyState = document.getElementById('emptyState');
-        
+
         if (!floors || floors.length === 0) {
             list.innerHTML = `
                 <div id="emptyState" class="empty-state">
@@ -376,31 +376,31 @@ function onHomeyReady(Homey) {
     }
 
     // Make functions available globally for onclick handlers
-    window.editFloor = async function(id) {
+    window.editFloor = async function (id) {
         currentFloorId = id; // Set current floor ID when editing
         const floor = floors.find(f => f.id === id);
         if (!floor) return;
-        
+
         // Hide list view and show edit view
         document.getElementById('floorsListView').style.display = 'none';
         document.getElementById('floorEditView').style.display = 'block';
-        
+
         // Populate edit view
         document.getElementById('editViewTitle').textContent = `Edit ${floor.name}`;
         document.getElementById('editFloorName').value = floor.name;
         document.getElementById('floorMapImage').src = floor.imageData;
-        
+
         // Add event listener for the add device button
         document.getElementById('addDevice').addEventListener('click', () => {
             document.getElementById('deviceDialog').style.display = 'flex';
         });
-        
+
         // Render existing devices
         renderDevicesList(floor.devices || []);
         renderFloorPlanDevices(floor);
     };
 
-    window.deleteFloor = function(id) {
+    window.deleteFloor = function (id) {
         if (!id) return;
         currentDeleteId = id;
         document.getElementById('deleteConfirmDialog').style.display = 'flex';
@@ -408,9 +408,9 @@ function onHomeyReady(Homey) {
 
     function renderDevicesList(devices) {
         const list = document.getElementById('devicesList');
-        
+
         if (!list) {
-            Homey.api('POST', '/log', { message: 'devicesList element not found!' }, () => {});
+            Homey.api('POST', '/log', { message: 'devicesList element not found!' }, () => { });
             return;
         }
 
@@ -444,20 +444,20 @@ function onHomeyReady(Homey) {
         const capabilities = (device.capabilities || []).map(cap => cap.toLowerCase());
         const hasOnOff = capabilities.includes('onoff');
         const hasDim = capabilities.includes('dim');
-        
+
         if (!hasOnOff && !hasDim) {
             return '<span class="no-capability">No supported capabilities</span>';
         }
 
         let options = [];
-        
+
         if (hasOnOff) {
             options.push({
                 value: 'onoff',
                 label: 'On/Off'
             });
         }
-        
+
         if (hasDim) {
             options.push({
                 value: 'dim',
@@ -487,20 +487,18 @@ function onHomeyReady(Homey) {
                 }
                 return device;
             });
-            
+
             await Homey.set('devices', updatedDevices);
-            Homey.api('POST', '/log', { message: `Updated device ${deviceId} capability to ${capability}` });
         } catch (error) {
             Homey.api('POST', '/log', { message: `Error updating device capability: ${error.message}` });
         }
     }
 
     function addDeviceToFloor(device, capability) {
-        Homey.api('POST', '/log', { message: `Adding device: ${device.name} with capability: ${capability}` }, () => {});
-        
+
         const currentFloor = floors.find(f => f.id === currentFloorId);
         if (!currentFloor) {
-            Homey.api('POST', '/log', { message: 'No current floor found!' }, () => {});
+            Homey.api('POST', '/log', { message: 'No current floor found!' }, () => { });
             return;
         }
 
@@ -517,7 +515,6 @@ function onHomeyReady(Homey) {
             }
         };
 
-        Homey.api('POST', '/log', { message: `New device object: ${JSON.stringify(newDevice)}` }, () => {});
 
         // Add to devices array if it doesn't exist
         if (!currentFloor.devices) {
@@ -535,21 +532,21 @@ function onHomeyReady(Homey) {
 
         // Save floors
         saveFloors().then(() => {
-            Homey.api('POST', '/log', { message: 'Floors saved successfully' }, () => {});
-            
+            Homey.api('POST', '/log', { message: 'Floors saved successfully' }, () => { });
+
             // Update the floor plan display
             renderFloorPlanDevices(currentFloor);
-            
+
             // Update the devices list
             renderDevicesList(currentFloor.devices);
-            
+
             // Update the search results to show added state
             updateSearchResults();
-            
+
             // Close the device dialog
             document.getElementById('deviceDialog').style.display = 'none';
         }).catch(err => {
-            Homey.api('POST', '/log', { message: `Save error: ${err.message}` }, () => {});
+            Homey.api('POST', '/log', { message: `Save error: ${err.message}` }, () => { });
             Homey.alert('Failed to save: ' + err.message);
         });
     }
@@ -558,10 +555,10 @@ function onHomeyReady(Homey) {
     function isDeviceCapabilityAdded(deviceId, capability) {
         const currentFloor = floors.find(f => f.id === currentFloorId);
         if (!currentFloor || !currentFloor.devices) return false;
-        
+
         // Convert capability to lowercase for comparison
         capability = capability.toLowerCase();
-        return currentFloor.devices.some(d => 
+        return currentFloor.devices.some(d =>
             d.deviceId === deviceId && d.capability.toLowerCase() === capability
         );
     }
@@ -571,14 +568,14 @@ function onHomeyReady(Homey) {
         const searchTerm = document.getElementById('deviceSearch').value.toLowerCase().trim();
         if (!searchTerm) return;
 
-        const filteredDevices = homeyDevices.filter(device => 
+        const filteredDevices = homeyDevices.filter(device =>
             device.name.toLowerCase().includes(searchTerm)
         );
 
         document.querySelectorAll('.add-capability-btn').forEach(button => {
             const deviceId = button.dataset.deviceId;
             const capability = button.dataset.capability;
-            
+
             if (isDeviceCapabilityAdded(deviceId, capability)) {
                 button.innerHTML = `
                     <svg width="24" height="24" viewBox="0 0 24 24">
@@ -595,55 +592,52 @@ function onHomeyReady(Homey) {
     function renderFloorPlanDevices(floor) {
         const container = document.getElementById('floorPlanDevices');
         container.innerHTML = '';
-        
-        Homey.api('POST', '/log', { message: `Rendering ${floor.devices.length} devices on floor plan` }, () => {});
 
         floor.devices.forEach(device => {
             const deviceEl = document.createElement('div');
             deviceEl.className = 'floor-plan-device';
             deviceEl.id = `device-${device.id}`;
-            
+
             // Convert percentage positions to pixels
             const containerRect = container.getBoundingClientRect();
             const pixelX = (device.position.x / 100) * containerRect.width;
             const pixelY = (device.position.y / 100) * containerRect.height;
-            
+
             deviceEl.style.transform = `translate(${pixelX}px, ${pixelY}px)`;
-            
+
             deviceEl.innerHTML = `
                 <img src="${device.iconObj?.url || 'default-icon.png'}" alt="${device.name}">
             `;
 
             deviceEl.addEventListener('touchstart', handleDragStart, { passive: false });
-            
+
             container.appendChild(deviceEl);
         });
     }
 
     function handleDragStart(e) {
         e.preventDefault();
-        Homey.api('POST', '/log', { message: 'Touch Start Event Triggered' }, () => {});
-        
+
         const container = document.getElementById('floorPlanContainer');
         const containerRect = container.getBoundingClientRect();
-        
+
         const touch = e.touches[0];
         const clientX = touch.clientX;
         const clientY = touch.clientY;
-        
+
         // Clear any existing dragging state first
         const existingDragging = document.querySelector('.dragging');
         if (existingDragging) {
             existingDragging.classList.remove('dragging');
         }
-        
+
         e.target.classList.add('dragging');
-        
+
         // Store the initial offset
         const deviceRect = e.target.getBoundingClientRect();
         e.target.dataset.offsetX = clientX - deviceRect.left;
         e.target.dataset.offsetY = clientY - deviceRect.top;
-        
+
         // Add event listeners to document instead of container
         document.addEventListener('touchmove', handleDrag, { passive: false });
         document.addEventListener('touchend', handleDragEnd);
@@ -655,53 +649,53 @@ function onHomeyReady(Homey) {
 
         const device = document.querySelector('.dragging');
         if (!device) return;
-        
+
         const container = document.getElementById('floorPlanContainer');
         const containerRect = container.getBoundingClientRect();
-        
+
         const touch = e.touches[0];
         const clientX = touch.clientX;
         const clientY = touch.clientY;
-        
+
         // Calculate position as percentages
         let percentX = ((clientX - containerRect.left) / containerRect.width) * 100;
         let percentY = ((clientY - containerRect.top) / containerRect.height) * 100;
-        
+
         // Constrain to container bounds (accounting for device size)
         percentX = Math.max(0, Math.min(percentX, 100));
         percentY = Math.max(0, Math.min(percentY, 100));
-        
+
         // Store percentages in dataset
         device.dataset.percentX = percentX;
         device.dataset.percentY = percentY;
-        
+
         // Convert percentages to pixels for visual positioning
         const pixelX = (percentX / 100) * containerRect.width;
         const pixelY = (percentY / 100) * containerRect.height;
-        
+
         device.style.transform = `translate(${pixelX}px, ${pixelY}px)`;
     }
 
     function handleDragEnd(e) {
         const device = document.querySelector('.dragging');
         if (!device) return;
-        
+
         device.classList.remove('dragging');
-        
+
         // Remove all event listeners
         document.removeEventListener('touchmove', handleDrag, { passive: false });
         document.removeEventListener('touchend', handleDragEnd);
         document.removeEventListener('touchcancel', handleDragEnd);
-        
+
         // Get final position as percentages
         const percentX = parseFloat(device.dataset.percentX || 0);
         const percentY = parseFloat(device.dataset.percentY || 0);
-        
+
         // Update position in the floor data
         const deviceId = device.id.replace('device-', '');
         const currentFloor = floors.find(f => f.id === currentFloorId);
         const deviceData = currentFloor.devices.find(d => d.id === deviceId);
-        
+
         if (deviceData) {
             deviceData.position = {
                 x: percentX,
@@ -714,22 +708,21 @@ function onHomeyReady(Homey) {
     }
 
     // Make removeDevice function available globally
-    window.removeDevice = function(deviceId) {
+    window.removeDevice = function (deviceId) {
         const currentFloor = floors.find(f => f.id === currentFloorId);
         if (!currentFloor) return;
 
         // Remove the device from the array
         currentFloor.devices = currentFloor.devices.filter(d => d.id !== deviceId);
-        
+
         // First update UI immediately
         renderDevicesList(currentFloor.devices);
         renderFloorPlanDevices(currentFloor);
 
         // Then save to Homey
         saveFloors().then(() => {
-            Homey.api('POST', '/log', { message: 'Device removed and saved successfully' }, () => {});
         }).catch(err => {
-            Homey.api('POST', '/log', { message: `Error saving after device removal: ${err.message}` }, () => {});
+            Homey.api('POST', '/log', { message: `Error saving after device removal: ${err.message}` }, () => { });
             Homey.alert('Failed to save changes: ' + err.message);
             // If save fails, reload the original data
             loadFloors();

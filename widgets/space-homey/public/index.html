@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <link rel="stylesheet" type="text/css" href="styles.css">
+</head>
+
+<body class="homey-widget">
+  <div id="floorSelector" class="floor-selector">
+    <div id="floorGrid"></div>
+  </div>
+
+  <div id="floorPlanContainer" class="floor-plan-container" style="display: none;">
+    <div class="floor-plan"></div>
+  </div>
+
+  <!-- Load capability renderers first -->
+  <script type="text/javascript" src="capabilities/onoff.js"></script>
+  <!-- Load renderer manager -->
+  <script type="text/javascript" src="CapabilityRendererManager.js"></script>
+  <!-- Load main script last -->
+  <script type="text/javascript" src="script.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,51 @@
+{
+  "name": {
+    "en": "Space Homey"
+  },
+  "height": 400,
+  "settings": [
+    
+  ],
+  "api": {
+    "getFloors": {
+      "method": "GET",
+      "path": "/floors"
+    },
+    "getDevices": {
+      "method": "GET",
+      "path": "/devices"
+    },
+    "getFloorDevices": {
+      "method": "GET",
+      "path": "/floors/:floorId/devices"
+    },
+    "getSelectedFloors": {
+      "method": "GET",
+      "path": "/selectedFloors"
+    },
+    "saveSelectedFloor": {
+      "method": "POST",
+      "path": "/selectedFloors"
+    },
+    "log": {
+      "method": "POST",
+      "path": "/log"
+    },
+    "getDeviceState": {
+      "method": "GET",
+      "path": "/devices/:deviceId/capabilities/:capabilityId"
+    },
+    "setDeviceState": {
+      "method": "PUT",
+      "path": "/devices/:deviceId/capabilities/:capabilityId"
+    },
+    "subscribeToDevices": {
+      "method": "POST",
+      "path": "/subscribeToDevices"
+    },
+    "unsubscribeWidget": {
+      "method": "POST",
+      "path": "/unsubscribeWidget"
+    }
+  }
+}

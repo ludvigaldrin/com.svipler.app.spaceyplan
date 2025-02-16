@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 21.1.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" 
+     viewBox="0 0 267.1 267.1" style="enable-background:new 0 0 267.1 267.1;">
+<g>
+    <!-- House outline with roof -->
+    <path d="M133.5,20L20,100v147.1h227.1V100L133.5,20z M232.1,232.1H35V107.1l98.5-69l98.6,69V232.1z"/>
+    
+    <!-- Floor divider -->
+    <path d="M35,170h197.1v2H35V170z"/>
+    
+    <!-- First floor dividing wall -->
+    <path d="M120,170V107.1h2V170H120z"/>
+    
+    <!-- Second floor dividing wall -->
+    <path d="M160,232.1V172h2v60.1H160z"/>
+    
+    <!-- Windows first floor -->
+    <rect x="60" y="125" width="30" height="25"/>
+    <rect x="177" y="125" width="30" height="25"/>
+    
+    <!-- Windows second floor -->
+    <rect x="60" y="190" width="30" height="25"/>
+    <rect x="177" y="190" width="30" height="25"/>
+    
+    <!-- Doors -->
+    <path d="M130,155h20v15h-20V155z"/>
+    <path d="M130,210h20v22.1h-20V210z"/>
+</g>
+</svg>

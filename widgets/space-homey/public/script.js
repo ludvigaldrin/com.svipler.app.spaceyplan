@@ -242,6 +242,16 @@ async function selectFloor(floor, saveSelection = true) {
 }
 
 async function renderDevices(devices, container) {
+    // Debug devices and their rules
+    Homey.api('POST', '/log', { 
+        message: 'Floor devices with rules:', 
+        details: JSON.stringify(devices.map(d => ({
+            id: d.id,
+            name: d.name,
+            rulesCount: d.rules?.length || 0,
+            rules: d.rules
+        })), null, 2)
+    });
 
     for (const device of devices) {
         await rendererManager.renderDevice(device, container);

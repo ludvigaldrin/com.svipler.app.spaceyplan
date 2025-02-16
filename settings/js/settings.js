@@ -131,10 +131,6 @@ function onHomeyReady(Homey) {
         document.getElementById('floorImage').addEventListener('change', handleImageUpload);
 
         // Add to setupEventListeners function
-        document.getElementById('closeDeviceDialogBtn').addEventListener('click', () => {
-            document.getElementById('deviceDialog').style.display = 'none';
-        });
-
         document.getElementById('cancelDeviceDialog').addEventListener('click', () => {
             document.getElementById('deviceDialog').style.display = 'none';
         });
@@ -294,6 +290,12 @@ function onHomeyReady(Homey) {
                 resultsContainer.innerHTML = '<div class="error-message">Failed to load devices. Please try again.</div>';
             }
         });
+
+        // Add this event listener
+        const deviceDialog = document.getElementById('deviceDialog');
+        deviceDialog.querySelector('.close-button').addEventListener('click', () => {
+            deviceDialog.style.display = 'none';
+        });
     }
 
     function closeNewFloorDialog() {
@@ -424,74 +426,58 @@ function onHomeyReady(Homey) {
         }
 
         const html = devices.map(device => `
-            <div class="device-item">
-                <div class="device-info">
-                    <img src="${device.iconObj?.url || 'default-icon.png'}" alt="${device.name}">
-                    <span>${device.name} (${device.capability === 'dim' ? 'Dim' : 'On/Off'})</span>
+            <div class="device-wrapper">
+                <div class="device-item">
+                    <button class="expand-button" onclick="toggleDeviceRules('${device.id}')">
+                        <svg width="20" height="20" viewBox="0 0 24 24">
+                            <path fill="#666" d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/>
+                        </svg>
+                    </button>
+                    <div class="device-info">
+                        <span>${device.name} (${device.capability === 'dim' ? 'Dim' : 'On/Off'})</span>
+                    </div>
+                    <button class="icon-button delete-button" onclick="removeDevice('${device.id}')">
+                        <svg width="20" height="20" viewBox="0 0 24 24">
+                            <path fill="#ff4444" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                        </svg>
+                    </button>
                 </div>
-                <button class="icon-button delete-button" onclick="removeDevice('${device.id}')">
-                    <svg width="20" height="20" viewBox="0 0 24 24">
-                        <path fill="#ff4444" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                    </svg>
-                </button>
+                <div class="device-rules" id="rules-${device.id}" style="display: none;">
+                    <div class="rules-content">
+                        ${device.rules && device.rules.length > 0 
+                            ? device.rules.map(rule => `
+                                <div class="rule-item">
+                                    <div class="rule-info">
+                                        <span>${rule.name}</span>
+                                    </div>
+                                    <div class="rule-actions">
+                                        <button class="rule-action-btn" onclick="editRule('${device.id}', '${rule.id}')">
+                                            <svg width="20" height="20" viewBox="0 0 24 24">
+                                                <path fill="#666" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/>
+                                            </svg>
+                                        </button>
+                                        <button class="rule-action-btn" onclick="deleteRule('${device.id}', '${rule.id}')">
+                                            <svg width="20" height="20" viewBox="0 0 24 24">
+                                                <path fill="#666" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')
+                            : '<p class="no-rules-message">No rules configured</p>'
+                        }
+                        <button class="add-rule-button" onclick="addNewRule('${device.id}')">
+                            <svg width="16" height="16" viewBox="0 0 24 24">
+                                <path fill="#00a0dc" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                            </svg>
+                            Add Rule
+                        </button>
+                    </div>
+                </div>
             </div>
         `).join('');
 
         list.innerHTML = html;
-    }
-
-    function renderCapabilityOptions(device) {
-        const capabilities = (device.capabilities || []).map(cap => cap.toLowerCase());
-        const hasOnOff = capabilities.includes('onoff');
-        const hasDim = capabilities.includes('dim');
-
-        if (!hasOnOff && !hasDim) {
-            return '<span class="no-capability">No supported capabilities</span>';
-        }
-
-        let options = [];
-
-        if (hasOnOff) {
-            options.push({
-                value: 'onoff',
-                label: 'On/Off'
-            });
-        }
-
-        if (hasDim) {
-            options.push({
-                value: 'dim',
-                label: 'Dim'
-            });
-        }
-
-        const currentCapability = device.capability?.toLowerCase() || '';
-
-        return `
-            <select class="capability-select" onchange="updateDeviceCapability('${device.id}', this.value)">
-                ${options.map(opt => `
-                    <option value="${opt.value}" ${currentCapability === opt.value ? 'selected' : ''}>
-                        ${opt.label}
-                    </option>
-                `).join('')}
-            </select>
-        `;
-    }
-
-    async function updateDeviceCapability(deviceId, capability) {
-        try {
-            const devices = await Homey.get('devices') || [];
-            const updatedDevices = devices.map(device => {
-                if (device.id === deviceId) {
-                    return { ...device, capability };
-                }
-                return device;
-            });
-
-            await Homey.set('devices', updatedDevices);
-        } catch (error) {
-            Homey.api('POST', '/log', { message: `Error updating device capability: ${error.message}` });
-        }
     }
 
     function addDeviceToFloor(device, capability) {
@@ -727,6 +713,342 @@ function onHomeyReady(Homey) {
             // If save fails, reload the original data
             loadFloors();
         });
+    };
+
+    // Make this function available globally
+    window.toggleDeviceRules = function (deviceId) {
+        const rulesSection = document.getElementById(`rules-${deviceId}`);
+        const expandButton = rulesSection.previousElementSibling.querySelector('.expand-button');
+
+        if (rulesSection.style.display === 'none') {
+            rulesSection.style.display = 'block';
+            expandButton.classList.add('expanded');
+        } else {
+            rulesSection.style.display = 'none';
+            expandButton.classList.remove('expanded');
+        }
+    };
+
+    window.addNewRule = function(deviceId) {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal-content';
+        
+        // Initial rule selection view
+        modal.innerHTML = `
+            <div class="modal-header">
+                <h2>Add New Rule</h2>
+                <button class="close-button">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="rule-type-selector">
+                    <label>Select Rule Type</label>
+                    <select id="ruleTypeSelect">
+                        <option value="">Choose a rule type...</option>
+                        <option value="iconColor">On/Off - Icon Color Switcher</option>
+                        <option value="allColor">All - Icon Color</option>
+                        <option value="imageView">On/Off - Image View</option>
+                    </select>
+                </div>
+                <div id="ruleConfig" class="rule-config">
+                    <!-- Rule configuration will be dynamically loaded here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="button button-secondary cancel-button">Cancel</button>
+                <button class="button button-primary save-button" disabled>Save Rule</button>
+            </div>
+        `;
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        setupRuleEventListeners(overlay, deviceId);
+    };
+
+    function setupRuleEventListeners(overlay, deviceId, ruleId = null) {
+        const ruleTypeSelect = document.getElementById('ruleTypeSelect');
+        const ruleConfig = document.getElementById('ruleConfig');
+        const saveButton = overlay.querySelector('.save-button');
+        const closeButton = overlay.querySelector('.close-button');
+        const cancelButton = overlay.querySelector('.cancel-button');
+
+        // Close modal handlers
+        [closeButton, cancelButton].forEach(button => {
+            button.addEventListener('click', () => {
+                document.body.removeChild(overlay);
+            });
+        });
+
+        // Handle rule type selection
+        ruleTypeSelect.addEventListener('change', function() {
+            const ruleType = this.value;
+            if (!ruleType) {
+                ruleConfig.innerHTML = '';
+                saveButton.disabled = true;
+                return;
+            }
+
+            // Show configuration based on rule type
+            if (ruleType === 'iconColor') {
+                ruleConfig.innerHTML = `
+                    <div class="color-picker-group">
+                        <div class="color-input-group">
+                            <label>On Color</label>
+                            <input type="color" id="onColor" value="#00ff00">
+                        </div>
+                        <div class="color-input-group">
+                            <label>Off Color</label>
+                            <input type="color" id="offColor" value="#ff0000">
+                        </div>
+                    </div>
+                `;
+            } else if (ruleType === 'allColor') {
+                ruleConfig.innerHTML = `
+                    <div class="color-picker-group">
+                        <div class="color-input-group">
+                            <label>Color</label>
+                            <input type="color" id="mainColor" value="#00ff00">
+                        </div>
+                    </div>
+                `;
+            } else if (ruleType === 'imageView') {
+                const currentFloor = floors.find(f => f.id === currentFloorId);
+                const device = currentFloor.devices.find(d => d.id === deviceId);
+                const existingRule = ruleId ? device.rules.find(r => r.id === ruleId) : null;
+                
+                ruleConfig.innerHTML = `
+                    <div class="image-rule-config">
+                        <div class="image-upload-group">
+                            <label>Image</label>
+                            <input type="file" id="ruleImage" accept="image/*" class="homey-form-input">
+                        </div>
+                        <div id="ruleImagePreview" class="image-preview">
+                            ${existingRule?.config?.imageData ? `<img src="${existingRule.config.imageData}">` : ''}
+                        </div>
+                        <div class="visibility-options">
+                            <div class="visibility-group">
+                                <label>On State</label>
+                                <select id="onStateVisibility" class="homey-form-input">
+                                    <option value="show" ${existingRule?.config?.onStateVisibility === 'show' ? 'selected' : ''}>Show</option>
+                                    <option value="hide" ${existingRule?.config?.onStateVisibility === 'hide' ? 'selected' : ''}>Hide</option>
+                                </select>
+                            </div>
+                            <div class="visibility-group">
+                                <label>Off State</label>
+                                <select id="offStateVisibility" class="homey-form-input">
+                                    <option value="hide" ${existingRule?.config?.offStateVisibility === 'hide' ? 'selected' : ''}>Hide</option>
+                                    <option value="show" ${existingRule?.config?.offStateVisibility === 'show' ? 'selected' : ''}>Show</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // Add image upload handler
+                const imageInput = document.getElementById('ruleImage');
+                const preview = document.getElementById('ruleImagePreview');
+                
+                imageInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        preview.innerHTML = `<img src="${e.target.result}">`;
+                        saveButton.disabled = false;
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+            saveButton.disabled = false;
+        });
+
+        // Handle save
+        saveButton.addEventListener('click', () => {
+            const ruleType = ruleTypeSelect.value;
+            if (!ruleType) return;
+
+            const currentFloor = floors.find(f => f.id === currentFloorId);
+            const device = currentFloor.devices.find(d => d.id === deviceId);
+            
+            // Check if rule type already exists for this device (skip check for the rule being edited)
+            if (!ruleId && device.rules && device.rules.some(r => r.type === ruleType)) {
+                Homey.alert(`This device already has a ${ruleType === 'iconColor' ? 'On/Off - Icon Color Switcher' : 
+                             ruleType === 'allColor' ? 'All - Icon Color' : 
+                             'On/Off - Image View'} rule`);
+                return;
+            }
+
+            // Create rule object
+            const ruleData = {
+                name: ruleType === 'iconColor' ? 'On/Off - Icon Color Switcher' : 
+                      ruleType === 'allColor' ? 'All - Icon Color' : 
+                      'On/Off - Image View',
+                type: ruleType,
+                config: {}
+            };
+
+            // Get configuration based on rule type
+            if (ruleType === 'iconColor') {
+                ruleData.config = {
+                    onColor: document.getElementById('onColor').value,
+                    offColor: document.getElementById('offColor').value
+                };
+            } else if (ruleType === 'allColor') {
+                ruleData.config = {
+                    mainColor: document.getElementById('mainColor').value
+                };
+            } else if (ruleType === 'imageView') {
+                const newImageData = document.getElementById('ruleImagePreview').querySelector('img')?.src;
+                
+                if (!newImageData && !ruleId) {
+                    Homey.alert('Please upload an image');
+                    return;
+                }
+
+                ruleData.config = {
+                    imageData: newImageData, // Always use new image data if available
+                    onStateVisibility: document.getElementById('onStateVisibility').value,
+                    offStateVisibility: document.getElementById('offStateVisibility').value
+                };
+            }
+
+            if (ruleId) {
+                // Update existing rule
+                const ruleIndex = device.rules.findIndex(r => r.id === ruleId);
+                if (ruleIndex !== -1) {
+                    // Preserve the ID of the existing rule
+                    device.rules[ruleIndex] = {
+                        ...ruleData,
+                        id: ruleId
+                    };
+                }
+            } else {
+                // Create new rule
+                if (!device.rules) device.rules = [];
+                device.rules.push({
+                    ...ruleData,
+                    id: Date.now().toString()
+                });
+            }
+
+            // Save and update UI
+            saveFloors().then(() => {
+                renderDevicesList(currentFloor.devices);
+                document.body.removeChild(overlay);
+                Homey.alert(ruleId ? 'Rule updated successfully!' : 'Rule saved successfully!');
+            }).catch(err => {
+                Homey.alert(`Failed to ${ruleId ? 'update' : 'save'} rule: ` + err.message);
+            });
+        });
+    }
+
+    window.deleteRule = function(deviceId, ruleId) {
+        const currentFloor = floors.find(f => f.id === currentFloorId);
+        const device = currentFloor.devices.find(d => d.id === deviceId);
+        
+        if (!device || !device.rules) return;
+        
+        device.rules = device.rules.filter(r => r.id !== ruleId);
+        
+        saveFloors().then(() => {
+            renderDevicesList(currentFloor.devices);
+            Homey.alert('Rule deleted successfully!');
+        }).catch(err => {
+            Homey.alert('Failed to delete rule: ' + err.message);
+        });
+    };
+
+    window.editRule = function(deviceId, ruleId) {
+        const currentFloor = floors.find(f => f.id === currentFloorId);
+        const device = currentFloor.devices.find(d => d.id === deviceId);
+        const rule = device.rules.find(r => r.id === ruleId);
+        
+        if (!rule) return;
+
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal-content';
+        
+        // Reuse the same modal but change title and pre-fill values
+        modal.innerHTML = `
+            <div class="modal-header">
+                <h2>Edit Rule</h2>
+                <button class="close-button">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="rule-type-selector">
+                    <label>Select Rule Type</label>
+                    <select id="ruleTypeSelect">
+                        <option value="">Choose a rule type...</option>
+                        <option value="iconColor" ${rule.type === 'iconColor' ? 'selected' : ''}>On/Off - Icon Color Switcher</option>
+                        <option value="allColor" ${rule.type === 'allColor' ? 'selected' : ''}>All - Icon Color</option>
+                        <option value="imageView" ${rule.type === 'imageView' ? 'selected' : ''}>On/Off - Image View</option>
+                    </select>
+                </div>
+                <div id="ruleConfig" class="rule-config">
+                    ${rule.type === 'iconColor' ? `
+                        <div class="color-picker-group">
+                            <div class="color-input-group">
+                                <label>On Color</label>
+                                <input type="color" id="onColor" value="${rule.config.onColor}">
+                            </div>
+                            <div class="color-input-group">
+                                <label>Off Color</label>
+                                <input type="color" id="offColor" value="${rule.config.offColor}">
+                            </div>
+                        </div>
+                    ` : rule.type === 'allColor' ? `
+                        <div class="color-picker-group">
+                            <div class="color-input-group">
+                                <label>Color</label>
+                                <input type="color" id="mainColor" value="${rule.config.mainColor}">
+                            </div>
+                        </div>
+                    ` : rule.type === 'imageView' ? `
+                        <div class="image-rule-config">
+                            <div class="image-upload-group">
+                                <label>Image</label>
+                                <input type="file" id="ruleImage" accept="image/*" class="homey-form-input">
+                            </div>
+                            <div id="ruleImagePreview" class="image-preview">
+                                ${rule.config.imageData ? `<img src="${rule.config.imageData}">` : ''}
+                            </div>
+                            <div class="visibility-options">
+                                <div class="visibility-group">
+                                    <label>On State</label>
+                                    <select id="onStateVisibility" class="homey-form-input">
+                                        <option value="show" ${rule.config.onStateVisibility === 'show' ? 'selected' : ''}>Show</option>
+                                        <option value="hide" ${rule.config.onStateVisibility === 'hide' ? 'selected' : ''}>Hide</option>
+                                    </select>
+                                </div>
+                                <div class="visibility-group">
+                                    <label>Off State</label>
+                                    <select id="offStateVisibility" class="homey-form-input">
+                                        <option value="show" ${rule.config.offStateVisibility === 'show' ? 'selected' : ''}>Show</option>
+                                        <option value="hide" ${rule.config.offStateVisibility === 'hide' ? 'selected' : ''}>Hide</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="button button-secondary cancel-button">Cancel</button>
+                <button class="button button-primary save-button">Save Rule</button>
+            </div>
+        `;
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        setupRuleEventListeners(overlay, deviceId, ruleId);
     };
 
     // Initialize

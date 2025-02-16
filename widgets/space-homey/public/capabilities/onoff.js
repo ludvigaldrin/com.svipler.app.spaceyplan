@@ -2,7 +2,6 @@ const onOffRenderer = {
     id: 'onoff',
 
     createDeviceElement(device, position) {
-        // Add renderer-specific styles if not already present
         if (!document.getElementById('onoffStyles')) {
             const styles = document.createElement('style');
             styles.id = 'onoffStyles';
@@ -13,7 +12,7 @@ const onOffRenderer = {
                     height: 35px;
                     cursor: pointer;
                     z-index: 201;
-                    background-color: rgba(255, 255, 255, 0.8) !important;
+                    background-color: rgba(255, 255, 255, 0.8);
                     border-radius: 50%;
                     display: flex;
                     align-items: center;
@@ -26,12 +25,6 @@ const onOffRenderer = {
                     pointer-events: auto;
                     -webkit-tap-highlight-color: transparent;
                     backdrop-filter: blur(2px);
-                }
-
-                .light-button.on,
-                .light-button[data-state="true"] {
-                    background-color: rgba(255, 215, 0, 0.8) !important;
-                    box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4);
                 }
 
                 .light-button img {
@@ -140,12 +133,40 @@ const onOffRenderer = {
         `;
 
         deviceEl.setAttribute('data-name', device.name);
+        deviceEl.setAttribute('data-device-id', device.id);
+        deviceEl.setAttribute('data-capability', 'onoff');
 
         if (device.iconObj?.url) {
             const img = document.createElement('img');
             img.src = device.iconObj.url;
             img.className = 'device-icon';
+            
+            // Check for All-Color rule first
+            const allColorRule = device.rules?.find(r => r.type === 'allColor');
+            if (allColorRule) {
+                deviceEl.setAttribute('data-all-color', allColorRule.config.mainColor);
+                deviceEl.style.backgroundColor = allColorRule.config.mainColor;
+            }
+            
+            // Check for OnOff-Color rule
+            const iconColorRule = device.rules?.find(r => r.type === 'iconColor');
+            if (iconColorRule) {
+                deviceEl.setAttribute('data-color-rule', 'true');
+                deviceEl.setAttribute('data-on-color', iconColorRule.config.onColor);
+                deviceEl.setAttribute('data-off-color', iconColorRule.config.offColor);
+                
+                const initialColor = device.state ? iconColorRule.config.onColor : iconColorRule.config.offColor;
+                deviceEl.style.backgroundColor = initialColor;
+            }
+            
             deviceEl.appendChild(img);
+        }
+
+        // Handle Image View rule
+        const imageRule = device.rules?.find(r => r.type === 'imageView');
+        if (imageRule) {
+            deviceEl.setAttribute('data-image-rule', 'true');
+            this.updateImageRule(device.id, imageRule, false);
         }
 
         return deviceEl;
@@ -381,18 +402,75 @@ const onOffRenderer = {
 
     async handleDeviceUpdate(deviceEl, value) {
         try {
-            deviceEl.style.backgroundColor = value ? 'rgba(255, 215, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)';
-            deviceEl.setAttribute('data-state', value);
-            deviceEl.classList.toggle('on', value);
+            const deviceId = deviceEl.getAttribute('data-device-id');
+            const hasColorRule = deviceEl.getAttribute('data-color-rule') === 'true';
+            const allColor = deviceEl.getAttribute('data-all-color');
             
-            // Update modal button if it exists
+            // Set the state
+            deviceEl.setAttribute('data-state', value);
+
+            if (allColor) {
+                // All-Color rule takes precedence
+                deviceEl.style.setProperty('background-color', allColor, 'important');
+            } else if (hasColorRule) {
+                // OnOff-Color rule
+                const color = value ? 
+                    deviceEl.getAttribute('data-on-color') : 
+                    deviceEl.getAttribute('data-off-color');
+                deviceEl.style.setProperty('background-color', color, 'important');
+            } else {
+                // Default - white background
+                deviceEl.style.setProperty('background-color', 'rgba(255, 255, 255, 0.8)', 'important');
+            }
+
+            // Handle image rule
+            const hasImageRule = deviceEl.getAttribute('data-image-rule') === 'true';
+            if (hasImageRule) {
+                const imageRule = this.findDeviceRule(deviceId, 'imageView');
+                if (imageRule) {
+                    this.updateImageRule(deviceId, imageRule, value);
+                }
+            }
+
+            // Update modal if open
             const modalButton = document.querySelector('.power-button');
             if (modalButton) {
                 modalButton.classList.toggle('on', value);
             }
         } catch (error) {
-            Homey.api('POST', '/log', { message: `Error handling onoff update: ${error.message}` });
+            Homey.api('POST', '/log', { message: `Error in handleDeviceUpdate: ${error.message}` });
         }
+    },
+
+    updateImageRule(deviceId, rule, state) {
+        const container = document.getElementById('ruleImagesContainer');
+        const imageId = `rule-image-${deviceId}`;
+        let imageEl = document.getElementById(imageId);
+
+        const shouldShow = (state && rule.config.onStateVisibility === 'show') ||
+                          (!state && rule.config.offStateVisibility === 'show');
+
+        if (shouldShow) {
+            if (!imageEl) {
+                imageEl = document.createElement('img');
+                imageEl.id = imageId;
+                imageEl.src = rule.config.imageData;
+                imageEl.style.cssText = 'position: absolute; z-index: 200; pointer-events: none;';
+                container.appendChild(imageEl);
+            }
+            imageEl.style.display = 'block';
+        } else if (imageEl) {
+            imageEl.style.display = 'none';
+        }
+    },
+
+    findDeviceRule(deviceId, ruleType) {
+        // Helper to find device rule from current floor data
+        const currentFloor = window.getCurrentFloor?.();
+        if (!currentFloor) return null;
+        
+        const device = currentFloor.devices.find(d => d.id === deviceId);
+        return device?.rules?.find(r => r.type === ruleType);
     },
 
     async initializeState(deviceEl, deviceId, capability) {

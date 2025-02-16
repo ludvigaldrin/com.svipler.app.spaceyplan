@@ -19,6 +19,7 @@
   "permissions": [
     "homey:manager:api"
   ],
+  "brandColor": "#0000cc",
   "images": {
     "small": "/assets/images/small.png",
     "large": "/assets/images/large.png",

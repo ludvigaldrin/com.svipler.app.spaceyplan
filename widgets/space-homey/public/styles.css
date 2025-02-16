@@ -119,39 +119,6 @@ html, body {
     z-index: 200;
 }
 
-.light-button {
-    position: absolute;
-    width: 24px;
-    height: 24px;
-    cursor: pointer;
-    z-index: 201;
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    transition: all 0.3s ease;
-    -webkit-user-select: none;
-    user-select: none;
-    -webkit-touch-callout: none;
-    pointer-events: auto;
-    backdrop-filter: blur(4px);
-    -webkit-tap-highlight-color: transparent;
-}
-
-.light-button.on {
-    background: rgba(255, 215, 0, 0.3);
-    filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.3));
-}
-
-.light-button img {
-    width: 20px;
-    height: 20px;
-    pointer-events: none;
-    z-index: 202;
-}
-
 .floor-select-container {
     display: flex;
     gap: 10px;

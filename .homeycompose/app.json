@@ -1,0 +1,58 @@
+{
+  "id": "com.svipler.athom.spacehomey",
+  "version": "1.0.0",
+  "compatibility": ">=12.1.0",
+  "sdk": 3,
+  "platforms": [
+    "local"
+  ],
+  "name": {
+    "en": "Space Homey"
+  },
+  "description": {
+    "en": "This is app that lets you show a house and use this to interact with"
+  },
+  "category": [
+    "tools"
+  ],
+  "permissions": [
+    "homey:manager:api"
+  ],
+  "images": {
+    "small": "/assets/images/small.png",
+    "large": "/assets/images/large.png",
+    "xlarge": "/assets/images/xlarge.png"
+  },
+  "author": {
+    "name": "Ludvig Aldrin",
+    "email": "ludvig.aldrin@gmail.com"
+  },
+  "api": {
+    "log": {
+      "method": "post",
+      "path": "/log",
+      "public": false
+    },
+    "getDevices": {
+      "method": "get",
+      "path": "/devices",
+      "public": false
+    }
+  },
+  "widgets": {
+    "space-homey": {
+      "id": "space-homey",
+      "name": {
+        "en": "Space Homey"
+      },
+      "description": {
+        "en": "Display devices on a floor plan"
+      },
+      "uiComponent": "space-homey",
+      "size": {
+        "width": 2,
+        "height": 2
+      }
+    }
+  }
+}

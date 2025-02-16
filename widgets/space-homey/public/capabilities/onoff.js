@@ -12,12 +12,12 @@ const onOffRenderer = {
                     height: 35px;
                     cursor: pointer;
                     z-index: 201;
-                    background-color: rgba(255, 255, 255, 0.8);
+                    background-color: rgba(255, 255, 255, 0.3);
                     border-radius: 50%;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                    box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
                     transition: all 0.3s ease;
                     -webkit-user-select: none;
                     user-select: none;
@@ -32,6 +32,11 @@ const onOffRenderer = {
                     height: 24px;
                     pointer-events: none;
                     z-index: 202;
+                    filter: brightness(0);
+                }
+
+                .light-button.glow {
+                    box-shadow: 0 0 20px currentColor;
                 }
 
                 .device-icon {
@@ -411,16 +416,22 @@ const onOffRenderer = {
 
             if (allColor) {
                 // All-Color rule takes precedence
-                deviceEl.style.setProperty('background-color', allColor, 'important');
+                deviceEl.style.setProperty('background-color', `${allColor}4D`, 'important'); // 30% opacity
+                deviceEl.style.setProperty('color', allColor, 'important');
+                deviceEl.classList.add('glow');
             } else if (hasColorRule) {
                 // OnOff-Color rule
                 const color = value ? 
                     deviceEl.getAttribute('data-on-color') : 
                     deviceEl.getAttribute('data-off-color');
-                deviceEl.style.setProperty('background-color', color, 'important');
+                deviceEl.style.setProperty('background-color', `${color}4D`, 'important'); // 30% opacity
+                deviceEl.style.setProperty('color', color, 'important');
+                deviceEl.classList.add('glow');
             } else {
-                // Default - white background
-                deviceEl.style.setProperty('background-color', 'rgba(255, 255, 255, 0.8)', 'important');
+                // Default - white background with slight transparency
+                deviceEl.style.setProperty('background-color', 'rgba(255, 255, 255, 0.3)', 'important');
+                deviceEl.style.setProperty('color', 'rgba(255, 255, 255, 0.8)', 'important');
+                deviceEl.classList.remove('glow');
             }
 
             // Handle image rule

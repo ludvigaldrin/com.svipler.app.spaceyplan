@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "app.js",
   "scripts": {
-    "lint": "eslint --ext .js,.ts --ignore-path .gitignore ."
+    "lint": "eslint --ext .js,.ts --ignore-path .gitignore .",
+    "git": "git commit -a -m 'update' && git push"
   },
   "devDependencies": {
     "@types/homey": "npm:homey-apps-sdk-v3-types@^0.3.10",
@@ -11,7 +12,6 @@
     "eslint-config-athom": "^3.1.3"
   },
   "dependencies": {
-    "homey-api": "^3.6.6",
-    "axios": "^1.7.9"
+    "homey-api": "^3.6.6"
   }
 }

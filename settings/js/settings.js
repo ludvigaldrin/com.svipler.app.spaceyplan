@@ -225,48 +225,43 @@ function onHomeyReady(Homey) {
                     return;
                 }
 
-                // Only support onoff capability for now
-                const supportedCapabilities = ['onoff'];
+                // Support both onoff and dim capabilities
+                const supportedCapabilities = ['onoff', 'dim'];
                 
                 resultsContainer.innerHTML = filteredDevices.map(device => {
-                    // Split capabilities into supported and unsupported
-                    const deviceCapabilities = device.capabilities || [];
+                    const deviceCapabilities = (device.capabilities || []).map(cap => cap.toLowerCase());
                     const supported = deviceCapabilities.filter(cap => supportedCapabilities.includes(cap));
                     const unsupported = deviceCapabilities.filter(cap => !supportedCapabilities.includes(cap));
 
                     return `
-                        <div class="device-item" data-id="${device.id}">
+                        <div class="device-item">
                             <div class="device-header">
                                 <div class="device-icon">
                                     <img src="${device.iconObj?.url || 'default-icon.png'}" alt="${device.name}">
                                 </div>
-                                <div class="device-name">${device.name}</div>
+                                <div class="device-name" title="${device.name}">${device.name}</div>
                             </div>
-                            <div class="capabilities-list">
-                                ${supported.map(capabilityId => {
-                                    const isAdded = isDeviceCapabilityAdded(device.id, capabilityId);
-                                    return `
-                                        <div class="capability-item">
-                                            <div class="capability-info">
-                                                <span class="capability-name"><strong>${formatCapabilityName(capabilityId)}</strong></span>
-                                            </div>
-                                            <button class="add-capability-btn ${isAdded ? 'added' : ''}" 
-                                                    data-device-id="${device.id}" 
-                                                    data-capability="${capabilityId}"
-                                                    ${isAdded ? 'disabled' : ''}>
-                                                <svg width="24" height="24" viewBox="0 0 24 24">
-                                                    <path d="${isAdded ? 'M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z' : 'M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z'}"/>
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    `;
-                                }).join('')}
-                                ${unsupported.length > 0 ? `
-                                    <div class="unsupported-capabilities">
-                                        <em>(Unsupported capabilities: ${unsupported.map(formatCapabilityName).join(', ')})</em>
+                            <div class="capabilities-section">
+                                ${supported.map(capabilityId => `
+                                    <div class="capability-row">
+                                        <div class="capability-name">${capabilityId === 'dim' ? 'Dim (with On/Off)' : 'On/Off'}</div>
+                                        <button class="add-capability-btn ${isDeviceCapabilityAdded(device.id, capabilityId) ? 'added' : ''}" 
+                                                data-device-id="${device.id}" 
+                                                data-capability="${capabilityId}"
+                                                ${isDeviceCapabilityAdded(device.id, capabilityId) ? 'disabled' : ''}>
+                                            ${isDeviceCapabilityAdded(device.id, capabilityId) 
+                                                ? '✓'
+                                                : '+'
+                                            }
+                                        </button>
                                     </div>
-                                ` : ''}
+                                `).join('')}
                             </div>
+                            ${unsupported.length > 0 ? `
+                                <div class="unsupported-capabilities">
+                                    Unsupported: ${unsupported.join(', ')}
+                                </div>
+                            ` : ''}
                         </div>
                     `;
                 }).join('');
@@ -286,16 +281,6 @@ function onHomeyReady(Homey) {
                 resultsContainer.innerHTML = '<div class="error-message">Failed to load devices. Please try again.</div>';
             }
         }, 300));
-
-        // Helper function to format capability names
-        function formatCapabilityName(capability) {
-            // Convert from camelCase/snake_case to Title Case with spaces
-            return capability
-                .replace(/_/g, ' ')
-                .replace(/([A-Z])/g, ' $1')
-                .replace(/^./, str => str.toUpperCase())
-                .trim();
-        }
 
         // Load devices when the dialog opens
         document.getElementById('addDevice').addEventListener('click', async () => {
@@ -439,24 +424,75 @@ function onHomeyReady(Homey) {
         }
 
         const html = devices.map(device => `
-            <div class="device-item" style="background: white; padding: 12px; border-bottom: 1px solid #eee;">
+            <div class="device-item">
                 <div class="device-info">
-                    <img src="${device.iconObj?.url || 'https://icons.homey.app/icons/light.svg'}" 
-                         style="width: 24px; height: 24px;" 
-                         alt="${device.name}">
-                    <span>${device.name} (${device.capability || 'unknown'})</span>
+                    <img src="${device.iconObj?.url || 'default-icon.png'}" alt="${device.name}">
+                    <span>${device.name} (${device.capability === 'dim' ? 'Dim' : 'On/Off'})</span>
                 </div>
-                <button class="icon-button delete-button" 
-                        onclick="removeDevice('${device.id}')"
-                        style="background: none; border: none; cursor: pointer;">
-                    <svg width="20" height="20" viewBox="0 0 24 24" style="fill: #ff4444;">
-                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                <button class="icon-button delete-button" onclick="removeDevice('${device.id}')">
+                    <svg width="20" height="20" viewBox="0 0 24 24">
+                        <path fill="#ff4444" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                     </svg>
                 </button>
             </div>
         `).join('');
 
         list.innerHTML = html;
+    }
+
+    function renderCapabilityOptions(device) {
+        const capabilities = (device.capabilities || []).map(cap => cap.toLowerCase());
+        const hasOnOff = capabilities.includes('onoff');
+        const hasDim = capabilities.includes('dim');
+        
+        if (!hasOnOff && !hasDim) {
+            return '<span class="no-capability">No supported capabilities</span>';
+        }
+
+        let options = [];
+        
+        if (hasOnOff) {
+            options.push({
+                value: 'onoff',
+                label: 'On/Off'
+            });
+        }
+        
+        if (hasDim) {
+            options.push({
+                value: 'dim',
+                label: 'Dim'
+            });
+        }
+
+        const currentCapability = device.capability?.toLowerCase() || '';
+
+        return `
+            <select class="capability-select" onchange="updateDeviceCapability('${device.id}', this.value)">
+                ${options.map(opt => `
+                    <option value="${opt.value}" ${currentCapability === opt.value ? 'selected' : ''}>
+                        ${opt.label}
+                    </option>
+                `).join('')}
+            </select>
+        `;
+    }
+
+    async function updateDeviceCapability(deviceId, capability) {
+        try {
+            const devices = await Homey.get('devices') || [];
+            const updatedDevices = devices.map(device => {
+                if (device.id === deviceId) {
+                    return { ...device, capability };
+                }
+                return device;
+            });
+            
+            await Homey.set('devices', updatedDevices);
+            Homey.api('POST', '/log', { message: `Updated device ${deviceId} capability to ${capability}` });
+        } catch (error) {
+            Homey.api('POST', '/log', { message: `Error updating device capability: ${error.message}` });
+        }
     }
 
     function addDeviceToFloor(device, capability) {
@@ -523,7 +559,11 @@ function onHomeyReady(Homey) {
         const currentFloor = floors.find(f => f.id === currentFloorId);
         if (!currentFloor || !currentFloor.devices) return false;
         
-        return currentFloor.devices.some(d => d.id === `${deviceId}-${capability}`);
+        // Convert capability to lowercase for comparison
+        capability = capability.toLowerCase();
+        return currentFloor.devices.some(d => 
+            d.deviceId === deviceId && d.capability.toLowerCase() === capability
+        );
     }
 
     // Update the search results rendering to show added state

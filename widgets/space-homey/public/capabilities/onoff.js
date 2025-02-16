@@ -348,6 +348,14 @@ const onOffRenderer = {
         try {
             const initialState = await Homey.api('GET', `/devices/${deviceId}/capabilities/${capability}`);
             await this.handleDeviceUpdate(deviceEl, initialState);
+
+            // Subscribe to onoff capability
+            await Homey.api('POST', `/subscribeToDevices`, {
+                widgetId: Homey.widgetId,
+                devices: [
+                    { deviceId, capability: 'onoff' }
+                ]
+            });
         } catch (error) {
             Homey.api('POST', '/log', { message: `Error getting initial state for device ${deviceId}: ${error.message}` });
         }

@@ -314,61 +314,106 @@
 }
 
 .device-item {
+    display: flex;
+    align-items: center;
     padding: 12px;
+    background: white;
     border-bottom: 1px solid #eee;
 }
 
-.device-header {
+.device-info {
     display: flex;
     align-items: center;
-    margin-bottom: 8px;
+    flex: 1;
+    gap: 12px;
+}
+
+.device-info img {
+    width: 24px;
+    height: 24px;
+}
+
+.name-column {
+    display: flex;
+    align-items: center;
+    width: 250px;
+    min-width: 250px;
 }
 
 .device-icon {
-    width: 32px;
-    height: 32px;
     margin-right: 12px;
 }
 
 .device-icon img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
+    width: 24px;
+    height: 24px;
 }
 
-.capabilities-list {
-    margin-left: 44px;
+.device-name {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.capability-item {
+.capabilities-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.capability-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 4px 0;
 }
 
-.capability-info {
-    display: flex;
-    align-items: center;
+.capability-name {
+    font-weight: normal;
+    color: #333;
+    margin-right: 12px;
 }
 
-.capability-icon {
-    width: 20px;
-    height: 20px;
-    margin-right: 8px;
+.unsupported-capabilities {
+    font-size: 11px;
+    color: #666;
+    font-style: italic;
 }
 
 .add-capability-btn {
-    background: none;
-    border: none;
+    width: 32px;
+    height: 32px;
     padding: 4px;
+    border: none;
+    background: none;
     cursor: pointer;
-    color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.add-capability-btn svg {
+    width: 24px;
+    height: 24px;
+    fill: #00a0dc;
+}
+
+.add-capability-btn.added svg {
+    fill: #2ecc71;
 }
 
 .add-capability-btn:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+    background: rgba(0, 0, 0, 0.05);
     border-radius: 50%;
+}
+
+.add-capability-btn:disabled {
+    cursor: default;
+}
+
+.add-capability-btn:disabled:hover {
+    background: none;
 }
 
 /* Image preview */
@@ -504,16 +549,6 @@
     font-size: 0.9em;
 }
 
-.unsupported-capabilities {
-    margin-top: 8px;
-    font-size: 0.9em;
-    color: #666;
-}
-
-.capability-name {
-    text-transform: capitalize;
-}
-
 .device-info {
     display: flex;
     align-items: center;
@@ -609,4 +644,141 @@
 
 .homey-form-group {
     margin: 0;  /* Remove default margin */
+}
+
+.capability-selector {
+    margin: 0 12px;
+}
+
+.capability-select {
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    background: white;
+    font-size: 14px;
+    color: #333;
+    min-width: 150px;
+}
+
+.no-capability {
+    color: #666;
+    font-style: italic;
+}
+
+.device-item {
+    display: flex;
+    align-items: center;
+    background: white;
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+}
+
+.device-info {
+    display: flex;
+    align-items: center;
+    flex: 1;
+}
+
+.device-info img {
+    width: 24px;
+    height: 24px;
+    margin-right: 12px;
+}
+
+/* Search results specific styles */
+.search-results .device-item {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+    background: white;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.search-results .device-header {
+    display: flex;
+    align-items: flex-start;  /* Align to top */
+    gap: 12px;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    justify-content: flex-start;  /* Align to left */
+}
+
+.search-results .device-icon {
+    padding: 0;
+    margin: 0;
+    display: flex;  /* Ensure proper alignment */
+    align-items: center;
+}
+
+.search-results .device-icon img {
+    width: 24px;
+    height: 24px;
+    display: block;
+}
+
+.search-results .device-name {
+    font-weight: 500;
+    padding: 0;
+    margin: 0;
+    line-height: 24px;  /* Match icon height */
+    text-align: left;   /* Ensure text is left-aligned */
+}
+
+.search-results .capabilities-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.search-results .capability-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #f5f5f5;
+    border-radius: 6px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.search-results .capability-name {
+    color: #333;
+}
+
+.search-results .add-capability-btn {
+    width: 32px;
+    height: 32px;
+    padding: 4px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: #00a0dc;
+    font-weight: bold;
+    border-radius: 50%;
+    background: #fff;
+}
+
+.search-results .add-capability-btn.added {
+    color: #2ecc71;
+}
+
+.search-results .add-capability-btn:hover {
+    background: #e0e0e0;
+}
+
+.search-results .unsupported-capabilities {
+    font-size: 11px;
+    color: #666;
+    font-style: italic;
+    padding: 8px 12px;  /* Match padding with capability rows */
 } 

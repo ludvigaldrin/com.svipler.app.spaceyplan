@@ -86,14 +86,25 @@ function onHomeyReady(_Homey) {
     // Initialize RendererManager
     rendererManager = new CapabilityRendererManager();
     
+    // Debug log available renderers
+    Homey.api('POST', '/log', { message: `Available renderers: ${JSON.stringify(window.capabilityRenderers)}` });
+    
     // Register the onoff renderer
     if (window.capabilityRenderers && window.capabilityRenderers.onoff) {
         rendererManager.registerRenderer(window.capabilityRenderers.onoff);
+        Homey.api('POST', '/log', { message: 'Registered onoff renderer' });
+    }
+    
+    // Register the dim renderer with debug
+    if (window.capabilityRenderers && window.capabilityRenderers.dim) {
+        rendererManager.registerRenderer(window.capabilityRenderers.dim);
+        Homey.api('POST', '/log', { message: 'Registered dim renderer' });
+    } else {
+        Homey.api('POST', '/log', { message: 'Dim renderer not available in window.capabilityRenderers' });
     }
     
     // Get widget ID using the correct method
     const widgetId = Homey.getWidgetInstanceId();
-    console.log('Widget ID:', widgetId);
     
     Homey.api('POST', '/log', { message: `Widget initialized with ID: ${widgetId}` });
     
@@ -133,9 +144,11 @@ async function init() {
         const selectedFloor = selectedFloors[widgetId];
         
         if (selectedFloor && selectedFloor.floorId) {
-            const floor = floors.find(f => f.id === selectedFloor.floorId);
-            if (floor) {
-                await selectFloor(floor, false);
+            // Get the latest floor data to ensure we have current information
+            const currentFloor = floors.find(f => f.id === selectedFloor.floorId);
+            if (currentFloor) {
+                // Pass false as second argument to not save the selection again
+                await selectFloor(currentFloor, false);
                 return;
             }
         }
@@ -232,15 +245,6 @@ async function selectFloor(floor, saveSelection = true) {
             if (floor.devices && floor.devices.length > 0) {
                 await renderDevices(floor.devices, deviceContainer);
             }
-
-            // Store current devices for subscription
-            currentDevices = floor.devices || [];
-            
-            // Subscribe to device updates
-            await Homey.api('POST', `/subscribeToDevices`, {
-                widgetId,
-                devices: currentDevices
-            });
         }
     } catch (error) {
         Homey.api('POST', '/log', { message: `Error selecting floor: ${error.message}` });
@@ -297,20 +301,25 @@ function handleDeviceUpdate(data) {
         return;
     }
     
-    // Find the device element
-    const deviceEl = document.querySelector(`[data-device-id="${deviceId}"][data-capability="${capability}"]`);
-    if (deviceEl) {
-        // Get the renderer for this capability
-        const renderer = rendererManager.getRenderer(capability);
+    // For dim devices, we need to find elements with both dim and onoff capabilities
+    const deviceElements = document.querySelectorAll(`[data-device-id="${deviceId}"]`);
+    
+    deviceElements.forEach(deviceEl => {
+        const elementCapability = deviceEl.getAttribute('data-capability');
+        const renderer = rendererManager.getRenderer(elementCapability);
+        
         if (renderer && typeof renderer.handleDeviceUpdate === 'function') {
-            Homey.api('POST', '/log', { message: `Updating device ${deviceId} ${capability} to ${value}` });
-            renderer.handleDeviceUpdate(deviceEl, value);
-        } else {
-            Homey.api('POST', '/log', { message: `No renderer or handleDeviceUpdate method found for capability: ${capability}` });
+            // For dim devices, handle both dim and onoff updates
+            if (elementCapability === 'dim') {
+                Homey.api('POST', '/log', { message: `Updating dim device ${deviceId} ${capability} to ${value}` });
+                renderer.handleDeviceUpdate(deviceEl, value, capability);
+            } else if (elementCapability === capability) {
+                // For other devices, only handle their specific capability
+                Homey.api('POST', '/log', { message: `Updating device ${deviceId} ${capability} to ${value}` });
+                renderer.handleDeviceUpdate(deviceEl, value);
+            }
         }
-    } else {
-        Homey.api('POST', '/log', { message: `No element found for device ${deviceId} capability ${capability}` });
-    }
+    });
 }
 
 // Add cleanup function

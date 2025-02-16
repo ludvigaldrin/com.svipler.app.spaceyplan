@@ -1,7 +1,7 @@
 {
   "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
   "id": "com.svipler.athom.spacehomey",
-  "version": "1.0.0",
+  "version": "0.0.2",
   "compatibility": ">=12.1.0",
   "sdk": 3,
   "platforms": [
@@ -11,7 +11,7 @@
     "en": "Space Homey"
   },
   "description": {
-    "en": "This is app that lets you show a house and use this to interact with"
+    "en": "Interactive Flor Plan Widget"
   },
   "category": [
     "tools"

@@ -1,14 +1,12 @@
-# Space Homey 🏠
 
-A interactive home visualization and interaction application.
+# Space Homey
+Interactive Flor Plan Widget for Homey Dahsboard
 
-## Description
+# What is Space Homey?
+Space Homey is an app that allows you to create a floor plan of your home and use it to interact with devices.
 
-Space Homey is an application that allows users to visualize and interact with virtual house spaces. It provides an intuitive interface for exploring and manipulating different areas of a home environment.
-
-## Features
-
-- 3D house visualization
-- Interactive room navigation
-- Customizable home layouts
-- Real-time interaction with home elements
+# Usage
+1. Create Floor under Settings and add devices
+2. Go to Dashboard and add widget
+3. Select your floor
+4. Have fun

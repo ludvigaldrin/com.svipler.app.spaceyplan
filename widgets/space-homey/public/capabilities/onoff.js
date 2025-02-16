@@ -8,35 +8,33 @@ const onOffRenderer = {
             styles.textContent = `
                 .light-button {
                     position: absolute;
-                    width: 35px;
-                    height: 35px;
+                    width: 22px;
+                    height: 22px;
                     cursor: pointer;
                     z-index: 201;
-                    background-color: rgba(255, 255, 255, 0.3);
                     border-radius: 50%;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
                     transition: all 0.3s ease;
                     -webkit-user-select: none;
                     user-select: none;
                     -webkit-touch-callout: none;
                     pointer-events: auto;
                     -webkit-tap-highlight-color: transparent;
-                    backdrop-filter: blur(2px);
                 }
 
                 .light-button img {
-                    width: 24px;
-                    height: 24px;
+                    width: 14px;
+                    height: 14px;
                     pointer-events: none;
                     z-index: 202;
                     filter: brightness(0);
                 }
 
                 .light-button.glow {
-                    box-shadow: 0 0 20px currentColor;
+                    box-shadow: 0 0 12px currentColor,
+                                0 0 20px currentColor;
                 }
 
                 .device-icon {
@@ -150,7 +148,9 @@ const onOffRenderer = {
             const allColorRule = device.rules?.find(r => r.type === 'allColor');
             if (allColorRule) {
                 deviceEl.setAttribute('data-all-color', allColorRule.config.mainColor);
-                deviceEl.style.backgroundColor = allColorRule.config.mainColor;
+                deviceEl.style.setProperty('background-color', `${allColorRule.config.mainColor}A6`, 'important');
+                deviceEl.style.setProperty('color', allColorRule.config.mainColor, 'important');
+                deviceEl.classList.add('glow');
             }
             
             // Check for OnOff-Color rule
@@ -161,7 +161,14 @@ const onOffRenderer = {
                 deviceEl.setAttribute('data-off-color', iconColorRule.config.offColor);
                 
                 const initialColor = device.state ? iconColorRule.config.onColor : iconColorRule.config.offColor;
-                deviceEl.style.backgroundColor = initialColor;
+                deviceEl.style.setProperty('background-color', `${initialColor}A6`, 'important');
+                deviceEl.style.setProperty('color', initialColor, 'important');
+                deviceEl.classList.add('glow');
+            } else {
+                // Default - white with glow
+                deviceEl.style.setProperty('background-color', 'rgba(255, 255, 255, 0.65)', 'important');
+                deviceEl.style.setProperty('color', 'rgba(255, 255, 255, 0.8)', 'important');
+                deviceEl.classList.add('glow');
             }
             
             deviceEl.appendChild(img);
@@ -416,7 +423,7 @@ const onOffRenderer = {
 
             if (allColor) {
                 // All-Color rule takes precedence
-                deviceEl.style.setProperty('background-color', `${allColor}4D`, 'important'); // 30% opacity
+                deviceEl.style.setProperty('background-color', `${allColor}A6`, 'important');
                 deviceEl.style.setProperty('color', allColor, 'important');
                 deviceEl.classList.add('glow');
             } else if (hasColorRule) {
@@ -424,14 +431,15 @@ const onOffRenderer = {
                 const color = value ? 
                     deviceEl.getAttribute('data-on-color') : 
                     deviceEl.getAttribute('data-off-color');
-                deviceEl.style.setProperty('background-color', `${color}4D`, 'important'); // 30% opacity
+                deviceEl.style.setProperty('background-color', `${color}A6`, 'important');
                 deviceEl.style.setProperty('color', color, 'important');
                 deviceEl.classList.add('glow');
             } else {
-                // Default - white background with slight transparency
-                deviceEl.style.setProperty('background-color', 'rgba(255, 255, 255, 0.3)', 'important');
-                deviceEl.style.setProperty('color', 'rgba(255, 255, 255, 0.8)', 'important');
-                deviceEl.classList.remove('glow');
+                // Default - white with glow
+                const whiteColor = 'rgb(255, 255, 255)';
+                deviceEl.style.setProperty('background-color', `${whiteColor}A6`, 'important');
+                deviceEl.style.setProperty('color', whiteColor, 'important');
+                deviceEl.classList.add('glow');
             }
 
             // Handle image rule

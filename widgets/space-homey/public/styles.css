@@ -183,6 +183,11 @@ body {
     width: 100%;
     height: auto;
     display: block;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    pointer-events: none;
 }
 
 .rule-images-container {
@@ -203,6 +208,10 @@ body {
     bottom: 0;
     pointer-events: auto;
     z-index: 300;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
 }
 
 .floor-select-container {

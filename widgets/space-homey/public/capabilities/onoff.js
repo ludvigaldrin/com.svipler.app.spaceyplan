@@ -71,22 +71,19 @@ const onOffRenderer = {
 
                 const setPosition = () => {
                     if (!floorMapImage || !container) {
-                        Homey.api('POST', '/log', { message: 'OnOff Floor map image or container not found' });
                         return;
                     }
 
                     if (!floorMapImage.complete || floorMapImage.naturalWidth === 0) {
-                        Homey.api('POST', '/log', { message: 'OnOff Floor map image not loaded yet' });
                         return;
                     }
 
                     const containerRect = container.getBoundingClientRect();
                     const displayX = (position.x / floorMapImage.naturalWidth) * containerRect.width;
                     const displayY = (position.y / floorMapImage.naturalHeight) * containerRect.height;
-                    
+
                     deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
                     deviceEl.style.opacity = '1';
-                    Homey.api('POST', '/log', { message: 'OnOff Floor map image loaded' });
                     resolve();
                 };
 
@@ -120,60 +117,63 @@ const onOffRenderer = {
         return deviceEl;
     },
 
-    async initializeState(deviceEl, deviceId) {
+    async initializeState(deviceEl, deviceId, widgetId) {
         try {
+            console.log('Initializing onoff state for device:', deviceId, 'widget:', widgetId);
             // Get initial state
             const response = await Homey.api('GET', `/devices/${deviceId}/capabilities/onoff`);
+            console.log('Initial onoff state:', response);
 
             if (response && typeof response !== 'undefined') {
                 deviceEl.setAttribute('data-state', response);
                 deviceEl.classList.toggle('on', response);
             }
 
-            // Subscribe to capability
+            // Subscribe to capability using widgetId passed from manager
+            console.log('Subscribing to onoff updates:', { deviceId, widgetId });
             await Homey.api('POST', `/subscribeToDevices`, {
-                widgetId: Homey.widgetId,
+                widgetId: widgetId,
                 devices: [
                     { deviceId, capability: 'onoff' }
                 ]
             });
 
         } catch (error) {
-            Homey.api('POST', '/log', { message: `Error initializing state: ${error.message}` });
+            console.error('Error initializing onoff state:', error);
         }
     },
 
     initializeInteractions(deviceEl) {
-
         let touchStartTime;
         let longPressTimer;
         let touchMoved = false;
 
-        const handleTouchStart = (e) => {
+        deviceEl.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            console.log('Touch start'); // Debug log
+            e.stopPropagation();
+
             touchStartTime = Date.now();
             touchMoved = false;
 
             longPressTimer = setTimeout(() => {
                 if (!touchMoved) {
-
-                    this.showDeviceModal(deviceEl, deviceEl.getAttribute('data-device-id'), 'onoff');
+                    this.showDeviceModal(deviceEl);
                 }
             }, 500);
-        };
+        }, { passive: false });
 
-        const handleTouchMove = () => {
+        deviceEl.addEventListener('touchmove', (e) => {
+            e.stopPropagation();
             touchMoved = true;
             if (longPressTimer) {
                 clearTimeout(longPressTimer);
                 longPressTimer = null;
             }
-        };
+        });
 
-        const handleTouchEnd = (e) => {
+        deviceEl.addEventListener('touchend', (e) => {
             e.preventDefault();
-
+            e.stopPropagation();
 
             if (longPressTimer) {
                 clearTimeout(longPressTimer);
@@ -187,16 +187,10 @@ const onOffRenderer = {
             }
 
             touchMoved = false;
-        };
-
-        // Add touch event listeners
-        deviceEl.addEventListener('touchstart', handleTouchStart, { passive: false });
-        deviceEl.addEventListener('touchmove', handleTouchMove);
-        deviceEl.addEventListener('touchend', handleTouchEnd, { passive: false });
+        }, { passive: false });
 
         // Keep click for desktop/testing
         deviceEl.addEventListener('click', () => {
-            console.log('Click detected'); // Debug log
             this.handleClick(deviceEl);
         });
     },
@@ -237,24 +231,22 @@ const onOffRenderer = {
         }
     },
 
-
     handleDeviceUpdate(deviceEl, value) {
         if (!deviceEl) return;
 
         deviceEl.setAttribute('data-state', value);
+        deviceEl.classList.toggle('on', value);
 
-        // Update visual appearance based on state
-        if (value) {
-            deviceEl.style.opacity = '1';
-            // Add any other "on" state visual updates
-        } else {
-            deviceEl.style.opacity = '0.7';
-            // Add any other "off" state visual updates
+        // Update modal if it exists
+        const modalId = deviceEl.getAttribute('data-device-id');
+        const modal = document.querySelector(`.device-modal[data-device-id="${modalId}"]`);
+        if (modal) {
+            const powerButton = modal.querySelector('.power-button');
+            if (powerButton) {
+                powerButton.classList.toggle('on', value);
+            }
         }
-
-
     },
-
 
     applyInitialColorRules(device, deviceEl) {
         const iconWrapper = deviceEl.querySelector('.icon-wrapper');
@@ -290,17 +282,29 @@ const onOffRenderer = {
         }
     },
 
-
-    showDeviceModal(deviceEl, deviceId, capability) {
+    showDeviceModal(deviceEl) {
         const name = deviceEl.getAttribute('data-name');
+        const deviceId = deviceEl.getAttribute('data-device-id');
         const currentState = deviceEl.getAttribute('data-state') === 'true';
 
-        // Create modal container
         const overlay = document.createElement('div');
-        overlay.className = 'device-modal';
+        overlay.className = 'device-modal-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        `;
 
         const modal = document.createElement('div');
-        modal.className = 'device-modal-content';
+        modal.className = 'device-modal';
+        modal.setAttribute('data-device-id', deviceId);
         modal.innerHTML = `
             <div class="modal-header">
                 <h2>${name}</h2>
@@ -323,19 +327,19 @@ const onOffRenderer = {
             const styles = document.createElement('style');
             styles.id = 'onoffModalStyles';
             styles.textContent = `
-                .device-modal-content {
+                .device-modal {
                     background: rgba(245, 245, 245, 0.95);
                     border-radius: 15px;
-                    padding: 20px;
-                    width: 300px;
-                    height: 300px;
+                    padding: 12px;
+                    width: 260px;
+                    max-width: 90vw;
                 }
 
                 .modal-header {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    margin-bottom: 20px;
+                    margin-bottom: 12px;
                 }
 
                 .modal-header h2 {
@@ -350,73 +354,39 @@ const onOffRenderer = {
                     font-size: 24px;
                     color: #333;
                     cursor: pointer;
-                    width: 24px;
-                    height: 24px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    border-radius: 50%;
-                    transition: background-color 0.2s ease;
-                    padding: 0;
-                    margin: 0;
-                }
-
-                .close-button:hover {
-                    background-color: rgba(0, 0, 0, 0.1);
+                    padding: 5px;
                 }
 
                 .dim-view-toggle {
-                    background: rgba(0, 0, 0, 0.1);
-                    padding: 2px;
-                    border-radius: 20px;
                     display: flex;
-                    margin: 20px 0;
+                    justify-content: center;
+                    gap: 8px;
+                    margin-bottom: 12px;
                 }
 
                 .view-button {
-                    flex: 1;
-                    padding: 8px;
-                    border: none;
-                    border-radius: 18px;
-                    background: transparent;
-                    color: #000;
-                    font-size: 15px;
+                    padding: 6px 12px;
+                    border: 1px solid #1C1C1E;
+                    background: none;
+                    color: #1C1C1E;
+                    border-radius: 20px;
                     cursor: pointer;
                     transition: all 0.2s ease;
                 }
 
                 .view-button.active {
-                    background: #fff;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    background: #1C1C1E;
+                    color: white;
                 }
 
-                .dim-views {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    height: 180px;
-                }
-
-                .dim-view {
-                    display: none;
-                    width: 100%;
-                    height: 100%;
-                    align-items: center;
-                    justify-content: center;
-                }
-
-                .dim-view.active {
-                    display: flex;
-                }
-
-                /* Power button styles */
                 .power-button {
-                    width: 120px;
-                    height: 120px;
+                    width: 60px;
+                    height: 60px;
                     border-radius: 50%;
                     background: #1C1C1E;
                     position: relative;
                     cursor: pointer;
+                    margin: 12px auto;
                     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
                     transition: all 0.2s ease;
                 }
@@ -429,13 +399,12 @@ const onOffRenderer = {
                     position: absolute;
                     top: 50%;
                     left: 50%;
-                    width: 50px;
-                    height: 50px;
+                    width: 25px;
+                    height: 25px;
                     transform: translate(-50%, -50%);
                     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18.36 6.64a9 9 0 1 1-12.73 0'/%3E%3Cline x1='12' y1='2' x2='12' y2='12'/%3E%3C/svg%3E") no-repeat center center;
                     background-size: contain;
                     transition: background-image 0.2s ease;
-                    pointer-events: none;
                 }
 
                 .power-button.on .power-icon {
@@ -447,6 +416,7 @@ const onOffRenderer = {
         }
 
         overlay.appendChild(modal);
+        document.body.appendChild(overlay);
 
         // Close modal when clicking outside
         overlay.addEventListener('click', (e) => {
@@ -463,9 +433,8 @@ const onOffRenderer = {
                 powerButton.classList.toggle('on', newState);
                 await this.handleClick(deviceEl);
             } catch (error) {
-                // Revert visual state if there was an error
                 powerButton.classList.toggle('on');
-                Homey.api('POST', '/log', { message: `Error toggling state: ${error.message}` });
+                console.error('Error toggling state:', error);
             }
         });
 
@@ -474,12 +443,8 @@ const onOffRenderer = {
         closeButton.addEventListener('click', () => {
             overlay.remove();
         });
-
-        document.body.appendChild(overlay);
     },
 };
-
-
 
 window.capabilityRenderers = window.capabilityRenderers || {};
 window.capabilityRenderers.onoff = onOffRenderer;

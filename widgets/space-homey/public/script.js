@@ -7,8 +7,6 @@ let widgetId;
 
 async function onHomeyReady(_Homey) {
     Homey = _Homey;
-
-    await Homey.api('POST', '/log', { message: 'Homey ready!' });
     Homey.ready();
 
     const settings = Homey.getSettings();
@@ -17,7 +15,6 @@ async function onHomeyReady(_Homey) {
     await Homey.setHeight(widgetHeight);
     try {
         await init();
-        await Homey.api('POST', '/log', { message: 'Widget Loaded Completed ' });
     } catch (error) {
         await Homey.api('POST', '/log', { message: `Init error: ${error.message}` });
         showErrorMessage();
@@ -34,17 +31,14 @@ async function init() {
     await Homey.api('POST', '/log', { message: 'Init with widget ID: ' + widgetId });
 
     if (!widgetId) { // No widget ID available
-        await Homey.api('POST', '/log', { message: 'No widget ID available from getWidgetInstanceId()' });
         showErrorMessage();
         return;
     }
 
     // Get all floors
     const floors = await Homey.api('GET', '/floors');
-    await Homey.api('POST', '/log', { message: 'Retrieved floors: ' + (floors?.length || 0) });
 
     if (!floors || floors.length === 0) {
-        await Homey.api('POST', '/log', { message: 'No floors available, showing no floors message' });
         showNoFloorsMessage();
         return;
     }
@@ -52,21 +46,17 @@ async function init() {
     // Get selected floor
     const selectedFloors = await Homey.api('GET', '/selectedFloors');
     const selectedFloor = selectedFloors[widgetId];
-    await Homey.api('POST', '/log', { message: 'Current widget selected floor: ' + (selectedFloor ? selectedFloor.floorId : 'none') });
 
     if (selectedFloor && selectedFloor.floorId) {
         const floor = floors.find(f => f.id === selectedFloor.floorId);
-        await Homey.api('POST', '/log', { message: 'Selected floor found, showing selected floor name: ' + floor.name + ' id: ' + floor.id });
         await showSelectedFloor(floor);
     } else {
-        await Homey.api('POST', '/log', { message: 'No selected floor found, showing floor selector' });
         await showFloorSelector(floors);
     }
 }
 /** VIEWS */
 
 async function showFloorSelector(floors) {
-    await Homey.api('POST', '/log', { message: 'Showing floor selector: ' + floors.length });
     const container = document.getElementById('floorSelector');
 
     if (container) {
@@ -114,17 +104,14 @@ async function showFloorSelector(floors) {
             return;
         }
         const selectedFloor = floors.find(f => f.id === selectedId);
-        await Homey.api('POST', '/log', { message: `Selected floor: ${selectedFloor.name}, id: ${selectedFloor.id}` });
 
         if (selectedFloor) {
-            await Homey.api('POST', '/log', { message: `WidgetId: ${widgetId}, id: ${selectedFloor.id}` });
             // Save the selected floor for this widget
             const result = await Homey.api('POST', '/selectedFloors', {
                 widgetId: widgetId,
                 floorId: selectedFloor.id
             });
 
-            await Homey.api('POST', '/log', { message: `Selected floor saved: ${result}` });
             // We now have saved to lets select this floor now
             await showSelectedFloor(selectedFloor);
         }
@@ -134,9 +121,10 @@ async function showFloorSelector(floors) {
 }
 
 async function showSelectedFloor(floor) {
-    await Homey.api('POST', '/log', { message: `Showing selected floor: ${floor.name}, id: ${floor.id}` });
-    // Initialize RendererManager
+    
+    // Initialize RendererManager with widgetId
     rendererManager = new CapabilityRendererManager();
+    rendererManager.setWidgetId(widgetId);
 
     // Register renderers
     if (window.capabilityRenderers) {
@@ -144,18 +132,9 @@ async function showSelectedFloor(floor) {
             rendererManager.registerRenderer(renderer);
         });
     }
-    // Debug log with relevant floor info
-    Homey.api('POST', '/log', { message: `Selecting floor: ${floor.name}, id: ${floor.id}` });
 
-    // Initialize RendererManager
-    rendererManager = new CapabilityRendererManager();
-
-    // Register renderers
-    if (window.capabilityRenderers) {
-        Object.values(window.capabilityRenderers).forEach(renderer => {
-            rendererManager.registerRenderer(renderer);
-        });
-    }
+    // Set up device update listener
+    Homey.on(`widget:${widgetId}:deviceUpdate`, handleDeviceUpdate);
 
     const container = document.getElementById('floorSelector');
     if (container) {
@@ -172,35 +151,15 @@ async function showSelectedFloor(floor) {
         floorMapImage.src = floor.image;
     }
 
-
-    // Set up device update listener only after floor is selected
-    Homey.on(`widget:${widgetId}:deviceUpdate`, handleDeviceUpdate);
-
+    // Clear and render devices
     const devicesContainer = document.getElementById('floorPlanDevices');
-
-    // Handle devices if they exist
-    if (devicesContainer && floor.devices) {
-        devicesContainer.style.cssText = `
-           position: absolute;
-           top: 0;
-           left: 0;
-           width: 100%;
-           height: 100%;
-           pointer-events: none;
-       `;
-
-        devicesContainer.innerHTML = '';
-
-        floor.devices.forEach(device => {
-            const renderer = rendererManager.getRenderer(device.capability);
-            if (renderer) {
-                const deviceElement = renderer.createDeviceElement(device, device.position);
-                if (deviceElement) {
-                    deviceElement.style.pointerEvents = 'auto';
-                    devicesContainer.appendChild(deviceElement);
-                }
-            }
-        });
+    if (devicesContainer) {
+        devicesContainer.innerHTML = ''; // Clear existing devices
+        
+        // Render each device
+        for (const device of floor.devices) {
+            await rendererManager.renderDevice(device, devicesContainer);
+        }
     }
 
     // Add settings button after floor plan is shown
@@ -297,7 +256,6 @@ function addSettingsButton() {
 
     // Add click handler
     settingsButton.addEventListener('click', async () => {
-        await Homey.api('POST', '/log', { message: 'Showing floor selector' });
         showLoadingState();
         try {
             const floors = await Homey.api('GET', '/floors');
@@ -315,25 +273,18 @@ function handleDeviceUpdate(data) {
     const { deviceId, capability, value } = data;
 
     if (!rendererManager) {
-        Homey.api('POST', '/log', { message: 'RendererManager not initialized!' });
         return;
     }
 
-    // For dim devices, we need to find elements with both dim and onoff capabilities
+    // Find all elements for this device (could be both dim and onoff)
     const deviceElements = document.querySelectorAll(`[data-device-id="${deviceId}"]`);
 
     deviceElements.forEach(deviceEl => {
         const elementCapability = deviceEl.getAttribute('data-capability');
+        
         const renderer = rendererManager.getRenderer(elementCapability);
-
         if (renderer && typeof renderer.handleDeviceUpdate === 'function') {
-            // For dim devices, handle both dim and onoff updates
-            if (elementCapability === 'dim') {
-                renderer.handleDeviceUpdate(deviceEl, value, capability);
-            } else if (elementCapability === capability) {
-                // For other devices, only handle their specific capability
-                renderer.handleDeviceUpdate(deviceEl, value);
-            }
-        }
+            renderer.handleDeviceUpdate(deviceEl, value, capability);
+        } 
     });
 }

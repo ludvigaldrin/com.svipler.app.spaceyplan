@@ -1,6 +1,11 @@
 class CapabilityRendererManager {
     constructor() {
         this.renderers = new Map();
+        this.widgetId = null;
+    }
+
+    setWidgetId(widgetId) {
+        this.widgetId = widgetId;
     }
 
     registerRenderer(renderer) {
@@ -18,7 +23,6 @@ class CapabilityRendererManager {
             Homey.api('POST', '/log', { message: `No renderer found for capability: ${device.capability}` });
             return;
         }
-
         const deviceEl = renderer.createDeviceElement(device, device.position);
 
         // Set data attributes
@@ -26,8 +30,15 @@ class CapabilityRendererManager {
         deviceEl.setAttribute('data-capability', device.capability);
         deviceEl.setAttribute('data-name', device.name);
 
-        // Initialize state
-        await renderer.initializeState(deviceEl, device.deviceId, device.capability);
+        // Initialize state with widgetId
+        await renderer.initializeState(deviceEl, device.deviceId, this.widgetId);
+
+        // Initialize interactions
+        if (typeof renderer.initializeInteractions === 'function') {
+            renderer.initializeInteractions(deviceEl);
+        } else {
+            Homey.api('POST', '/log', { message: `WARNING: No initializeInteractions method found for: ${device.capability}` });
+        }
 
         // Debug touch events
         deviceEl.addEventListener('touchstart', (e) => {

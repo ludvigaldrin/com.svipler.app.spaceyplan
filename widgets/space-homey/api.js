@@ -102,7 +102,6 @@ module.exports = {
   async subscribeToDevices({ homey, body }) {
     try {
       const { widgetId, devices } = body;
-      
       // Subscribe to each device's capability
       for (const device of devices) {
         await homey.app.subscriptionManager.subscribeWidget(

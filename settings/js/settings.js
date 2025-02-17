@@ -577,7 +577,22 @@ function onHomeyReady(Homey) {
     // Function to render devices on floor plan
     function renderFloorPlanDevices(floor) {
         const container = document.getElementById('floorPlanDevices');
+        const image = document.getElementById('floorMapImage');
         container.innerHTML = '';
+
+        // Wait for image to load to get correct dimensions
+        if (!image.complete) {
+            image.onload = () => renderFloorPlanDevices(floor);
+            return;
+        }
+
+        const containerRect = container.getBoundingClientRect();
+        const imageNaturalWidth = image.naturalWidth;
+        const imageNaturalHeight = image.naturalHeight;
+
+        // Store original dimensions for drag calculations
+        container.dataset.originalWidth = imageNaturalWidth;
+        container.dataset.originalHeight = imageNaturalHeight;
 
         // Add styles if not present
         if (!document.getElementById('floorPlanDeviceStyles')) {
@@ -595,6 +610,7 @@ function onHomeyReady(Homey) {
                     justify-content: center;
                     cursor: move;
                     transition: transform 0.2s ease;
+                    transform-origin: center;
                 }
                 .floor-plan-device img {
                     width: 14px;
@@ -614,12 +630,11 @@ function onHomeyReady(Homey) {
             deviceEl.className = 'floor-plan-device';
             deviceEl.id = `device-${device.id}`;
 
-            // Convert percentage positions to pixels
-            const containerRect = container.getBoundingClientRect();
-            const pixelX = (device.position.x / 100) * containerRect.width;
-            const pixelY = (device.position.y / 100) * containerRect.height;
+            // Convert original coordinates to current display size
+            const displayX = (device.position.x / imageNaturalWidth) * containerRect.width;
+            const displayY = (device.position.y / imageNaturalHeight) * containerRect.height;
 
-            deviceEl.style.transform = `translate(${pixelX}px, ${pixelY}px)`;
+            deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
 
             deviceEl.innerHTML = `
                 <img src="${device.iconObj?.url || 'default-icon.png'}" alt="${device.name}">
@@ -635,13 +650,19 @@ function onHomeyReady(Homey) {
         e.preventDefault();
 
         const container = document.getElementById('floorPlanContainer');
+        const image = document.getElementById('floorMapImage');
         const containerRect = container.getBoundingClientRect();
+        const imageNaturalWidth = image.naturalWidth;
+        const imageNaturalHeight = image.naturalHeight;
+
+        // Store original image dimensions for calculations
+        container.dataset.originalWidth = imageNaturalWidth;
+        container.dataset.originalHeight = imageNaturalHeight;
 
         const touch = e.touches[0];
         const clientX = touch.clientX;
         const clientY = touch.clientY;
 
-        // Clear any existing dragging state first
         const existingDragging = document.querySelector('.dragging');
         if (existingDragging) {
             existingDragging.classList.remove('dragging');
@@ -654,7 +675,6 @@ function onHomeyReady(Homey) {
         e.target.dataset.offsetX = clientX - deviceRect.left;
         e.target.dataset.offsetY = clientY - deviceRect.top;
 
-        // Add event listeners to document instead of container
         document.addEventListener('touchmove', handleDrag, { passive: false });
         document.addEventListener('touchend', handleDragEnd);
         document.addEventListener('touchcancel', handleDragEnd);
@@ -668,28 +688,31 @@ function onHomeyReady(Homey) {
 
         const container = document.getElementById('floorPlanContainer');
         const containerRect = container.getBoundingClientRect();
+        const imageNaturalWidth = parseInt(container.dataset.originalWidth);
+        const imageNaturalHeight = parseInt(container.dataset.originalHeight);
 
         const touch = e.touches[0];
         const clientX = touch.clientX;
         const clientY = touch.clientY;
 
-        // Calculate position as percentages
-        let percentX = ((clientX - containerRect.left) / containerRect.width) * 100;
-        let percentY = ((clientY - containerRect.top) / containerRect.height) * 100;
+        // Calculate position relative to container
+        let relativeX = clientX - containerRect.left;
+        let relativeY = clientY - containerRect.top;
 
-        // Constrain to container bounds (accounting for device size)
-        percentX = Math.max(0, Math.min(percentX, 100));
-        percentY = Math.max(0, Math.min(percentY, 100));
+        // Constrain to container bounds
+        relativeX = Math.max(0, Math.min(relativeX, containerRect.width));
+        relativeY = Math.max(0, Math.min(relativeY, containerRect.height));
 
-        // Store percentages in dataset
-        device.dataset.percentX = percentX;
-        device.dataset.percentY = percentY;
+        // Calculate position in original image coordinates
+        const originalX = (relativeX / containerRect.width) * imageNaturalWidth;
+        const originalY = (relativeY / containerRect.height) * imageNaturalHeight;
 
-        // Convert percentages to pixels for visual positioning
-        const pixelX = (percentX / 100) * containerRect.width;
-        const pixelY = (percentY / 100) * containerRect.height;
+        // Store original coordinates in dataset
+        device.dataset.originalX = originalX;
+        device.dataset.originalY = originalY;
 
-        device.style.transform = `translate(${pixelX}px, ${pixelY}px)`;
+        // Update visual position
+        device.style.transform = `translate(${relativeX}px, ${relativeY}px)`;
     }
 
     function handleDragEnd(e) {
@@ -698,14 +721,13 @@ function onHomeyReady(Homey) {
 
         device.classList.remove('dragging');
 
-        // Remove all event listeners
         document.removeEventListener('touchmove', handleDrag, { passive: false });
         document.removeEventListener('touchend', handleDragEnd);
         document.removeEventListener('touchcancel', handleDragEnd);
 
-        // Get final position as percentages
-        const percentX = parseFloat(device.dataset.percentX || 0);
-        const percentY = parseFloat(device.dataset.percentY || 0);
+        // Get position in original image coordinates
+        const originalX = parseFloat(device.dataset.originalX || 0);
+        const originalY = parseFloat(device.dataset.originalY || 0);
 
         // Update position in the floor data
         const deviceId = device.id.replace('device-', '');
@@ -714,11 +736,16 @@ function onHomeyReady(Homey) {
 
         if (deviceData) {
             deviceData.position = {
-                x: percentX,
-                y: percentY
+                x: originalX,
+                y: originalY
             };
-            saveFloors().catch(err => {
+
+            // Save using the existing saveFloors function
+            saveFloors().then(() => {
+                // Position saved successfully
+            }).catch(err => {
                 Homey.alert('Failed to save device position: ' + err.message);
+                renderFloorPlanDevices(currentFloor);
             });
         }
     }

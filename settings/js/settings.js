@@ -303,7 +303,10 @@ function onHomeyReady(Homey) {
             const reader = new FileReader();
             reader.onload = function (e) {
                 const preview = document.getElementById('imagePreview');
-                preview.innerHTML = `<img src="${e.target.result}">`;
+                preview.innerHTML = `
+                    <div style="max-width: 300px; max-height: 200px; overflow: hidden;">
+                        <img src="${e.target.result}" style="width: 100%; height: auto; object-fit: contain;">
+                    </div>`;
                 saveButton.disabled = false;
             };
             reader.onerror = function (e) {
@@ -409,14 +412,15 @@ function onHomeyReady(Homey) {
         const list = document.getElementById('devicesList');
 
         if (!list) {
-            Homey.api('POST', '/log', { message: 'devicesList element not found!' }, () => { });
             return;
         }
 
         if (!devices || !devices.length) {
             list.innerHTML = `
-                <div class="device-item" style="background: white; padding: 12px; text-align: center; color: #666;">
-                    No devices added yet. Click the + button above to add devices.
+                <div class="floor-device-wrapper">
+                    <div class="floor-device-item" style="background: white; padding: 12px; text-align: center; color: #666;">
+                     No devices added yet. Click the + button above to add devices.
+                    </div>
                 </div>
             `;
             return;
@@ -430,8 +434,8 @@ function onHomeyReady(Homey) {
                             <path fill="#666" d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/>
                         </svg>
                     </button>
-                    <div class="floor-device-info">
-                        <span>${device.name} (${device.capability === 'dim' ? 'Dim' : 'On/Off'})</span>
+                    <div class="floor-device-info" onclick="highlightDevice('${device.id}')">
+                        <span style="cursor: pointer;">${device.name} (${device.capability === 'dim' ? 'Dim' : 'On/Off'})</span>
                     </div>
                     <button class="icon-button delete-button" onclick="removeDevice('${device.id}')">
                         <svg width="20" height="20" viewBox="0 0 24 24">
@@ -575,6 +579,13 @@ function onHomeyReady(Homey) {
     function renderFloorPlanDevices(floor) {
         const container = document.getElementById('floorPlanDevices');
         const image = document.getElementById('floorMapImage');
+        const wrapper = document.getElementById('imageWrapper');
+        const parentContainer = wrapper.parentElement;
+        
+        Homey.api('POST', '/log', { 
+            message: `Settings Parent Container: ${parentContainer.offsetWidth}x${parentContainer.offsetHeight}, Wrapper: ${wrapper.offsetWidth}x${wrapper.offsetHeight}`
+        });
+
         container.innerHTML = '';
 
         // Wait for image to load to get correct dimensions
@@ -583,13 +594,21 @@ function onHomeyReady(Homey) {
             return;
         }
 
-        const containerRect = container.getBoundingClientRect();
-        const imageNaturalWidth = image.naturalWidth;
-        const imageNaturalHeight = image.naturalHeight;
+        // Debug logging for actual image dimensions
+        Homey.api('POST', '/log', { 
+            message: `Settings Image: Natural(${image.naturalWidth}x${image.naturalHeight}), Actual(${image.offsetWidth}x${image.offsetHeight}), Style(${window.getComputedStyle(image).width}x${window.getComputedStyle(image).height})`
+        });
+
+        const wrapperRect = wrapper.getBoundingClientRect();
+        
+        // Debug logging
+        Homey.api('POST', '/log', { 
+            message: `Settings Render: Image(${image.naturalWidth}x${image.naturalHeight}) Wrapper(${wrapperRect.width}x${wrapperRect.height})`
+        });
 
         // Store original dimensions for drag calculations
-        container.dataset.originalWidth = imageNaturalWidth;
-        container.dataset.originalHeight = imageNaturalHeight;
+        container.dataset.originalWidth = image.naturalWidth;
+        container.dataset.originalHeight = image.naturalHeight;
 
         // Add styles if not present
         if (!document.getElementById('floorPlanDeviceStyles')) {
@@ -600,13 +619,13 @@ function onHomeyReady(Homey) {
                     position: absolute;
                     width: 22px;
                     height: 22px;
-                    background: rgba(94, 91, 91, 0.88);
+                    background: rgba(255, 255, 255, 0.65);
                     border-radius: 50%;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     cursor: move;
-                    transition: transform 0.2s ease;
+                    transition: all 0.2s ease;
                     transform-origin: center;
                 }
                 .floor-plan-device img {
@@ -616,6 +635,12 @@ function onHomeyReady(Homey) {
                 }
                 .floor-plan-device.dragging {
                     transform: scale(1.1);
+                    z-index: 1000;
+                }
+                .floor-plan-device.highlight-device {
+                    background: #ffd700;
+                    box-shadow: 0 0 10px #ffd700;
+                    transform: scale(1.2);
                     z-index: 1000;
                 }
             `;
@@ -628,9 +653,14 @@ function onHomeyReady(Homey) {
             deviceEl.id = `device-${device.id}`;
 
             // Use percentages directly for positioning
-            const displayX = (device.position.x / 100) * containerRect.width;
-            const displayY = (device.position.y / 100) * containerRect.height;
+            const displayX = (device.position.x / 100) * wrapperRect.width;
+            const displayY = (device.position.y / 100) * wrapperRect.height;
             
+            // Debug logging
+            Homey.api('POST', '/log', { 
+                message: `Settings Device ${device.id}: Original(${device.position.x}%, ${device.position.y}%) Calculated(${displayX}px, ${displayY}px)`
+            });
+
             deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
 
             deviceEl.innerHTML = `
@@ -647,13 +677,13 @@ function onHomeyReady(Homey) {
     function handleDragStart(e) {
         e.preventDefault();
         const isTouchEvent = e.type === 'touchstart';
-        const container = document.getElementById('floorPlanContainer');
+        const wrapper = document.getElementById('imageWrapper');
         const image = document.getElementById('floorMapImage');
-        const containerRect = container.getBoundingClientRect();
+        const wrapperRect = wrapper.getBoundingClientRect();
 
         // Store original image dimensions for calculations
-        container.dataset.originalWidth = image.naturalWidth;
-        container.dataset.originalHeight = image.naturalHeight;
+        wrapper.dataset.originalWidth = image.naturalWidth;
+        wrapper.dataset.originalHeight = image.naturalHeight;
 
         const clientX = isTouchEvent ? e.touches[0].clientX : e.clientX;
         const clientY = isTouchEvent ? e.touches[0].clientY : e.clientY;
@@ -1124,6 +1154,20 @@ function onHomeyReady(Homey) {
         document.body.appendChild(overlay);
 
         setupRuleEventListeners(overlay, deviceId, ruleId);
+    };
+
+    // Add this new function
+    window.highlightDevice = function(deviceId) {
+        const deviceEl = document.getElementById(`device-${deviceId}`);
+        if (!deviceEl) return;
+
+        // Add highlight class
+        deviceEl.classList.add('highlight-device');
+
+        // Remove highlight after 2 seconds
+        setTimeout(() => {
+            deviceEl.classList.remove('highlight-device');
+        }, 500);
     };
 
     // Initialize

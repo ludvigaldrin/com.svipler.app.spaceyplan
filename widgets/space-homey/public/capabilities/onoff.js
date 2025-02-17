@@ -71,15 +71,31 @@ const onOffRenderer = {
         const positionDevice = () => {
             return new Promise((resolve) => {
                 const floorMapImage = document.getElementById('floorMapImage');
-                const container = document.getElementById('floorPlanContainer');
+                const wrapper = document.getElementById('imageWrapper');
+                const parentContainer = wrapper.parentElement;
+                
+                Homey.api('POST', '/log', { 
+                    message: `Widget Parent Container: ${parentContainer.offsetWidth}x${parentContainer.offsetHeight}, Wrapper: ${wrapper.offsetWidth}x${wrapper.offsetHeight}`
+                });
 
                 const setPosition = () => {
-                    if (!floorMapImage || !container) return;
+                    if (!floorMapImage || !wrapper) return;
                     if (!floorMapImage.complete || floorMapImage.naturalWidth === 0) return;
 
-                    const wrapperRect = document.getElementById('imageWrapper').getBoundingClientRect();
-                    const displayX = (position.x / floorMapImage.naturalWidth) * wrapperRect.width;
-                    const displayY = (position.y / floorMapImage.naturalHeight) * wrapperRect.height;
+                    const wrapperRect = wrapper.getBoundingClientRect();
+
+                    // Debug logging for actual image dimensions
+                    Homey.api('POST', '/log', { 
+                        message: `Widget Image: Natural(${floorMapImage.naturalWidth}x${floorMapImage.naturalHeight}), Actual(${floorMapImage.offsetWidth}x${floorMapImage.offsetHeight}), Style(${window.getComputedStyle(floorMapImage).width}x${window.getComputedStyle(floorMapImage).height})`
+                    });
+
+                    const displayX = (position.x / 100) * wrapperRect.width;
+                    const displayY = (position.y / 100) * wrapperRect.height;
+
+                    // Debug logging
+                    Homey.api('POST', '/log', { 
+                        message: `OnOff Device ${device.id}: Original(${position.x}%, ${position.y}%) Calculated(${displayX}px, ${displayY}px)`
+                    });
 
                     deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
                     deviceEl.style.opacity = '1';

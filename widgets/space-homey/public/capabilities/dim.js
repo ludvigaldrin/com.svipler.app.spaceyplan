@@ -71,15 +71,15 @@ const dimRenderer = {
         const positionDevice = () => {
             return new Promise((resolve) => {
                 const floorMapImage = document.getElementById('floorMapImage');
-                const container = document.getElementById('floorPlanContainer');
+                const wrapper = document.getElementById('imageWrapper');
 
                 const setPosition = () => {
-                    if (!floorMapImage || !container) return;
+                    if (!floorMapImage || !wrapper) return;
                     if (!floorMapImage.complete || floorMapImage.naturalWidth === 0) return;
                 
-                    const wrapperRect = document.getElementById('imageWrapper').getBoundingClientRect();
-                    const displayX = (position.x / floorMapImage.naturalWidth) * wrapperRect.width;
-                    const displayY = (position.y / floorMapImage.naturalHeight) * wrapperRect.height;
+                    const wrapperRect = wrapper.getBoundingClientRect();
+                    const displayX = (position.x / 100) * wrapperRect.width;
+                    const displayY = (position.y / 100) * wrapperRect.height;
                 
                     deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
                     deviceEl.style.opacity = '1';

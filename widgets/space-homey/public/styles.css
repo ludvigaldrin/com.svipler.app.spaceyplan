@@ -24,6 +24,9 @@ body {
     overflow: hidden;
     padding: 15px;
     margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 /* Blue background only when selecting */
@@ -168,8 +171,8 @@ body {
 }
 
 #floorPlanContainer {
-    width: 100%;
-    height: 100%;
+    width: fit-content;  /* Allow container to shrink to content */
+    height: fit-content;
     position: relative;
     overflow: hidden;
     display: flex;
@@ -185,8 +188,8 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-start;
-    padding-top: 15px;
+    justify-content: center;  /* Center vertically */
+    padding: 0;
 }
 
 .image-wrapper {

@@ -5,22 +5,24 @@
   <link rel="stylesheet" type="text/css" href="styles.css">
 </head>
 
-<body class="homey-widget">
-  <div id="floorSelector" class="floor-selector">
-    <div id="floorGrid"></div>
+<body>
+  <div class="homey-widget">
+    <div class="widget-container">
+      <div id="floorSelector" class="floor-selector">
+        <div id="floorGrid"></div>
+      </div>
+
+      <div id="floorPlanContainer" class="floor-plan-container" style="display: none;">
+        <img id="floorMapImage" class="floor-map" src="" alt="Floor Plan">
+        <div id="floorPlanDevices"></div>
+      </div>
+    </div>
   </div>
 
-  <div id="floorPlanContainer" class="floor-plan-container" style="display: none;">
-    <div class="floor-plan"></div>
-    <div id="ruleImagesContainer" class="rule-images-container"></div>
-  </div>
-
-  <!-- Load capability renderers first -->
+  <!-- Scripts -->
   <script type="text/javascript" src="capabilities/onoff.js"></script>
   <script type="text/javascript" src="capabilities/dim.js"></script>
-  <!-- Load renderer manager -->
   <script type="text/javascript" src="CapabilityRendererManager.js"></script>
-  <!-- Load main script last -->
   <script type="text/javascript" src="script.js"></script>
 </body>
 

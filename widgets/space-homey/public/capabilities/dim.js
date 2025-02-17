@@ -2,157 +2,43 @@ const dimRenderer = {
     id: 'dim',
 
     createDeviceElement(device, position) {
-        // Add renderer-specific styles if not already present
-        if (!document.getElementById('dimStyles')) {
-            const styles = document.createElement('style');
-            styles.id = 'dimStyles';
-            styles.textContent = `
-                .dim-device {
-                    position: absolute;
-                    width: 35px;
-                    height: 35px;
-                    cursor: pointer;
-                    z-index: 201;
-                    background-color: rgba(255, 255, 255, 0.8) !important;
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-                    transition: all 0.3s ease;
-                    -webkit-user-select: none;
-                    user-select: none;
-                    -webkit-touch-callout: none;
-                    pointer-events: auto;
-                    left: ${position.x}%;
-                    top: ${position.y}%;
-                }
-
-                .dim-device.on {
-                    background-color: rgba(255, 215, 0, 0.8) !important;
-                    box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4);
-                }
-
-                .dim-device img {
-                    width: 24px;
-                    height: 24px;
-                    pointer-events: none;
-                }
-
-                .dim-popup {
-                    position: fixed;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    background: rgba(28, 28, 30, 0.95);
-                    padding: 20px;
-                    border-radius: 12px;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-                    z-index: 1000;
-                    min-width: 280px;
-                    backdrop-filter: blur(10px);
-                }
-
-                .dim-popup h2 {
-                    color: white;
-                    margin: 0 0 20px 0;
-                    text-align: center;
-                    font-size: 18px;
-                }
-
-                .dim-slider {
-                    width: 100%;
-                    height: 20px;
-                    -webkit-appearance: none;
-                    background: rgba(255,255,255,0.1);
-                    border-radius: 10px;
-                    outline: none;
-                }
-
-                .dim-slider::-webkit-slider-thumb {
-                    -webkit-appearance: none;
-                    width: 28px;
-                    height: 28px;
-                    background: #FFD700;
-                    border-radius: 50%;
-                    cursor: pointer;
-                    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-                }
-
-                .dim-value {
-                    color: white;
-                    text-align: center;
-                    margin-top: 15px;
-                    font-size: 16px;
-                }
-
-                .dim-modal-overlay {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background: rgba(0,0,0,0.5);
-                    backdrop-filter: blur(5px);
-                    z-index: 999;
-                }
-
-                /* Dimmer styles */
-                .dim-slider-container {
-                    width: 100%;
-                    padding: 20px 40px;
-                }
-
-                .dim-slider-wrapper {
-                    width: 100%;
-                    position: relative;
-                }
-
-                .dim-slider {
-                    width: 100%;
-                    height: 6px;
-                    -webkit-appearance: none;
-                    background: rgba(0, 0, 0, 0.1);
-                    border-radius: 3px;
-                    cursor: pointer;
-                }
-
-                .dim-slider::-webkit-slider-thumb {
-                    -webkit-appearance: none;
-                    width: 20px;
-                    height: 20px;
-                    border-radius: 50%;
-                    background: white;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-                    margin-top: -7px;
-                    border: none;
-                }
-
-                .dim-slider:focus {
-                    outline: none;
-                }
-            `;
-            document.head.appendChild(styles);
-        }
-
         const deviceEl = document.createElement('div');
         deviceEl.className = 'dim-device';
-        const deviceId = device.deviceId || device.id;
-        const baseDeviceId = deviceId.replace(/-dim$/, '');
-        deviceEl.setAttribute('data-device-id', baseDeviceId);
-        deviceEl.setAttribute('data-name', device.name);
-        deviceEl.setAttribute('data-capability', 'dim');
+        
+        deviceEl.style.cssText = `
+            position: absolute;
+            left: ${position.x}%;
+            top: ${position.y}%;
+            transform: translate(-50%, -50%);
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+            z-index: 300;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        `;
 
+        // Add device attributes
+        deviceEl.setAttribute('data-name', device.name);
+        deviceEl.setAttribute('data-device-id', device.id);
+        deviceEl.setAttribute('data-capability', 'dim');
+        deviceEl.setAttribute('data-state', device.state || false);
+
+        // Add icon if available
         if (device.iconObj?.url) {
             const img = document.createElement('img');
             img.src = device.iconObj.url;
-            img.alt = device.name;
+            img.className = 'device-icon';
+            img.style.cssText = `
+                width: 14px;
+                height: 14px;
+                object-fit: contain;
+            `;
             deviceEl.appendChild(img);
         }
-
-        // Initialize state and subscriptions
-        this.initializeState(deviceEl, baseDeviceId);
-        this.initializeInteractions(deviceEl);
 
         return deviceEl;
     },
@@ -517,24 +403,49 @@ const dimRenderer = {
         }
     },
 
-    handleDeviceUpdate(deviceEl, value, capability = 'dim') {
-        if (capability === 'onoff') {
-            deviceEl.setAttribute('data-state', value);
-            deviceEl.classList.toggle('on', value);
-            
-            // Update power button in modal if it exists
-            const powerButton = document.querySelector('.power-button');
-            if (powerButton) {
-                powerButton.classList.toggle('on', value);
+    handleDeviceUpdate(deviceEl, value, capability) {
+        try {
+            if (capability === 'onoff') {
+                deviceEl.setAttribute('data-state', value);
+            } else if (capability === 'dim') {
+                deviceEl.setAttribute('data-dim', value);
             }
-        } else if (capability === 'dim') {
-            deviceEl.setAttribute('data-dim', value);
+        } catch (error) {
+            console.error('Error in handleDeviceUpdate:', error);
+        }
+    },
+
+    applyInitialColorRules(device, deviceEl) {
+        // Check for All-Color rule first
+        const allColorRule = device.rules?.find(r => r.type === 'allColor');
+        if (allColorRule?.config?.mainColor) {
+            deviceEl.setAttribute('data-all-color', allColorRule.config.mainColor);
+            deviceEl.setAttribute('data-color-rule', 'true');
+            deviceEl.style.backgroundColor = `${allColorRule.config.mainColor}A6`;
+            deviceEl.style.color = allColorRule.config.mainColor;
+            deviceEl.classList.add('glow');
+        } else {
+            // Check for OnOff-Color rule
+            const iconColorRule = device.rules?.find(r => r.type === 'iconColor');
+            if (iconColorRule?.config) {
+                deviceEl.setAttribute('data-color-rule', 'true');
+                deviceEl.setAttribute('data-on-color', iconColorRule.config.onColor);
+                deviceEl.setAttribute('data-off-color', iconColorRule.config.offColor);
+                
+                const initialColor = device.state ? iconColorRule.config.onColor : iconColorRule.config.offColor;
+                deviceEl.style.backgroundColor = `${initialColor}A6`;
+                deviceEl.style.color = initialColor;
+                deviceEl.classList.add('glow');
+            } else {
+                // Default - white with glow
+                deviceEl.style.backgroundColor = 'rgba(255, 255, 255, 0.65)';
+                deviceEl.style.color = 'rgba(255, 255, 255, 0.8)';
+                deviceEl.classList.add('glow');
+            }
         }
     }
 };
 
-// Register the renderer
-if (!window.capabilityRenderers) {
-    window.capabilityRenderers = {};
-}
+// Make renderer globally available
+window.capabilityRenderers = window.capabilityRenderers || {};
 window.capabilityRenderers.dim = dimRenderer; 

@@ -1,5 +1,6 @@
 /* Base styles */
-html, body {
+html,
+body {
     width: 100%;
     height: 100%;
     margin: 0;
@@ -9,26 +10,100 @@ html, body {
 .homey-widget {
     width: 100%;
     height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    margin: 0;
+}
+
+.widget-container {
+    width: 100%;
+    height: 100%;
     position: relative;
     overflow: hidden;
-    background-color: transparent;
+    padding: 0;
+    margin: 0;
 }
 
 /* Blue background only when selecting */
 .floor-selector {
+    display: none;
+    width: 100%;
+    height: 100%;
+}
+
+.floor-selector.active {
+    display: flex;
+    width: 100%;
+    height: 100%;
     position: absolute;
     top: 0;
     left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgb(25, 118, 210);
     z-index: 9999;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
     pointer-events: auto;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(25, 118, 210, 0.95);
+}
+
+.floor-selector.error {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+    pointer-events: auto;
+    justify-content: center;
+    align-items: center;
+    background-color: red;
+}
+
+
+/* New loading state without background */
+.floor-selector.loading {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+    pointer-events: auto;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Flowing Circle Spinner */
+.spinner {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    position: relative;
+    background: linear-gradient(#666, #ccc);
+    animation: flow 1.4s ease-in-out infinite;
+}
+
+.spinner::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    right: 2px;
+    bottom: 2px;
+    background: white;
+    border-radius: 50%;
+}
+
+@keyframes flow {
+    0%, 100% {
+        transform: scale(0.8) rotate(0deg);
+    }
+    50% {
+        transform: scale(1.1) rotate(180deg);
+    }
 }
 
 /* Add rocket background only to selector */
@@ -39,7 +114,6 @@ html, body {
     left: 50%;
     transform: translate(-50%, -50%);
     width: 300px;
-    height: 300px;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.3)' stroke-width='1'%3E%3Cpath d='M12 2C12 2 17 4 17 12C17 20 12 22 12 22C12 22 7 20 7 12C7 4 12 2 12 2Z'/%3E%3Cpath d='M12 7C13.6569 7 15 8.34315 15 10C15 11.6569 13.6569 13 12 13C10.3431 13 9 11.6569 9 10C9 8.34315 10.3431 7 12 7Z'/%3E%3Cpath d='M7 12H4V14L7 15'/%3E%3Cpath d='M17 12H20V14L17 15'/%3E%3Cpath d='M10 19L8.5 21.5L12 22L15.5 21.5L14 19'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: center;
@@ -54,11 +128,14 @@ html, body {
 }
 
 .floor-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 16px;
-    max-width: 600px;
-    padding: 16px;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    z-index: 10000;
+    pointer-events: auto;
+    justify-content: center;
+    align-items: center;
 }
 
 .floor-card {
@@ -87,27 +164,25 @@ html, body {
     font-size: 16px;
 }
 
-/* Floor plan styles */
-.floor-plan-container {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 100;
-}
-
-.floor-plan {
+#floorPlanContainer {
     width: 100%;
     height: 100%;
     position: relative;
-    z-index: 50;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 15px;
 }
 
 .floor-map {
     width: 100%;
     height: 100%;
     object-fit: contain;
+    max-width: 100%;
+    max-height: 100%;
 }
 
 .rule-images-container {
@@ -132,20 +207,21 @@ html, body {
 
 .floor-select-container {
     display: flex;
-    gap: 10px;
     justify-content: center;
     align-items: center;
-    margin: 0;
+    padding-bottom: 5px;
+    margin: 0px;
+    width: 100%;
 }
 
 .floor-select {
-    padding: 8px 12px;
     border-radius: 8px;
     border: 2px solid #eee;
     background: white;
-    min-width: 200px;
+    width: 100%;
     font-size: 14px;
     color: #333;
+    padding: 5px;
     transition: border-color 0.2s;
 }
 
@@ -180,23 +256,28 @@ html, body {
 
 .welcome-message {
     text-align: center;
-    padding: 24px;
+    padding: 16px;
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    max-width: 400px;
-    margin: 0 auto;
+    width: fit-content;
+    min-width: 280px;
+    margin: 0;
+    position: relative;
+    z-index: 10001;
+    /* Debug background */
+    background-color: rgba(255,255,255,0.95);
 }
 
 .welcome-message h2 {
     color: #333;
-    margin: 0 0 16px 0;
-    font-size: 20px;
+    margin: 0 0 12px 0;
+    font-size: 18px;
 }
 
 .welcome-message p {
     color: #666;
-    margin: 0 0 24px 0;
+    margin: 0 0 16px 0;
     font-size: 14px;
 }
 
@@ -204,29 +285,130 @@ html, body {
     background: #fff5f5;
 }
 
+
+.welcome-message .homey-button-primary {
+    width: 100%;
+    padding: 5px;
+}
+
 .settings-button {
     position: absolute;
-    bottom: 16px;
-    right: 16px;
-    width: 40px;
-    height: 40px;
-    border-radius: 20px;
-    background: white;
+    bottom: 10px;
+    right: 10px;
+    width: 15px;
+    height: 15px;
     border: none;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    background: transparent;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
-    transition: transform 0.2s, background-color 0.2s;
+    z-index: 2000;
 }
 
 .settings-button:hover {
-    transform: scale(1.1);
-    background-color: #f5f5f5;
+    transform: scale(2.0);
 }
 
 .settings-button svg {
     color: #666;
+}
+
+/* Floor plan container */
+#floorPlanContainerDevices {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+}
+
+.floor-plan-device {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+    z-index: 100;
+}
+
+.floor-plan-device img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+.floor-plan-device.dragging {
+    opacity: 0.8;
+    z-index: 1000;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Space Loader */
+.space-loader {
+    text-align: center;
+    padding: 20px;
+}
+
+.rocket {
+    position: relative;
+    height: 60px;
+    margin-bottom: 15px;
+    animation: hover 1s infinite ease-in-out;
+}
+
+.rocket-body {
+    width: 20px;
+    height: 40px;
+    background: white;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    clip-path: polygon(50% 0%, 100% 80%, 100% 100%, 0 100%, 0 80%);
+}
+
+.exhaust {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 12px;
+    height: 20px;
+    clip-path: polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%);
+    background: linear-gradient(to bottom, 
+        rgba(255,165,0,0.8) 0%,
+        rgba(255,69,0,0.4) 100%);
+    animation: thrust 0.5s infinite;
+}
+
+@keyframes hover {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-5px);
+    }
+}
+
+@keyframes thrust {
+    0% {
+        height: 20px;
+        opacity: 0.8;
+    }
+    50% {
+        height: 25px;
+        opacity: 0.6;
+    }
+    100% {
+        height: 20px;
+        opacity: 0.8;
+    }
 }

@@ -21,9 +21,6 @@ class SpaceHomeyApp extends Homey.App {
       this.error('Failed to initialize:', error);
     }
 
-    // Register capabilities
-    this.capabilityManager.registerHandler(require('./lib/capabilities/onoff'));
-    this.capabilityManager.registerHandler(require('./lib/capabilities/dim'));
   }
 
   async getFloors() {

@@ -46,8 +46,22 @@
       "name": {
         "en": "Space Homey"
       },
-      "height": 400,
-      "settings": [],
+      "settings": [
+        {
+          "id": "widgetHeight",
+          "type": "number",
+          "label": {
+            "en": "Widget Height"
+          },
+          "value": 400,
+          "min": 200,
+          "max": 800,
+          "step": 50,
+          "hint": {
+            "en": "Height of the widget in pixels (200-800)"
+          }
+        }
+      ],
       "api": {
         "getFloors": {
           "method": "GET",

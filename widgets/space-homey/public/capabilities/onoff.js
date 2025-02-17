@@ -130,55 +130,63 @@ const onOffRenderer = {
 
         const deviceEl = document.createElement('div');
         deviceEl.className = 'light-button';
+        
         deviceEl.style.cssText = `
+            position: absolute;
             left: ${position.x}%;
             top: ${position.y}%;
+            transform: translate(-50%, -50%);
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+            z-index: 300;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            pointer-events: auto;
         `;
 
+        // Add device attributes
         deviceEl.setAttribute('data-name', device.name);
         deviceEl.setAttribute('data-device-id', device.id);
         deviceEl.setAttribute('data-capability', 'onoff');
+        deviceEl.setAttribute('data-state', device.state || false);
 
+        // Handle color rules
+        const allColorRule = device.rules?.find(r => r.type === 'allColor');
+        const iconColorRule = device.rules?.find(r => r.type === 'iconColor');
+
+        if (allColorRule?.config?.mainColor) {
+            deviceEl.setAttribute('data-all-color', allColorRule.config.mainColor);
+            deviceEl.setAttribute('data-color-rule', 'true');
+            deviceEl.style.backgroundColor = `${allColorRule.config.mainColor}A6`;
+            deviceEl.style.color = allColorRule.config.mainColor;
+        } else if (iconColorRule?.config) {
+            deviceEl.setAttribute('data-color-rule', 'true');
+            deviceEl.setAttribute('data-on-color', iconColorRule.config.onColor);
+            deviceEl.setAttribute('data-off-color', iconColorRule.config.offColor);
+            
+            const initialColor = device.state ? iconColorRule.config.onColor : iconColorRule.config.offColor;
+            deviceEl.style.backgroundColor = `${initialColor}A6`;
+            deviceEl.style.color = initialColor;
+        } else {
+            // Default styling for devices without rules - minimal background
+            deviceEl.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+        }
+
+        // Add icon if available
         if (device.iconObj?.url) {
             const img = document.createElement('img');
             img.src = device.iconObj.url;
             img.className = 'device-icon';
-            
-            // Check for All-Color rule first
-            const allColorRule = device.rules?.find(r => r.type === 'allColor');
-            if (allColorRule) {
-                deviceEl.setAttribute('data-all-color', allColorRule.config.mainColor);
-                deviceEl.style.setProperty('background-color', `${allColorRule.config.mainColor}A6`, 'important');
-                deviceEl.style.setProperty('color', allColorRule.config.mainColor, 'important');
-                deviceEl.classList.add('glow');
-            }
-            
-            // Check for OnOff-Color rule
-            const iconColorRule = device.rules?.find(r => r.type === 'iconColor');
-            if (iconColorRule) {
-                deviceEl.setAttribute('data-color-rule', 'true');
-                deviceEl.setAttribute('data-on-color', iconColorRule.config.onColor);
-                deviceEl.setAttribute('data-off-color', iconColorRule.config.offColor);
-                
-                const initialColor = device.state ? iconColorRule.config.onColor : iconColorRule.config.offColor;
-                deviceEl.style.setProperty('background-color', `${initialColor}A6`, 'important');
-                deviceEl.style.setProperty('color', initialColor, 'important');
-                deviceEl.classList.add('glow');
-            } else {
-                // Default - white with glow
-                deviceEl.style.setProperty('background-color', 'rgba(255, 255, 255, 0.65)', 'important');
-                deviceEl.style.setProperty('color', 'rgba(255, 255, 255, 0.8)', 'important');
-                deviceEl.classList.add('glow');
-            }
-            
+            img.style.cssText = `
+                width: 14px;
+                height: 14px;
+                object-fit: contain;
+            `;
             deviceEl.appendChild(img);
-        }
-
-        // Handle Image View rule
-        const imageRule = device.rules?.find(r => r.type === 'imageView');
-        if (imageRule) {
-            deviceEl.setAttribute('data-image-rule', 'true');
-            this.updateImageRule(device.id, imageRule, device.state || false);
         }
 
         return deviceEl;
@@ -419,39 +427,41 @@ const onOffRenderer = {
             const allColor = deviceEl.getAttribute('data-all-color');
             
             Homey.api('POST', '/log', { 
-                message: `handleDeviceUpdate called - Device: ${deviceId}, Value: ${value}` 
+                message: `Updating device ${deviceId} - Value: ${value}, HasColorRule: ${hasColorRule}, AllColor: ${allColor}` 
             });
 
-            // Set the state
+            // Set the state and toggle class
             deviceEl.setAttribute('data-state', value);
+            deviceEl.classList.toggle('on', value);
 
-            // Handle color rules first
+            // Handle color rules
             if (allColor) {
-                deviceEl.style.setProperty('background-color', `${allColor}A6`, 'important');
-                deviceEl.style.setProperty('color', allColor, 'important');
-                deviceEl.classList.add('glow');
+                deviceEl.style.backgroundColor = `${allColor}A6`;
+                deviceEl.style.color = allColor;
             } else if (hasColorRule) {
-                const color = value ? 
-                    deviceEl.getAttribute('data-on-color') : 
-                    deviceEl.getAttribute('data-off-color');
-                deviceEl.style.setProperty('background-color', `${color}A6`, 'important');
-                deviceEl.style.setProperty('color', color, 'important');
-                deviceEl.classList.add('glow');
+                const onColor = deviceEl.getAttribute('data-on-color');
+                const offColor = deviceEl.getAttribute('data-off-color');
+                const color = value ? onColor : offColor;
+                
+                Homey.api('POST', '/log', { 
+                    message: `Applying color rule - OnColor: ${onColor}, OffColor: ${offColor}, Selected: ${color}` 
+                });
+
+                deviceEl.style.backgroundColor = `${color}A6`;
+                deviceEl.style.color = color;
+            } else {
+                deviceEl.style.backgroundColor = 'rgba(255, 255, 255, 0.65)';
+                deviceEl.style.color = 'rgba(255, 255, 255, 0.8)';
             }
 
-            // Handle image rule
+            // Handle image rule if present
             const hasImageRule = deviceEl.getAttribute('data-image-rule') === 'true';
             if (hasImageRule) {
                 const imageRule = this.findDeviceRule(deviceId, 'imageView');
                 if (imageRule && imageRule.config) {
                     this.updateImageRule(deviceId, imageRule, value);
-                } else {
-                    Homey.api('POST', '/log', { 
-                        message: `No valid image rule found for device ${deviceId}` 
-                    });
                 }
             }
-            
         } catch (error) {
             Homey.api('POST', '/log', { message: `Error in handleDeviceUpdate: ${error.message}` });
         }

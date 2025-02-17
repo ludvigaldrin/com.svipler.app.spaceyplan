@@ -33,6 +33,9 @@ const dimRenderer = {
         deviceEl.setAttribute('data-capability', this.id);
         deviceEl.setAttribute('data-state', device.state || false);
 
+        // Store device data for later use
+        deviceEl.setAttribute('data-device', JSON.stringify(device));
+
         // Add icon if available
         if (device.iconObj?.url) {
             const iconWrapper = document.createElement('div');
@@ -63,9 +66,6 @@ const dimRenderer = {
             iconWrapper.appendChild(img);
             deviceEl.appendChild(iconWrapper);
         }
-
-        // Apply color rules if any
-        this.applyInitialColorRules(device, deviceEl);
 
         // Create a promise to handle image loading and positioning
         const positionDevice = () => {
@@ -131,6 +131,13 @@ const dimRenderer = {
                 deviceEl.classList.toggle('on', response.onoff);
             }
 
+            // Get stored device data and update with real state
+            const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
+            deviceData.state = response.onoff;
+
+            // Now apply color rules with correct state
+            this.applyInitialColorRules(deviceData, deviceEl);
+
             await Homey.api('POST', `/subscribeToDevices`, {
                 widgetId: widgetId,
                 devices: [
@@ -138,14 +145,6 @@ const dimRenderer = {
                     { deviceId, capability: 'onoff' }
                 ]
             });
-
-            // Apply color rules after we have the initial state
-            const device = {
-                ...JSON.parse(deviceEl.getAttribute('data-device')),
-                state: response.onoff
-            };
-            this.applyInitialColorRules(device, deviceEl);
-
         } catch (error) {
             console.error('Error initializing state:', error);
         }
@@ -218,7 +217,7 @@ const dimRenderer = {
             const newState = !currentState;
 
             // Update visual state immediately
-            this.handleDeviceUpdate(deviceEl, newState, newState);
+            this.handleDeviceUpdate(deviceEl, newState, 'onoff');
 
             // Send the state change to the device
             await Homey.api('PUT', `/devices/${deviceId}/capabilities/onoff`, {
@@ -229,13 +228,51 @@ const dimRenderer = {
         }
     },
 
-    handleDeviceUpdate(deviceEl, value, dimValue) {
+    handleDeviceUpdate(deviceEl, value, capability) {
         if (!deviceEl) return;
 
-        deviceEl.setAttribute('data-state', value);
-        deviceEl.classList.toggle('on', value);
-        if (typeof dimValue !== 'undefined') {
-            deviceEl.setAttribute('data-dim', dimValue);
+        // Update device state based on capability
+        if (capability === 'onoff') {
+            deviceEl.setAttribute('data-state', value);
+            deviceEl.classList.toggle('on', value);
+        } else if (capability === 'dim') {
+            deviceEl.setAttribute('data-dim', value);
+            // If dim value is 0, treat as off, otherwise on
+            deviceEl.setAttribute('data-state', value > 0);
+            deviceEl.classList.toggle('on', value > 0);
+        }
+
+        // Handle image rule
+        if (deviceEl.getAttribute('data-image-rule') === 'true') {
+            const deviceId = deviceEl.getAttribute('data-device-id');
+            // Add back the -dim suffix for image lookup
+            const imageId = `${deviceId}-dim`;
+            const imageEl = document.querySelector(`img[data-image-device-id="${imageId}"]`);
+            if (imageEl) {
+                try {
+                    const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
+                    const imageViewRule = deviceData.rules?.find(r => r.type === 'imageView');
+                    
+                    if (imageViewRule?.config) {
+                        const getVisibilityValue = (value) => {
+                            if (value === 'show') return 1;
+                            if (value === 'hide') return 0;
+                            return parseFloat(value);
+                        };
+
+                        // For dim capability, use the value directly if it's a dim update
+                        // For onoff capability, use the boolean value
+                        const isOn = capability === 'dim' ? value > 0 : value;
+                        const visibility = isOn ? 
+                            getVisibilityValue(imageViewRule.config.onStateVisibility) : 
+                            getVisibilityValue(imageViewRule.config.offStateVisibility);
+
+                        imageEl.style.opacity = visibility;
+                    }
+                } catch (error) {
+                    console.error('Error updating image visibility:', error);
+                }
+            }
         }
 
         // Update colors if there's a color rule
@@ -276,15 +313,65 @@ const dimRenderer = {
                 powerButton.classList.toggle('on', value);
             }
             const dimSlider = modal.querySelector('.dim-slider');
-            if (dimSlider && typeof dimValue !== 'undefined') {
-                dimSlider.value = dimValue;
+            if (dimSlider && capability === 'dim') {
+                dimSlider.value = value;
             }
         }
     },
 
     applyInitialColorRules(device, deviceEl) {
-        console.log('Initial device state:', device.state);
+        // Store complete device data including rules
+        deviceEl.setAttribute('data-device', JSON.stringify(device));
+        
         const iconWrapper = deviceEl.querySelector('.icon-wrapper');
+
+        // Check for Image View rule (can coexist with color rules)
+        const imageViewRule = device.rules?.find(r => r.type === 'imageView');
+        if (imageViewRule?.config) {
+            deviceEl.setAttribute('data-image-rule', 'true');
+            
+            // Create image element if it doesn't exist
+            let imageEl = document.querySelector(`img[data-image-device-id="${device.id}"]`);
+            if (!imageEl && imageViewRule.config.imageData) {
+                const container = document.getElementById('floorPlanContainer');
+                const floorMapImage = document.getElementById('floorMapImage');
+                
+                imageEl = document.createElement('img');
+                imageEl.className = 'device-state-image';
+                imageEl.setAttribute('data-image-device-id', device.id);
+                imageEl.src = imageViewRule.config.imageData;
+                
+                // Position and size relative to the floor map image
+                const rect = floorMapImage.getBoundingClientRect();
+                imageEl.style.cssText = `
+                    position: absolute;
+                    top: ${rect.top}px;
+                    left: ${rect.left}px;
+                    width: ${rect.width}px;
+                    height: ${rect.height}px;
+                    object-fit: cover;
+                    transition: opacity 0.3s ease;
+                    pointer-events: none;
+                    z-index: 200;
+                `;
+                container.appendChild(imageEl);
+            }
+
+            // Set initial visibility based on state
+            if (imageEl) {
+                const getVisibilityValue = (value) => {
+                    if (value === 'show') return 1;
+                    if (value === 'hide') return 0;
+                    return parseFloat(value);
+                };
+
+                const visibility = device.state ? 
+                    getVisibilityValue(imageViewRule.config.onStateVisibility) : 
+                    getVisibilityValue(imageViewRule.config.offStateVisibility);
+
+                imageEl.style.opacity = visibility;
+            }
+        }
 
         // Check for All-Color rule first
         const allColorRule = device.rules?.find(r => r.type === 'allColor');

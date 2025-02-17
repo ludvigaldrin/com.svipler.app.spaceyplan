@@ -327,54 +327,44 @@ const onOffRenderer = {
     applyInitialColorRules(device, deviceEl) {
         // Store complete device data including rules
         deviceEl.setAttribute('data-device', JSON.stringify(device));
-
+        
         const iconWrapper = deviceEl.querySelector('.icon-wrapper');
 
         // Check for Image View rule (can coexist with color rules)
         const imageViewRule = device.rules?.find(r => r.type === 'imageView');
         if (imageViewRule?.config) {
             deviceEl.setAttribute('data-image-rule', 'true');
-
+            
             // Create image element if it doesn't exist
             let imageEl = document.querySelector(`img[data-image-device-id="${device.id}"]`);
             if (!imageEl && imageViewRule.config.imageData) {
-                const container = document.getElementById('floorPlanContainer');
-                const floorMapImage = document.getElementById('floorMapImage');
-
+                const imageWrapper = document.getElementById('imageWrapper');
+                
                 imageEl = document.createElement('img');
                 imageEl.className = 'device-state-image';
                 imageEl.setAttribute('data-image-device-id', device.id);
                 imageEl.src = imageViewRule.config.imageData;
-
-                // Position and size relative to the floor map image
-                const rect = floorMapImage.getBoundingClientRect();
+                
+                // Position relative to the image wrapper
                 imageEl.style.cssText = `
                     position: absolute;
-                    top: ${rect.top}px;
-                    left: ${rect.left}px;
-                    width: ${rect.width}px;
-                    height: ${rect.height}px;
-                    object-fit: cover;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    object-fit: contain;
                     transition: opacity 0.3s ease;
                     pointer-events: none;
                     z-index: 200;
                 `;
-                container.appendChild(imageEl);
+                imageWrapper.appendChild(imageEl);
             }
 
-            // Set initial visibility based on state
+            // Set initial visibility based on device state
             if (imageEl) {
-                const getVisibilityValue = (value) => {
-                    if (value === 'show') return 1;
-                    if (value === 'hide') return 0;
-                    return parseFloat(value);
-                };
-
-                const visibility = device.state ?
-                    getVisibilityValue(imageViewRule.config.onStateVisibility) :
-                    getVisibilityValue(imageViewRule.config.offStateVisibility);
-
-                imageEl.style.opacity = visibility;
+                const isVisible = device.state === true;
+                const showOnState = imageViewRule.config.onStateVisibility === 'show';
+                imageEl.style.opacity = (isVisible === showOnState) ? '1' : '0';
             }
         }
 

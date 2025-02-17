@@ -84,6 +84,7 @@ async function showFloorSelector(floors) {
             <button id="applyButton" class="homey-button-primary" disabled>
                 Select Floor
             </button>
+            <small style="color: #000; font-size: 8px;">Note! You cant be in Widget edit to select!</small>
         </div>
     `;
 
@@ -242,7 +243,7 @@ function showErrorMessage() {
 
 /** HELPERS */
 function addSettingsButton() {
-    const container = document.getElementById('floorPlanContainer');
+    const container = document.querySelector('.widget-container');
     if (!container) return;
 
     const settingsButton = document.createElement('button');

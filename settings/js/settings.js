@@ -361,16 +361,16 @@ function onHomeyReady(Homey) {
 
     async function saveFloors() {
         try {
-            Homey.api('POST', '/log', { 
-                message: 'Attempting to save floors...' 
-            }, () => {});
-            
+            Homey.api('POST', '/log', {
+                message: 'Attempting to save floors...'
+            }, () => { });
+
             await Homey.set('floors', floors);
-            
-            Homey.api('POST', '/log', { 
-                message: 'Floors saved successfully' 
-            }, () => {});
-            
+
+            Homey.api('POST', '/log', {
+                message: 'Floors saved successfully'
+            }, () => { });
+
             return Promise.resolve();
         } catch (err) {
             return Promise.reject(new Error('Failed to save floors: ' + err.message));
@@ -445,8 +445,8 @@ function onHomeyReady(Homey) {
                 </div>
                 <div class="floor-device-rules" id="rules-${device.id}" style="display: none;">
                     <div class="floor-rules-content">
-                        ${device.rules && device.rules.length > 0 
-                            ? device.rules.map(rule => `
+                        ${device.rules && device.rules.length > 0
+                ? device.rules.map(rule => `
                                 <div class="floor-rule-item">
                                     <div class="floor-rule-info">
                                         <span>${rule.name}</span>
@@ -465,8 +465,8 @@ function onHomeyReady(Homey) {
                                     </div>
                                 </div>
                             `).join('')
-                            : '<p class="no-rules-message">No rules configured</p>'
-                        }
+                : '<p class="no-rules-message">No rules configured</p>'
+            }
                         <button class="add-rule-button" onclick="addNewRule('${device.id}')">
                             <svg width="16" height="16" viewBox="0 0 24 24">
                                 <path fill="#00a0dc" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
@@ -482,7 +482,6 @@ function onHomeyReady(Homey) {
     }
 
     function addDeviceToFloor(device, capability) {
-
         const currentFloor = floors.find(f => f.id === currentFloorId);
         if (!currentFloor) {
             Homey.api('POST', '/log', { message: 'No current floor found!' }, () => { });
@@ -497,11 +496,24 @@ function onHomeyReady(Homey) {
             capability: capability,
             iconObj: device.iconObj,
             position: {
-                x: 85, // More comfortable bottom right position
-                y: 85
-            }
+                x: 15,
+                y: 15
+            },
+            rules: []  // Initialize rules array
         };
 
+        // Add default color rule for onoff and dim capabilities
+        if (capability === 'onoff' || capability === 'dim') {
+            newDevice.rules.push({
+                id: Date.now().toString(),
+                name: 'On/Off - Icon Color Switcher',
+                type: 'iconColor',
+                config: {
+                    onColor: '#ffeb3b',  // Yellow
+                    offColor: '#ffffff'   // White
+                }
+            });
+        }
 
         // Add to devices array if it doesn't exist
         if (!currentFloor.devices) {
@@ -581,8 +593,8 @@ function onHomeyReady(Homey) {
         const image = document.getElementById('floorMapImage');
         const wrapper = document.getElementById('imageWrapper');
         const parentContainer = wrapper.parentElement;
-        
-        Homey.api('POST', '/log', { 
+
+        Homey.api('POST', '/log', {
             message: `Settings Parent Container: ${parentContainer.offsetWidth}x${parentContainer.offsetHeight}, Wrapper: ${wrapper.offsetWidth}x${wrapper.offsetHeight}`
         });
 
@@ -595,14 +607,14 @@ function onHomeyReady(Homey) {
         }
 
         // Debug logging for actual image dimensions
-        Homey.api('POST', '/log', { 
+        Homey.api('POST', '/log', {
             message: `Settings Image: Natural(${image.naturalWidth}x${image.naturalHeight}), Actual(${image.offsetWidth}x${image.offsetHeight}), Style(${window.getComputedStyle(image).width}x${window.getComputedStyle(image).height})`
         });
 
         const wrapperRect = wrapper.getBoundingClientRect();
-        
+
         // Debug logging
-        Homey.api('POST', '/log', { 
+        Homey.api('POST', '/log', {
             message: `Settings Render: Image(${image.naturalWidth}x${image.naturalHeight}) Wrapper(${wrapperRect.width}x${wrapperRect.height})`
         });
 
@@ -655,9 +667,9 @@ function onHomeyReady(Homey) {
             // Use percentages directly for positioning
             const displayX = (device.position.x / 100) * wrapperRect.width;
             const displayY = (device.position.y / 100) * wrapperRect.height;
-            
+
             // Debug logging
-            Homey.api('POST', '/log', { 
+            Homey.api('POST', '/log', {
                 message: `Settings Device ${device.id}: Original(${device.position.x}%, ${device.position.y}%) Calculated(${displayX}px, ${displayY}px)`
             });
 
@@ -713,7 +725,7 @@ function onHomeyReady(Homey) {
     function handleDrag(e) {
         e.preventDefault();
         const isTouchEvent = e.type === 'touchmove';
-        
+
         const device = document.querySelector('.dragging');
         if (!device) return;
 
@@ -742,7 +754,7 @@ function onHomeyReady(Homey) {
         // Update visual position
         device.style.transform = `translate(${relativeX}px, ${relativeY}px)`;
     }
-    
+
     function handleDragEnd(e) {
         const device = document.querySelector('.dragging');
         if (!device) return;
@@ -789,10 +801,10 @@ function onHomeyReady(Homey) {
         // Save floors
         saveFloors()
             .then(() => {
-                Homey.api('POST', '/log', { message: 'Position saved successfully' }, () => {});
+                Homey.api('POST', '/log', { message: 'Position saved successfully' }, () => { });
             })
             .catch(err => {
-                Homey.api('POST', '/log', { message: `Save error: ${err.message}` }, () => {});
+                Homey.api('POST', '/log', { message: `Save error: ${err.message}` }, () => { });
                 Homey.alert('Failed to save device position: ' + err.message);
                 renderFloorPlanDevices(currentFloor);
             });
@@ -834,13 +846,13 @@ function onHomeyReady(Homey) {
         }
     };
 
-    window.addNewRule = function(deviceId) {
+    window.addNewRule = function (deviceId) {
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
-        
+
         const modal = document.createElement('div');
         modal.className = 'modal-content';
-        
+
         // Initial rule selection view
         modal.innerHTML = `
             <div class="modal-header">
@@ -888,7 +900,7 @@ function onHomeyReady(Homey) {
         });
 
         // Handle rule type selection
-        ruleTypeSelect.addEventListener('change', function() {
+        ruleTypeSelect.addEventListener('change', function () {
             const ruleType = this.value;
             if (!ruleType) {
                 ruleConfig.innerHTML = '';
@@ -923,7 +935,7 @@ function onHomeyReady(Homey) {
                 const currentFloor = floors.find(f => f.id === currentFloorId);
                 const device = currentFloor.devices.find(d => d.id === deviceId);
                 const existingRule = ruleId ? device.rules.find(r => r.id === ruleId) : null;
-                
+
                 ruleConfig.innerHTML = `
                     <div class="image-rule-config">
                         <div class="image-upload-group">
@@ -937,15 +949,17 @@ function onHomeyReady(Homey) {
                             <div class="visibility-group">
                                 <label>On State</label>
                                 <select id="onStateVisibility" class="homey-form-input">
+                                 <option value="hide" ${existingRule?.config?.onStateVisibility === 'hide' ? 'selected' : ''}>Hide</option>
                                     <option value="show" ${existingRule?.config?.onStateVisibility === 'show' ? 'selected' : ''}>Show</option>
-                                    <option value="hide" ${existingRule?.config?.onStateVisibility === 'hide' ? 'selected' : ''}>Hide</option>
+                                   
                                 </select>
                             </div>
                             <div class="visibility-group">
                                 <label>Off State</label>
                                 <select id="offStateVisibility" class="homey-form-input">
+                                  <option value="show" ${existingRule?.config?.offStateVisibility === 'show' ? 'selected' : ''}>Show</option>
                                     <option value="hide" ${existingRule?.config?.offStateVisibility === 'hide' ? 'selected' : ''}>Hide</option>
-                                    <option value="show" ${existingRule?.config?.offStateVisibility === 'show' ? 'selected' : ''}>Show</option>
+                                  
                                 </select>
                             </div>
                         </div>
@@ -955,13 +969,13 @@ function onHomeyReady(Homey) {
                 // Add image upload handler
                 const imageInput = document.getElementById('ruleImage');
                 const preview = document.getElementById('ruleImagePreview');
-                
+
                 imageInput.addEventListener('change', (e) => {
                     const file = e.target.files[0];
                     if (!file) return;
 
                     const reader = new FileReader();
-                    reader.onload = function(e) {
+                    reader.onload = function (e) {
                         preview.innerHTML = `<img src="${e.target.result}">`;
                         saveButton.disabled = false;
                     };
@@ -978,20 +992,20 @@ function onHomeyReady(Homey) {
 
             const currentFloor = floors.find(f => f.id === currentFloorId);
             const device = currentFloor.devices.find(d => d.id === deviceId);
-            
+
             // Check if rule type already exists for this device (skip check for the rule being edited)
             if (!ruleId && device.rules && device.rules.some(r => r.type === ruleType)) {
-                Homey.alert(`This device already has a ${ruleType === 'iconColor' ? 'On/Off - Icon Color Switcher' : 
-                             ruleType === 'allColor' ? 'All - Icon Color' : 
-                             'On/Off - Image View'} rule`);
+                Homey.alert(`This device already has a ${ruleType === 'iconColor' ? 'On/Off - Icon Color Switcher' :
+                    ruleType === 'allColor' ? 'All - Icon Color' :
+                        'On/Off - Image View'} rule`);
                 return;
             }
 
             // Create rule object
             const ruleData = {
-                name: ruleType === 'iconColor' ? 'On/Off - Icon Color Switcher' : 
-                      ruleType === 'allColor' ? 'All - Icon Color' : 
-                      'On/Off - Image View',
+                name: ruleType === 'iconColor' ? 'On/Off - Icon Color Switcher' :
+                    ruleType === 'allColor' ? 'All - Icon Color' :
+                        'On/Off - Image View',
                 type: ruleType,
                 config: {}
             };
@@ -1008,7 +1022,7 @@ function onHomeyReady(Homey) {
                 };
             } else if (ruleType === 'imageView') {
                 const newImageData = document.getElementById('ruleImagePreview').querySelector('img')?.src;
-                
+
                 if (!newImageData && !ruleId) {
                     Homey.alert('Please upload an image');
                     return;
@@ -1051,14 +1065,14 @@ function onHomeyReady(Homey) {
         });
     }
 
-    window.deleteRule = function(deviceId, ruleId) {
+    window.deleteRule = function (deviceId, ruleId) {
         const currentFloor = floors.find(f => f.id === currentFloorId);
         const device = currentFloor.devices.find(d => d.id === deviceId);
-        
+
         if (!device || !device.rules) return;
-        
+
         device.rules = device.rules.filter(r => r.id !== ruleId);
-        
+
         saveFloors().then(() => {
             renderDevicesList(currentFloor.devices);
             Homey.alert('Rule deleted successfully!');
@@ -1067,19 +1081,19 @@ function onHomeyReady(Homey) {
         });
     };
 
-    window.editRule = function(deviceId, ruleId) {
+    window.editRule = function (deviceId, ruleId) {
         const currentFloor = floors.find(f => f.id === currentFloorId);
         const device = currentFloor.devices.find(d => d.id === deviceId);
         const rule = device.rules.find(r => r.id === ruleId);
-        
+
         if (!rule) return;
 
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
-        
+
         const modal = document.createElement('div');
         modal.className = 'modal-content';
-        
+
         // Reuse the same modal but change title and pre-fill values
         modal.innerHTML = `
             <div class="modal-header">
@@ -1157,7 +1171,7 @@ function onHomeyReady(Homey) {
     };
 
     // Add this new function
-    window.highlightDevice = function(deviceId) {
+    window.highlightDevice = function (deviceId) {
         const deviceEl = document.getElementById(`device-${deviceId}`);
         if (!deviceEl) return;
 

@@ -74,17 +74,12 @@ const onOffRenderer = {
                 const container = document.getElementById('floorPlanContainer');
 
                 const setPosition = () => {
-                    if (!floorMapImage || !container) {
-                        return;
-                    }
+                    if (!floorMapImage || !container) return;
+                    if (!floorMapImage.complete || floorMapImage.naturalWidth === 0) return;
 
-                    if (!floorMapImage.complete || floorMapImage.naturalWidth === 0) {
-                        return;
-                    }
-
-                    const containerRect = container.getBoundingClientRect();
-                    const displayX = (position.x / floorMapImage.naturalWidth) * containerRect.width;
-                    const displayY = (position.y / floorMapImage.naturalHeight) * containerRect.height;
+                    const wrapperRect = document.getElementById('imageWrapper').getBoundingClientRect();
+                    const displayX = (position.x / floorMapImage.naturalWidth) * wrapperRect.width;
+                    const displayY = (position.y / floorMapImage.naturalHeight) * wrapperRect.height;
 
                     deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
                     deviceEl.style.opacity = '1';
@@ -253,7 +248,7 @@ const onOffRenderer = {
                 try {
                     const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
                     const imageViewRule = deviceData.rules?.find(r => r.type === 'imageView');
-                    
+
                     if (imageViewRule?.config) {
                         const getVisibilityValue = (value) => {
                             if (value === 'show') return 1;
@@ -261,8 +256,8 @@ const onOffRenderer = {
                             return parseFloat(value);
                         };
 
-                        const visibility = value ? 
-                            getVisibilityValue(imageViewRule.config.onStateVisibility) : 
+                        const visibility = value ?
+                            getVisibilityValue(imageViewRule.config.onStateVisibility) :
                             getVisibilityValue(imageViewRule.config.offStateVisibility);
 
                         imageEl.style.opacity = visibility;
@@ -316,25 +311,25 @@ const onOffRenderer = {
     applyInitialColorRules(device, deviceEl) {
         // Store complete device data including rules
         deviceEl.setAttribute('data-device', JSON.stringify(device));
-        
+
         const iconWrapper = deviceEl.querySelector('.icon-wrapper');
 
         // Check for Image View rule (can coexist with color rules)
         const imageViewRule = device.rules?.find(r => r.type === 'imageView');
         if (imageViewRule?.config) {
             deviceEl.setAttribute('data-image-rule', 'true');
-            
+
             // Create image element if it doesn't exist
             let imageEl = document.querySelector(`img[data-image-device-id="${device.id}"]`);
             if (!imageEl && imageViewRule.config.imageData) {
                 const container = document.getElementById('floorPlanContainer');
                 const floorMapImage = document.getElementById('floorMapImage');
-                
+
                 imageEl = document.createElement('img');
                 imageEl.className = 'device-state-image';
                 imageEl.setAttribute('data-image-device-id', device.id);
                 imageEl.src = imageViewRule.config.imageData;
-                
+
                 // Position and size relative to the floor map image
                 const rect = floorMapImage.getBoundingClientRect();
                 imageEl.style.cssText = `
@@ -359,8 +354,8 @@ const onOffRenderer = {
                     return parseFloat(value);
                 };
 
-                const visibility = device.state ? 
-                    getVisibilityValue(imageViewRule.config.onStateVisibility) : 
+                const visibility = device.state ?
+                    getVisibilityValue(imageViewRule.config.onStateVisibility) :
                     getVisibilityValue(imageViewRule.config.offStateVisibility);
 
                 imageEl.style.opacity = visibility;
@@ -390,7 +385,7 @@ const onOffRenderer = {
                 // Get the current state from the device
                 const currentState = device.state === true;
                 const initialColor = currentState ? iconColorRule.config.onColor : iconColorRule.config.offColor;
-                
+
                 deviceEl.style.backgroundColor = `${initialColor}59`;
                 deviceEl.style.boxShadow = `0 0 12px 3px ${initialColor}73`;
                 if (iconWrapper) {

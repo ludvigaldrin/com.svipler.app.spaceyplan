@@ -74,18 +74,13 @@ const dimRenderer = {
                 const container = document.getElementById('floorPlanContainer');
 
                 const setPosition = () => {
-                    if (!floorMapImage || !container) {
-                        return;
-                    }
-
-                    if (!floorMapImage.complete || floorMapImage.naturalWidth === 0) {
-                        return;
-                    }
-
-                    const containerRect = container.getBoundingClientRect();
-                    const displayX = (position.x / floorMapImage.naturalWidth) * containerRect.width;
-                    const displayY = (position.y / floorMapImage.naturalHeight) * containerRect.height;
-                    
+                    if (!floorMapImage || !container) return;
+                    if (!floorMapImage.complete || floorMapImage.naturalWidth === 0) return;
+                
+                    const wrapperRect = document.getElementById('imageWrapper').getBoundingClientRect();
+                    const displayX = (position.x / floorMapImage.naturalWidth) * wrapperRect.width;
+                    const displayY = (position.y / floorMapImage.naturalHeight) * wrapperRect.height;
+                
                     deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
                     deviceEl.style.opacity = '1';
                     resolve();

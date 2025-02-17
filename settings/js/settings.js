@@ -188,19 +188,6 @@ function onHomeyReady(Homey) {
             currentDeleteId = null;
         });
 
-        // Initialize HomeyAPI
-        async function initializeHomeyAPI() {
-            try {
-                if (!homeyApi) {
-                    homeyApi = await HomeyAPI.createAppAPI({ homey: Homey });
-                }
-                return homeyApi;
-            } catch (err) {
-                Homey.error('Failed to initialize HomeyAPI:', err);
-                throw new Error('Failed to initialize HomeyAPI');
-            }
-        }
-
         // Update the device search handler
         document.getElementById('deviceSearch').addEventListener('input', debounce(async function (e) {
             const searchTerm = e.target.value.toLowerCase().trim();
@@ -371,9 +358,19 @@ function onHomeyReady(Homey) {
 
     async function saveFloors() {
         try {
+            Homey.api('POST', '/log', { 
+                message: 'Attempting to save floors...' 
+            }, () => {});
+            
             await Homey.set('floors', floors);
+            
+            Homey.api('POST', '/log', { 
+                message: 'Floors saved successfully' 
+            }, () => {});
+            
+            return Promise.resolve();
         } catch (err) {
-            throw new Error('Failed to save: ' + err.message);
+            return Promise.reject(new Error('Failed to save floors: ' + err.message));
         }
     }
 
@@ -426,14 +423,14 @@ function onHomeyReady(Homey) {
         }
 
         const html = devices.map(device => `
-            <div class="device-wrapper">
-                <div class="device-item">
+            <div class="floor-device-wrapper">
+                <div class="floor-device-item">
                     <button class="expand-button" onclick="toggleDeviceRules('${device.id}')">
                         <svg width="20" height="20" viewBox="0 0 24 24">
                             <path fill="#666" d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/>
                         </svg>
                     </button>
-                    <div class="device-info">
+                    <div class="floor-device-info">
                         <span>${device.name} (${device.capability === 'dim' ? 'Dim' : 'On/Off'})</span>
                     </div>
                     <button class="icon-button delete-button" onclick="removeDevice('${device.id}')">
@@ -442,15 +439,15 @@ function onHomeyReady(Homey) {
                         </svg>
                     </button>
                 </div>
-                <div class="device-rules" id="rules-${device.id}" style="display: none;">
-                    <div class="rules-content">
+                <div class="floor-device-rules" id="rules-${device.id}" style="display: none;">
+                    <div class="floor-rules-content">
                         ${device.rules && device.rules.length > 0 
                             ? device.rules.map(rule => `
-                                <div class="rule-item">
-                                    <div class="rule-info">
+                                <div class="floor-rule-item">
+                                    <div class="floor-rule-info">
                                         <span>${rule.name}</span>
                                     </div>
-                                    <div class="rule-actions">
+                                    <div class="floor-rule-actions">
                                         <button class="rule-action-btn" onclick="editRule('${device.id}', '${rule.id}')">
                                             <svg width="20" height="20" viewBox="0 0 24 24">
                                                 <path fill="#666" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/>
@@ -603,7 +600,7 @@ function onHomeyReady(Homey) {
                     position: absolute;
                     width: 22px;
                     height: 22px;
-                    background: rgba(255, 255, 255, 0.65);
+                    background: rgba(94, 91, 91, 0.88);
                     border-radius: 50%;
                     display: flex;
                     align-items: center;
@@ -630,10 +627,10 @@ function onHomeyReady(Homey) {
             deviceEl.className = 'floor-plan-device';
             deviceEl.id = `device-${device.id}`;
 
-            // Convert original coordinates to current display size
-            const displayX = (device.position.x / imageNaturalWidth) * containerRect.width;
-            const displayY = (device.position.y / imageNaturalHeight) * containerRect.height;
-
+            // Use percentages directly for positioning
+            const displayX = (device.position.x / 100) * containerRect.width;
+            const displayY = (device.position.y / 100) * containerRect.height;
+            
             deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
 
             deviceEl.innerHTML = `
@@ -641,6 +638,7 @@ function onHomeyReady(Homey) {
             `;
 
             deviceEl.addEventListener('touchstart', handleDragStart, { passive: false });
+            deviceEl.addEventListener('mousedown', handleDragStart);
 
             container.appendChild(deviceEl);
         });
@@ -648,20 +646,17 @@ function onHomeyReady(Homey) {
 
     function handleDragStart(e) {
         e.preventDefault();
-
+        const isTouchEvent = e.type === 'touchstart';
         const container = document.getElementById('floorPlanContainer');
         const image = document.getElementById('floorMapImage');
         const containerRect = container.getBoundingClientRect();
-        const imageNaturalWidth = image.naturalWidth;
-        const imageNaturalHeight = image.naturalHeight;
 
         // Store original image dimensions for calculations
-        container.dataset.originalWidth = imageNaturalWidth;
-        container.dataset.originalHeight = imageNaturalHeight;
+        container.dataset.originalWidth = image.naturalWidth;
+        container.dataset.originalHeight = image.naturalHeight;
 
-        const touch = e.touches[0];
-        const clientX = touch.clientX;
-        const clientY = touch.clientY;
+        const clientX = isTouchEvent ? e.touches[0].clientX : e.clientX;
+        const clientY = isTouchEvent ? e.touches[0].clientY : e.clientY;
 
         const existingDragging = document.querySelector('.dragging');
         if (existingDragging) {
@@ -675,79 +670,102 @@ function onHomeyReady(Homey) {
         e.target.dataset.offsetX = clientX - deviceRect.left;
         e.target.dataset.offsetY = clientY - deviceRect.top;
 
-        document.addEventListener('touchmove', handleDrag, { passive: false });
-        document.addEventListener('touchend', handleDragEnd);
-        document.addEventListener('touchcancel', handleDragEnd);
+        if (isTouchEvent) {
+            document.addEventListener('touchmove', handleDrag, { passive: false });
+            document.addEventListener('touchend', handleDragEnd);
+            document.addEventListener('touchcancel', handleDragEnd);
+        } else {
+            document.addEventListener('mousemove', handleDrag);
+            document.addEventListener('mouseup', handleDragEnd);
+        }
     }
 
     function handleDrag(e) {
         e.preventDefault();
-
+        const isTouchEvent = e.type === 'touchmove';
+        
         const device = document.querySelector('.dragging');
         if (!device) return;
 
-        const container = document.getElementById('floorPlanContainer');
-        const containerRect = container.getBoundingClientRect();
-        const imageNaturalWidth = parseInt(container.dataset.originalWidth);
-        const imageNaturalHeight = parseInt(container.dataset.originalHeight);
+        const wrapper = document.getElementById('imageWrapper');
+        const wrapperRect = wrapper.getBoundingClientRect();
 
-        const touch = e.touches[0];
-        const clientX = touch.clientX;
-        const clientY = touch.clientY;
+        const clientX = isTouchEvent ? e.touches[0].clientX : e.clientX;
+        const clientY = isTouchEvent ? e.touches[0].clientY : e.clientY;
 
-        // Calculate position relative to container
-        let relativeX = clientX - containerRect.left;
-        let relativeY = clientY - containerRect.top;
+        // Calculate position relative to imageWrapper
+        let relativeX = clientX - wrapperRect.left;
+        let relativeY = clientY - wrapperRect.top;
 
-        // Constrain to container bounds
-        relativeX = Math.max(0, Math.min(relativeX, containerRect.width));
-        relativeY = Math.max(0, Math.min(relativeY, containerRect.height));
+        // Constrain to wrapper bounds
+        relativeX = Math.max(0, Math.min(relativeX, wrapperRect.width));
+        relativeY = Math.max(0, Math.min(relativeY, wrapperRect.height));
 
-        // Calculate position in original image coordinates
-        const originalX = (relativeX / containerRect.width) * imageNaturalWidth;
-        const originalY = (relativeY / containerRect.height) * imageNaturalHeight;
+        // Calculate percentage position relative to wrapper
+        const percentX = (relativeX / wrapperRect.width) * 100;
+        const percentY = (relativeY / wrapperRect.height) * 100;
 
-        // Store original coordinates in dataset
-        device.dataset.originalX = originalX;
-        device.dataset.originalY = originalY;
+        // Store coordinates in dataset
+        device.dataset.originalX = percentX;
+        device.dataset.originalY = percentY;
 
         // Update visual position
         device.style.transform = `translate(${relativeX}px, ${relativeY}px)`;
     }
-
+    
     function handleDragEnd(e) {
         const device = document.querySelector('.dragging');
         if (!device) return;
 
         device.classList.remove('dragging');
 
+        // Remove event listeners
         document.removeEventListener('touchmove', handleDrag, { passive: false });
         document.removeEventListener('touchend', handleDragEnd);
         document.removeEventListener('touchcancel', handleDragEnd);
+        document.removeEventListener('mousemove', handleDrag);
+        document.removeEventListener('mouseup', handleDragEnd);
 
         // Get position in original image coordinates
-        const originalX = parseFloat(device.dataset.originalX || 0);
-        const originalY = parseFloat(device.dataset.originalY || 0);
+        const originalX = parseFloat(device.dataset.originalX);
+        const originalY = parseFloat(device.dataset.originalY);
 
         // Update position in the floor data
         const deviceId = device.id.replace('device-', '');
         const currentFloor = floors.find(f => f.id === currentFloorId);
+        if (!currentFloor) {
+            Homey.alert('Error: Could not find current floor');
+            return;
+        }
+
         const deviceData = currentFloor.devices.find(d => d.id === deviceId);
+        if (!deviceData) {
+            Homey.alert('Error: Could not find device data');
+            return;
+        }
 
-        if (deviceData) {
-            deviceData.position = {
-                x: originalX,
-                y: originalY
-            };
+        // Update the position in the device data
+        deviceData.position = {
+            x: originalX,
+            y: originalY
+        };
 
-            // Save using the existing saveFloors function
-            saveFloors().then(() => {
-                // Position saved successfully
-            }).catch(err => {
+        // Find and update the floor in the main floors array
+        const floorIndex = floors.findIndex(f => f.id === currentFloorId);
+        if (floorIndex !== -1) {
+            floors[floorIndex] = currentFloor;
+        }
+
+        // Save floors
+        saveFloors()
+            .then(() => {
+                Homey.api('POST', '/log', { message: 'Position saved successfully' }, () => {});
+            })
+            .catch(err => {
+                Homey.api('POST', '/log', { message: `Save error: ${err.message}` }, () => {});
                 Homey.alert('Failed to save device position: ' + err.message);
                 renderFloorPlanDevices(currentFloor);
             });
-        }
     }
 
     // Make removeDevice function available globally

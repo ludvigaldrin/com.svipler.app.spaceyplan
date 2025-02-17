@@ -64,6 +64,9 @@ const dimRenderer = {
             deviceEl.appendChild(iconWrapper);
         }
 
+        // Apply color rules if any
+        this.applyInitialColorRules(device, deviceEl);
+
         // Create a promise to handle image loading and positioning
         const positionDevice = () => {
             return new Promise((resolve) => {
@@ -135,6 +138,14 @@ const dimRenderer = {
                     { deviceId, capability: 'onoff' }
                 ]
             });
+
+            // Apply color rules after we have the initial state
+            const device = {
+                ...JSON.parse(deviceEl.getAttribute('data-device')),
+                state: response.onoff
+            };
+            this.applyInitialColorRules(device, deviceEl);
+
         } catch (error) {
             console.error('Error initializing state:', error);
         }
@@ -207,7 +218,7 @@ const dimRenderer = {
             const newState = !currentState;
 
             // Update visual state immediately
-            this.handleDeviceUpdate(deviceEl, newState, 'onoff');
+            this.handleDeviceUpdate(deviceEl, newState, newState);
 
             // Send the state change to the device
             await Homey.api('PUT', `/devices/${deviceId}/capabilities/onoff`, {
@@ -218,37 +229,61 @@ const dimRenderer = {
         }
     },
 
-    handleDeviceUpdate(deviceEl, value, capability) {
-        try {
-            if (capability === 'onoff') {
-                deviceEl.setAttribute('data-state', value);
-                deviceEl.classList.toggle('on', value);
-            } else if (capability === 'dim') {
-                deviceEl.setAttribute('data-dim', value);
-            }
+    handleDeviceUpdate(deviceEl, value, dimValue) {
+        if (!deviceEl) return;
 
-            // Update modal if it exists
-            const modalId = deviceEl.getAttribute('data-device-id');
-            const modal = document.querySelector(`.device-modal[data-device-id="${modalId}"]`);
-            if (modal) {
-                if (capability === 'onoff') {
-                    const powerButton = modal.querySelector('.power-button');
-                    if (powerButton) {
-                        powerButton.classList.toggle('on', value);
-                    }
-                } else if (capability === 'dim') {
-                    const dimSlider = modal.querySelector('.dim-slider');
-                    if (dimSlider) {
-                        dimSlider.value = value;
+        deviceEl.setAttribute('data-state', value);
+        deviceEl.classList.toggle('on', value);
+        if (typeof dimValue !== 'undefined') {
+            deviceEl.setAttribute('data-dim', dimValue);
+        }
+
+        // Update colors if there's a color rule
+        if (deviceEl.getAttribute('data-color-rule') === 'true') {
+            const allColor = deviceEl.getAttribute('data-all-color');
+            if (allColor) {
+                // All-Color rule takes precedence
+                deviceEl.style.backgroundColor = `${allColor}59`;
+                deviceEl.style.boxShadow = `0 0 12px 3px ${allColor}73`;
+                const iconWrapper = deviceEl.querySelector('.icon-wrapper');
+                if (iconWrapper) {
+                    iconWrapper.style.backgroundColor = `${allColor}E6`;
+                    iconWrapper.style.boxShadow = `0 0 8px ${allColor}CC`;
+                }
+            } else {
+                // OnOff-Color rule
+                const onColor = deviceEl.getAttribute('data-on-color');
+                const offColor = deviceEl.getAttribute('data-off-color');
+                const currentColor = value ? onColor : offColor;
+                if (currentColor) {
+                    deviceEl.style.backgroundColor = `${currentColor}59`;
+                    deviceEl.style.boxShadow = `0 0 12px 3px ${currentColor}73`;
+                    const iconWrapper = deviceEl.querySelector('.icon-wrapper');
+                    if (iconWrapper) {
+                        iconWrapper.style.backgroundColor = `${currentColor}E6`;
+                        iconWrapper.style.boxShadow = `0 0 8px ${currentColor}CC`;
                     }
                 }
             }
-        } catch (error) {
-            console.error('Error in handleDeviceUpdate:', error);
+        }
+
+        // Update modal if it exists
+        const modalId = deviceEl.getAttribute('data-device-id');
+        const modal = document.querySelector(`.device-modal[data-device-id="${modalId}"]`);
+        if (modal) {
+            const powerButton = modal.querySelector('.power-button');
+            if (powerButton) {
+                powerButton.classList.toggle('on', value);
+            }
+            const dimSlider = modal.querySelector('.dim-slider');
+            if (dimSlider && typeof dimValue !== 'undefined') {
+                dimSlider.value = dimValue;
+            }
         }
     },
 
     applyInitialColorRules(device, deviceEl) {
+        console.log('Initial device state:', device.state);
         const iconWrapper = deviceEl.querySelector('.icon-wrapper');
 
         // Check for All-Color rule first
@@ -270,7 +305,10 @@ const dimRenderer = {
                 deviceEl.setAttribute('data-on-color', iconColorRule.config.onColor);
                 deviceEl.setAttribute('data-off-color', iconColorRule.config.offColor);
 
-                const initialColor = device.state ? iconColorRule.config.onColor : iconColorRule.config.offColor;
+                // Get the current state from the device
+                const currentState = device.state === true;
+                const initialColor = currentState ? iconColorRule.config.onColor : iconColorRule.config.offColor;
+                
                 deviceEl.style.backgroundColor = `${initialColor}59`;
                 deviceEl.style.boxShadow = `0 0 12px 3px ${initialColor}73`;
                 if (iconWrapper) {
@@ -278,7 +316,6 @@ const dimRenderer = {
                     iconWrapper.style.boxShadow = `0 0 8px ${initialColor}CC`;
                 }
             }
-            // Default styling is already set in createDeviceElement
         }
     },
 

@@ -63,6 +63,10 @@ const onOffRenderer = {
             iconWrapper.appendChild(img);
             deviceEl.appendChild(iconWrapper);
         }
+
+        // Apply color rules if any
+        this.applyInitialColorRules(device, deviceEl);
+
         // Create a promise to handle image loading and positioning
         const positionDevice = () => {
             return new Promise((resolve) => {
@@ -137,6 +141,13 @@ const onOffRenderer = {
                     { deviceId, capability: 'onoff' }
                 ]
             });
+
+            // Apply color rules after we have the initial state
+            const device = {
+                ...JSON.parse(deviceEl.getAttribute('data-device')),
+                state: response
+            };
+            this.applyInitialColorRules(device, deviceEl);
 
         } catch (error) {
             console.error('Error initializing onoff state:', error);
@@ -237,6 +248,35 @@ const onOffRenderer = {
         deviceEl.setAttribute('data-state', value);
         deviceEl.classList.toggle('on', value);
 
+        // Update colors if there's a color rule
+        if (deviceEl.getAttribute('data-color-rule') === 'true') {
+            const allColor = deviceEl.getAttribute('data-all-color');
+            if (allColor) {
+                // All-Color rule takes precedence
+                deviceEl.style.backgroundColor = `${allColor}59`;
+                deviceEl.style.boxShadow = `0 0 12px 3px ${allColor}73`;
+                const iconWrapper = deviceEl.querySelector('.icon-wrapper');
+                if (iconWrapper) {
+                    iconWrapper.style.backgroundColor = `${allColor}E6`;
+                    iconWrapper.style.boxShadow = `0 0 8px ${allColor}CC`;
+                }
+            } else {
+                // OnOff-Color rule
+                const onColor = deviceEl.getAttribute('data-on-color');
+                const offColor = deviceEl.getAttribute('data-off-color');
+                const currentColor = value ? onColor : offColor;
+                if (currentColor) {
+                    deviceEl.style.backgroundColor = `${currentColor}59`;
+                    deviceEl.style.boxShadow = `0 0 12px 3px ${currentColor}73`;
+                    const iconWrapper = deviceEl.querySelector('.icon-wrapper');
+                    if (iconWrapper) {
+                        iconWrapper.style.backgroundColor = `${currentColor}E6`;
+                        iconWrapper.style.boxShadow = `0 0 8px ${currentColor}CC`;
+                    }
+                }
+            }
+        }
+
         // Update modal if it exists
         const modalId = deviceEl.getAttribute('data-device-id');
         const modal = document.querySelector(`.device-modal[data-device-id="${modalId}"]`);
@@ -249,11 +289,13 @@ const onOffRenderer = {
     },
 
     applyInitialColorRules(device, deviceEl) {
+        console.log('Initial device state:', device.state);
         const iconWrapper = deviceEl.querySelector('.icon-wrapper');
 
         // Check for All-Color rule first
         const allColorRule = device.rules?.find(r => r.type === 'allColor');
         if (allColorRule?.config?.mainColor) {
+            console.log('Applying allColor rule:', allColorRule.config.mainColor);
             deviceEl.setAttribute('data-all-color', allColorRule.config.mainColor);
             deviceEl.setAttribute('data-color-rule', 'true');
             deviceEl.style.backgroundColor = `${allColorRule.config.mainColor}59`;
@@ -270,7 +312,10 @@ const onOffRenderer = {
                 deviceEl.setAttribute('data-on-color', iconColorRule.config.onColor);
                 deviceEl.setAttribute('data-off-color', iconColorRule.config.offColor);
 
-                const initialColor = device.state ? iconColorRule.config.onColor : iconColorRule.config.offColor;
+                // Get the current state from the device
+                const currentState = device.state === true;
+                const initialColor = currentState ? iconColorRule.config.onColor : iconColorRule.config.offColor;
+                
                 deviceEl.style.backgroundColor = `${initialColor}59`;
                 deviceEl.style.boxShadow = `0 0 12px 3px ${initialColor}73`;
                 if (iconWrapper) {
@@ -278,7 +323,6 @@ const onOffRenderer = {
                     iconWrapper.style.boxShadow = `0 0 8px ${initialColor}CC`;
                 }
             }
-            // Default styling is already set in createDeviceElement
         }
     },
 

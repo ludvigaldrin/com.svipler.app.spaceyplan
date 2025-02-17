@@ -11,7 +11,7 @@ const onOffRenderer = {
                     width: 22px;
                     height: 22px;
                     cursor: pointer;
-                    z-index: 201;
+                    z-index: 300;
                     border-radius: 50%;
                     display: flex;
                     align-items: center;
@@ -178,7 +178,7 @@ const onOffRenderer = {
         const imageRule = device.rules?.find(r => r.type === 'imageView');
         if (imageRule) {
             deviceEl.setAttribute('data-image-rule', 'true');
-            this.updateImageRule(device.id, imageRule, false);
+            this.updateImageRule(device.id, imageRule, device.state || false);
         }
 
         return deviceEl;
@@ -412,33 +412,30 @@ const onOffRenderer = {
         document.body.appendChild(overlay);
     },
 
-    async handleDeviceUpdate(deviceEl, value) {
+    handleDeviceUpdate(deviceEl, value) {
         try {
             const deviceId = deviceEl.getAttribute('data-device-id');
             const hasColorRule = deviceEl.getAttribute('data-color-rule') === 'true';
             const allColor = deviceEl.getAttribute('data-all-color');
             
+            Homey.api('POST', '/log', { 
+                message: `handleDeviceUpdate called - Device: ${deviceId}, Value: ${value}` 
+            });
+
             // Set the state
             deviceEl.setAttribute('data-state', value);
 
+            // Handle color rules first
             if (allColor) {
-                // All-Color rule takes precedence
                 deviceEl.style.setProperty('background-color', `${allColor}A6`, 'important');
                 deviceEl.style.setProperty('color', allColor, 'important');
                 deviceEl.classList.add('glow');
             } else if (hasColorRule) {
-                // OnOff-Color rule
                 const color = value ? 
                     deviceEl.getAttribute('data-on-color') : 
                     deviceEl.getAttribute('data-off-color');
                 deviceEl.style.setProperty('background-color', `${color}A6`, 'important');
                 deviceEl.style.setProperty('color', color, 'important');
-                deviceEl.classList.add('glow');
-            } else {
-                // Default - white with glow
-                const whiteColor = 'rgb(255, 255, 255)';
-                deviceEl.style.setProperty('background-color', `${whiteColor}A6`, 'important');
-                deviceEl.style.setProperty('color', whiteColor, 'important');
                 deviceEl.classList.add('glow');
             }
 
@@ -446,40 +443,108 @@ const onOffRenderer = {
             const hasImageRule = deviceEl.getAttribute('data-image-rule') === 'true';
             if (hasImageRule) {
                 const imageRule = this.findDeviceRule(deviceId, 'imageView');
-                if (imageRule) {
+                if (imageRule && imageRule.config) {
                     this.updateImageRule(deviceId, imageRule, value);
+                } else {
+                    Homey.api('POST', '/log', { 
+                        message: `No valid image rule found for device ${deviceId}` 
+                    });
                 }
             }
-
-            // Update modal if open
-            const modalButton = document.querySelector('.power-button');
-            if (modalButton) {
-                modalButton.classList.toggle('on', value);
-            }
+            
         } catch (error) {
             Homey.api('POST', '/log', { message: `Error in handleDeviceUpdate: ${error.message}` });
         }
     },
 
     updateImageRule(deviceId, rule, state) {
-        const container = document.getElementById('ruleImagesContainer');
-        const imageId = `rule-image-${deviceId}`;
-        let imageEl = document.getElementById(imageId);
+        try {
+            if (!rule || !rule.config) {
+                Homey.api('POST', '/log', { message: `Invalid rule or config for device ${deviceId}` });
+                return;
+            }
 
-        const shouldShow = (state && rule.config.onStateVisibility === 'show') ||
-                          (!state && rule.config.offStateVisibility === 'show');
+            // Convert state to boolean if it's a string
+            const boolState = state === true || state === 'true';
 
-        if (shouldShow) {
-            if (!imageEl) {
+            Homey.api('POST', '/log', { 
+                message: `Starting updateImageRule - Device: ${deviceId}, Raw state: ${state}, Bool state: ${boolState}, Rule type: ${rule.type}` 
+            });
+
+            const container = document.getElementById('ruleImagesContainer');
+            const imageId = `rule-image-${deviceId}`;
+            let imageEl = document.getElementById(imageId);
+
+            // When state is ON and onStateVisibility is 'hide', we should hide
+            // When state is OFF and offStateVisibility is 'hide', we should hide
+            const shouldHide = (boolState && rule.config.onStateVisibility === 'hide') ||
+                              (!boolState && rule.config.offStateVisibility === 'hide');
+
+            Homey.api('POST', '/log', { 
+                message: `Visibility calculation - Device: ${deviceId}, State: ${boolState}, OnStateVis: ${rule.config.onStateVisibility}, OffStateVis: ${rule.config.offStateVisibility}, ShouldHide: ${shouldHide}` 
+            });
+
+            if (!container) {
+                const newContainer = document.createElement('div');
+                newContainer.id = 'ruleImagesContainer';
+                newContainer.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100vw;
+                    height: 100vh;
+                    pointer-events: none;
+                    z-index: 200;
+                `;
+                document.body.appendChild(newContainer);
+            }
+
+            if (!imageEl && rule.config.imageData) {
                 imageEl = document.createElement('img');
                 imageEl.id = imageId;
                 imageEl.src = rule.config.imageData;
-                imageEl.style.cssText = 'position: absolute; z-index: 200; pointer-events: none;';
-                container.appendChild(imageEl);
+                imageEl.style.cssText = `
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    pointer-events: none;
+                    z-index: 200;
+                    object-fit: contain;
+                    opacity: 0;
+                    transition: opacity 0.3s ease;
+                    display: none;
+                `;
+                (container || document.getElementById('ruleImagesContainer')).appendChild(imageEl);
             }
-            imageEl.style.display = 'block';
-        } else if (imageEl) {
-            imageEl.style.display = 'none';
+
+            if (imageEl) {
+                const currentDisplay = imageEl.style.display;
+                const currentOpacity = imageEl.style.opacity;
+
+                Homey.api('POST', '/log', { 
+                    message: `Current image state - Display: ${currentDisplay}, Opacity: ${currentOpacity}, Will ${shouldHide ? 'hide' : 'show'} image` 
+                });
+
+                if (!shouldHide) {
+                    if (currentDisplay === 'none') {
+                        imageEl.style.display = 'block';
+                        setTimeout(() => {
+                            imageEl.style.opacity = '1';
+                        }, 50);
+                    }
+                } else {
+                    if (currentDisplay !== 'none') {
+                        imageEl.style.opacity = '0';
+                        setTimeout(() => {
+                            imageEl.style.display = 'none';
+                        }, 300);
+                    }
+                }
+            }
+        } catch (error) {
+            Homey.api('POST', '/log', { message: `Error in updateImageRule: ${error.message}` });
         }
     },
 

@@ -579,6 +579,36 @@ function onHomeyReady(Homey) {
         const container = document.getElementById('floorPlanDevices');
         container.innerHTML = '';
 
+        // Add styles if not present
+        if (!document.getElementById('floorPlanDeviceStyles')) {
+            const styles = document.createElement('style');
+            styles.id = 'floorPlanDeviceStyles';
+            styles.textContent = `
+                .floor-plan-device {
+                    position: absolute;
+                    width: 22px;
+                    height: 22px;
+                    background: rgba(255, 255, 255, 0.65);
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: move;
+                    transition: transform 0.2s ease;
+                }
+                .floor-plan-device img {
+                    width: 14px;
+                    height: 14px;
+                    pointer-events: none;
+                }
+                .floor-plan-device.dragging {
+                    transform: scale(1.1);
+                    z-index: 1000;
+                }
+            `;
+            document.head.appendChild(styles);
+        }
+
         floor.devices.forEach(device => {
             const deviceEl = document.createElement('div');
             deviceEl.className = 'floor-plan-device';

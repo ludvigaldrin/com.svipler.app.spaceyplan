@@ -301,15 +301,47 @@ function onHomeyReady(Homey) {
 
         try {
             const reader = new FileReader();
-            reader.onload = function (e) {
-                const preview = document.getElementById('imagePreview');
-                preview.innerHTML = `
-                    <div style="max-width: 300px; max-height: 200px; overflow: hidden;">
-                        <img src="${e.target.result}" style="width: 100%; height: auto; object-fit: contain;">
-                    </div>`;
-                saveButton.disabled = false;
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+
+                    const MAX_WIDTH = 1920;
+                    const MAX_HEIGHT = 1080;
+
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > MAX_WIDTH) {
+                        height = Math.round((height * MAX_WIDTH) / width);
+                        width = MAX_WIDTH;
+                    }
+                    if (height > MAX_HEIGHT) {
+                        width = Math.round((width * MAX_HEIGHT) / height);
+                        height = MAX_HEIGHT;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    // Clear canvas with transparent background
+                    ctx.clearRect(0, 0, width, height);
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Keep PNG format to preserve transparency
+                    const imageData = canvas.toDataURL('image/png');
+
+                    const preview = document.getElementById('imagePreview');
+                    preview.innerHTML = `
+                        <div style="max-width: 300px; max-height: 200px; overflow: hidden;">
+                            <img src="${imageData}" style="width: 100%; height: auto; object-fit: contain;">
+                        </div>`;
+                    saveButton.disabled = false;
+                };
+                img.src = e.target.result;
             };
-            reader.onerror = function (e) {
+            reader.onerror = function(e) {
                 Homey.alert('Failed to load image');
                 saveButton.disabled = false;
             };
@@ -339,7 +371,7 @@ function onHomeyReady(Homey) {
 
         list.innerHTML = floors.map(floor => `
             <div class="floor-card">
-                <div class="floor-thumbnail">
+                <div class="floor-thumbnail"">
                     <img src="${floor.imageData}" alt="${floor.name}">
                 </div>
                 <div class="floor-name">${floor.name}</div>
@@ -631,8 +663,9 @@ function onHomeyReady(Homey) {
                     position: absolute;
                     width: 22px;
                     height: 22px;
-                    background: rgba(255, 255, 255, 0.65);
+                    background: rgba(255, 255, 255);
                     border-radius: 50%;
+                    border: 2px dashed rgb(121, 120, 120, 0.90);
                     display: flex;
                     align-items: center;
                     justify-content: center;
@@ -644,6 +677,7 @@ function onHomeyReady(Homey) {
                     width: 14px;
                     height: 14px;
                     pointer-events: none;
+                    background: #FFFFFF;
                 }
                 .floor-plan-device.dragging {
                     transform: scale(1.1);
@@ -971,15 +1005,7 @@ function onHomeyReady(Homey) {
                 const preview = document.getElementById('ruleImagePreview');
 
                 imageInput.addEventListener('change', (e) => {
-                    const file = e.target.files[0];
-                    if (!file) return;
-
-                    const reader = new FileReader();
-                    reader.onload = function (e) {
-                        preview.innerHTML = `<img src="${e.target.result}">`;
-                        saveButton.disabled = false;
-                    };
-                    reader.readAsDataURL(file);
+                    handleRuleImageUpload(e, 'ruleImagePreview');
                 });
             }
             saveButton.disabled = false;
@@ -1065,124 +1091,114 @@ function onHomeyReady(Homey) {
         });
     }
 
-    window.deleteRule = function (deviceId, ruleId) {
-        const currentFloor = floors.find(f => f.id === currentFloorId);
-        const device = currentFloor.devices.find(d => d.id === deviceId);
+    function handleRuleImageUpload(e, previewId) {
+        const file = e.target.files[0];
+        if (!file) return;
 
-        if (!device || !device.rules) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
 
-        device.rules = device.rules.filter(r => r.id !== ruleId);
+                // Use same max dimensions as floor images
+                const MAX_WIDTH = 1920;
+                const MAX_HEIGHT = 1080;
 
-        saveFloors().then(() => {
-            renderDevicesList(currentFloor.devices);
-            Homey.alert('Rule deleted successfully!');
-        }).catch(err => {
-            Homey.alert('Failed to delete rule: ' + err.message);
-        });
-    };
+                let width = img.width;
+                let height = img.height;
 
-    window.editRule = function (deviceId, ruleId) {
-        const currentFloor = floors.find(f => f.id === currentFloorId);
-        const device = currentFloor.devices.find(d => d.id === deviceId);
-        const rule = device.rules.find(r => r.id === ruleId);
+                if (width > MAX_WIDTH) {
+                    height = Math.round((height * MAX_WIDTH) / width);
+                    width = MAX_WIDTH;
+                }
+                if (height > MAX_HEIGHT) {
+                    width = Math.round((width * MAX_HEIGHT) / height);
+                    height = MAX_HEIGHT;
+                }
 
-        if (!rule) return;
+                canvas.width = width;
+                canvas.height = height;
+                ctx.clearRect(0, 0, width, height);
+                ctx.drawImage(img, 0, 0, width, height);
 
-        const overlay = document.createElement('div');
-        overlay.className = 'modal-overlay';
+                const imageData = canvas.toDataURL('image/png');
+                
+                // Update preview
+                const preview = document.getElementById(previewId);
+                preview.innerHTML = `
+                    <div style="max-width: 300px; max-height: 200px; overflow: hidden;">
+                        <img src="${imageData}" style="width: 100%; height: auto; object-fit: contain;">
+                    </div>`;
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
 
-        const modal = document.createElement('div');
-        modal.className = 'modal-content';
-
-        // Reuse the same modal but change title and pre-fill values
-        modal.innerHTML = `
-            <div class="modal-header">
-                <h2>Edit Rule</h2>
-                <button class="close-button">×</button>
+    async function saveRule() {
+        const saveButton = document.getElementById('saveRule');
+        const originalButtonText = saveButton.innerHTML;
+        
+        // Disable button and show spinner
+        saveButton.disabled = true;
+        saveButton.innerHTML = `
+            <div class="spinner" style="display: inline-block; margin-right: 5px;">
+                <div class="bounce1"></div>
+                <div class="bounce2"></div>
+                <div class="bounce3"></div>
             </div>
-            <div class="modal-body">
-                <div class="rule-type-selector">
-                    <label>Select Rule Type</label>
-                    <select id="ruleTypeSelect">
-                        <option value="">Choose a rule type...</option>
-                        <option value="iconColor" ${rule.type === 'iconColor' ? 'selected' : ''}>On/Off - Icon Color Switcher</option>
-                        <option value="allColor" ${rule.type === 'allColor' ? 'selected' : ''}>All - Icon Color</option>
-                        <option value="imageView" ${rule.type === 'imageView' ? 'selected' : ''}>On/Off - Image View</option>
-                    </select>
-                </div>
-                <div id="ruleConfig" class="rule-config">
-                    ${rule.type === 'iconColor' ? `
-                        <div class="color-picker-group">
-                            <div class="color-input-group">
-                                <label>On Color</label>
-                                <input type="color" id="onColor" value="${rule.config.onColor}">
-                            </div>
-                            <div class="color-input-group">
-                                <label>Off Color</label>
-                                <input type="color" id="offColor" value="${rule.config.offColor}">
-                            </div>
-                        </div>
-                    ` : rule.type === 'allColor' ? `
-                        <div class="color-picker-group">
-                            <div class="color-input-group">
-                                <label>Color</label>
-                                <input type="color" id="mainColor" value="${rule.config.mainColor}">
-                            </div>
-                        </div>
-                    ` : rule.type === 'imageView' ? `
-                        <div class="image-rule-config">
-                            <div class="image-upload-group">
-                                <label>Image</label>
-                                <input type="file" id="ruleImage" accept="image/*" class="homey-form-input">
-                            </div>
-                            <div id="ruleImagePreview" class="image-preview">
-                                ${rule.config.imageData ? `<img src="${rule.config.imageData}">` : ''}
-                            </div>
-                            <div class="visibility-options">
-                                <div class="visibility-group">
-                                    <label>On State</label>
-                                    <select id="onStateVisibility" class="homey-form-input">
-                                        <option value="show" ${rule.config.onStateVisibility === 'show' ? 'selected' : ''}>Show</option>
-                                        <option value="hide" ${rule.config.onStateVisibility === 'hide' ? 'selected' : ''}>Hide</option>
-                                    </select>
-                                </div>
-                                <div class="visibility-group">
-                                    <label>Off State</label>
-                                    <select id="offStateVisibility" class="homey-form-input">
-                                        <option value="show" ${rule.config.offStateVisibility === 'show' ? 'selected' : ''}>Show</option>
-                                        <option value="hide" ${rule.config.offStateVisibility === 'hide' ? 'selected' : ''}>Hide</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    ` : ''}
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="button button-secondary cancel-button">Cancel</button>
-                <button class="button button-primary save-button">Save Rule</button>
-            </div>
-        `;
+            Saving...`;
 
-        overlay.appendChild(modal);
-        document.body.appendChild(overlay);
+        try {
+            // Your existing save logic here
+            await saveRuleToFloor();
+            closeRuleModal();
+        } catch (err) {
+            Homey.alert('Failed to save rule');
+        } finally {
+            // Reset button state
+            saveButton.disabled = false;
+            saveButton.innerHTML = originalButtonText;
+        }
+    }
 
-        setupRuleEventListeners(overlay, deviceId, ruleId);
-    };
+    // Add CSS for the spinner
+    const style = document.createElement('style');
+    style.textContent = `
+        .spinner {
+            width: 70px;
+            text-align: center;
+        }
 
-    // Add this new function
-    window.highlightDevice = function (deviceId) {
-        const deviceEl = document.getElementById(`device-${deviceId}`);
-        if (!deviceEl) return;
+        .spinner > div {
+            width: 12px;
+            height: 12px;
+            background-color: #fff;
+            border-radius: 100%;
+            display: inline-block;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
 
-        // Add highlight class
-        deviceEl.classList.add('highlight-device');
+        .spinner .bounce1 {
+            animation-delay: -0.32s;
+        }
 
-        // Remove highlight after 2 seconds
-        setTimeout(() => {
-            deviceEl.classList.remove('highlight-device');
-        }, 500);
-    };
+        .spinner .bounce2 {
+            animation-delay: -0.16s;
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% { 
+                transform: scale(0);
+            } 
+            40% { 
+                transform: scale(1.0);
+            }
+        }
+    `;
+    document.head.appendChild(style);
 
     // Initialize
     init();

@@ -580,7 +580,6 @@ function onHomeyReady(Homey) {
 
         // Save floors
         saveFloors().then(() => {
-            Homey.api('POST', '/log', { message: 'Floors saved successfully' }, () => { });
 
             // Update the floor plan display
             renderFloorPlanDevices(currentFloor);
@@ -643,9 +642,6 @@ function onHomeyReady(Homey) {
         const wrapper = document.getElementById('imageWrapper');
         const parentContainer = wrapper.parentElement;
 
-        Homey.api('POST', '/log', {
-            message: `Settings Parent Container: ${parentContainer.offsetWidth}x${parentContainer.offsetHeight}, Wrapper: ${wrapper.offsetWidth}x${wrapper.offsetHeight}`
-        });
 
         container.innerHTML = '';
 
@@ -655,17 +651,8 @@ function onHomeyReady(Homey) {
             return;
         }
 
-        // Debug logging for actual image dimensions
-        Homey.api('POST', '/log', {
-            message: `Settings Image: Natural(${image.naturalWidth}x${image.naturalHeight}), Actual(${image.offsetWidth}x${image.offsetHeight}), Style(${window.getComputedStyle(image).width}x${window.getComputedStyle(image).height})`
-        });
-
         const wrapperRect = wrapper.getBoundingClientRect();
 
-        // Debug logging
-        Homey.api('POST', '/log', {
-            message: `Settings Render: Image(${image.naturalWidth}x${image.naturalHeight}) Wrapper(${wrapperRect.width}x${wrapperRect.height})`
-        });
 
         // Store original dimensions for drag calculations
         container.dataset.originalWidth = image.naturalWidth;
@@ -718,10 +705,6 @@ function onHomeyReady(Homey) {
             const displayX = (device.position.x / 100) * wrapperRect.width;
             const displayY = (device.position.y / 100) * wrapperRect.height;
 
-            // Debug logging
-            Homey.api('POST', '/log', {
-                message: `Settings Device ${device.id}: Original(${device.position.x}%, ${device.position.y}%) Calculated(${displayX}px, ${displayY}px)`
-            });
 
             deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
 
@@ -851,7 +834,7 @@ function onHomeyReady(Homey) {
         // Save floors
         saveFloors()
             .then(() => {
-                Homey.api('POST', '/log', { message: 'Position saved successfully' }, () => { });
+                
             })
             .catch(err => {
                 Homey.api('POST', '/log', { message: `Save error: ${err.message}` }, () => { });
@@ -942,6 +925,68 @@ function onHomeyReady(Homey) {
         const cancelButton = overlay.querySelector('.cancel-button');
         const closeButton = overlay.querySelector('.close-button');
 
+        // Handle image upload if this is an imageView rule
+        const imageInput = document.getElementById('ruleImage');
+        if (imageInput) {
+            imageInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                try {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const img = new Image();
+                        img.onload = function() {
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+
+                            // Set maximum dimensions
+                            const MAX_WIDTH = 800;
+                            const MAX_HEIGHT = 600;
+
+                            let width = img.width;
+                            let height = img.height;
+
+                            // Calculate new dimensions while maintaining aspect ratio
+                            if (width > MAX_WIDTH) {
+                                height = Math.round((height * MAX_WIDTH) / width);
+                                width = MAX_WIDTH;
+                            }
+                            if (height > MAX_HEIGHT) {
+                                width = Math.round((width * MAX_HEIGHT) / height);
+                                height = MAX_HEIGHT;
+                            }
+
+                            canvas.width = width;
+                            canvas.height = height;
+
+                            // Clear canvas and draw image
+                            ctx.clearRect(0, 0, width, height);
+                            ctx.drawImage(img, 0, 0, width, height);
+
+                            // Convert to PNG to preserve transparency
+                            const imageData = canvas.toDataURL('image/png');
+
+                            // Update preview
+                            const preview = document.getElementById('ruleImagePreview');
+                            preview.innerHTML = `
+                                <div style="max-width: 300px; max-height: 200px; overflow: hidden;">
+                                    <img src="${imageData}" style="width: 100%; height: auto; object-fit: contain;">
+                                </div>
+                            `;
+                        };
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                } catch (err) {
+                    Homey.api('POST', '/log', { 
+                        message: `Error processing image: ${err.message}` 
+                    });
+                    Homey.alert('Failed to process image: ' + err.message);
+                }
+            });
+        }
+
         // Close modal handlers
         const closeModal = () => {
             if (overlay && overlay.parentNode) {
@@ -982,12 +1027,20 @@ function onHomeyReady(Homey) {
                         mainColor: document.getElementById('mainColor').value
                     };
                 } else if (ruleType === 'imageView') {
-                    const imageData = document.getElementById('ruleImagePreview').querySelector('img')?.src;
-                    config = {
-                        imageData: imageData || (ruleId ? device.rules.find(r => r.id === ruleId)?.config?.imageData : null),
-                        onStateVisibility: document.getElementById('onStateVisibility').value,
-                        offStateVisibility: document.getElementById('offStateVisibility').value
-                    };
+                    // Get current preview image
+                    const previewImg = document.getElementById('ruleImagePreview').querySelector('img');
+                    const imageData = previewImg ? previewImg.src : null;
+                    
+                    // If editing and no new image uploaded, keep existing image
+                    if (!imageData && ruleId) {
+                        const existingRule = device.rules.find(r => r.id === ruleId);
+                        config.imageData = existingRule.config.imageData;
+                    } else {
+                        config.imageData = imageData;
+                    }
+
+                    config.onStateVisibility = document.getElementById('onStateVisibility').value;
+                    config.offStateVisibility = document.getElementById('offStateVisibility').value;
                 }
 
                 // Initialize rules array if it doesn't exist
@@ -1214,18 +1267,12 @@ function onHomeyReady(Homey) {
     // Make functions available globally
     window.editRule = function (deviceId, ruleId) {
         // Add debug logging
-        Homey.api('POST', '/log', { 
-            message: `Attempting to edit rule. DeviceId: ${deviceId}, RuleId: ${ruleId}` 
-        });
+
 
         const currentFloor = floors.find(f => f.id === currentFloorId);
         const device = currentFloor.devices.find(d => d.id === deviceId);
         const rule = device.rules.find(r => r.id === ruleId);
 
-        // Debug log found rule
-        Homey.api('POST', '/log', { 
-            message: `Found rule to edit: ${JSON.stringify(rule)}` 
-        });
 
         if (!rule) {
             Homey.alert('Rule not found');
@@ -1280,7 +1327,11 @@ function onHomeyReady(Homey) {
                                 <input type="file" id="ruleImage" accept="image/*" class="homey-form-input">
                             </div>
                             <div id="ruleImagePreview" class="image-preview">
-                                ${rule.config.imageData ? `<img src="${rule.config.imageData}">` : ''}
+                                ${rule.config.imageData ? `
+                                    <div style="max-width: 300px; max-height: 200px; overflow: hidden;">
+                                        <img src="${rule.config.imageData}" style="width: 100%; height: auto; object-fit: contain;">
+                                    </div>
+                                ` : ''}
                             </div>
                             <div class="visibility-options">
                                 <div class="visibility-group">
@@ -1344,13 +1395,13 @@ function onHomeyReady(Homey) {
         });
 
         setupRuleEventListeners(overlay, deviceId, ruleId);
+
+
     };
 
     window.deleteRule = function (deviceId, ruleId) {
         // Add debug logging
-        Homey.api('POST', '/log', { 
-            message: `Attempting to delete rule. DeviceId: ${deviceId}, RuleId: ${ruleId}` 
-        });
+
 
         // Create and show delete confirmation modal
         const overlay = document.createElement('div');

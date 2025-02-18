@@ -18,17 +18,21 @@ class CapabilityRendererManager {
     }
 
     async renderDevice(device, container) {
+
+        // We don't need to determine sensor type here anymore since it's saved correctly
         const renderer = this.getRenderer(device.capability);
         if (!renderer) {
             Homey.api('POST', '/log', { message: `No renderer found for capability: ${device.capability}` });
             return;
         }
-        const deviceEl = renderer.createDeviceElement(device, device.position);
 
+        const deviceEl = renderer.createDeviceElement(device, device.position);
+        
         // Set data attributes
         deviceEl.setAttribute('data-device-id', device.deviceId);
         deviceEl.setAttribute('data-capability', device.capability);
         deviceEl.setAttribute('data-name', device.name);
+        deviceEl.setAttribute('data-sensor-type', device.sensorType);
 
         // Initialize state with widgetId
         await renderer.initializeState(deviceEl, device.deviceId, this.widgetId);

@@ -76,11 +76,11 @@ const dimRenderer = {
                 const setPosition = () => {
                     if (!floorMapImage || !wrapper) return;
                     if (!floorMapImage.complete || floorMapImage.naturalWidth === 0) return;
-                
+
                     const wrapperRect = wrapper.getBoundingClientRect();
                     const displayX = (position.x / 100) * wrapperRect.width;
                     const displayY = (position.y / 100) * wrapperRect.height;
-                
+
                     deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
                     deviceEl.style.opacity = '1';
                     resolve();
@@ -120,6 +120,7 @@ const dimRenderer = {
         try {
             const response = await Homey.api('GET', `/devices/${deviceId}/capabilities/dim`);
 
+
             if (response && typeof response !== 'undefined') {
                 deviceEl.setAttribute('data-dim', response.dim);
                 deviceEl.setAttribute('data-state', response.onoff);
@@ -130,6 +131,8 @@ const dimRenderer = {
             const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
             // Important: Set the onoff state, not the dim value for image rules
             deviceData.state = response.onoff;
+
+
 
             // Now apply color rules with correct state
             this.applyInitialColorRules(deviceData, deviceEl);
@@ -155,7 +158,7 @@ const dimRenderer = {
         deviceEl.addEventListener('touchstart', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            
+
             touchStartTime = Date.now();
             touchMoved = false;
             startX = e.touches[0].clientX;
@@ -171,7 +174,7 @@ const dimRenderer = {
         deviceEl.addEventListener('touchmove', (e) => {
             const moveX = Math.abs(e.touches[0].clientX - startX);
             const moveY = Math.abs(e.touches[0].clientY - startY);
-            
+
             // Only consider it a move if finger moved more than 10 pixels
             if (moveX > 10 || moveY > 10) {
                 touchMoved = true;
@@ -248,7 +251,7 @@ const dimRenderer = {
                 try {
                     const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
                     const imageViewRule = deviceData.rules?.find(r => r.type === 'imageView');
-                    
+
                     if (imageViewRule?.config) {
                         const getVisibilityValue = (value) => {
                             if (value === 'show') return 1;
@@ -259,8 +262,8 @@ const dimRenderer = {
                         // For dim capability, use the value directly if it's a dim update
                         // For onoff capability, use the boolean value
                         const isOn = capability === 'dim' ? value > 0 : value;
-                        const visibility = isOn ? 
-                            getVisibilityValue(imageViewRule.config.onStateVisibility) : 
+                        const visibility = isOn ?
+                            getVisibilityValue(imageViewRule.config.onStateVisibility) :
                             getVisibilityValue(imageViewRule.config.offStateVisibility);
 
                         imageEl.style.opacity = visibility;
@@ -318,24 +321,24 @@ const dimRenderer = {
     applyInitialColorRules(device, deviceEl) {
         // Store complete device data including rules
         deviceEl.setAttribute('data-device', JSON.stringify(device));
-        
+
         const iconWrapper = deviceEl.querySelector('.icon-wrapper');
 
         // Check for Image View rule (can coexist with color rules)
         const imageViewRule = device.rules?.find(r => r.type === 'imageView');
         if (imageViewRule?.config) {
             deviceEl.setAttribute('data-image-rule', 'true');
-            
+
             // Create image element if it doesn't exist
             let imageEl = document.querySelector(`img[data-image-device-id="${device.id}"]`);
             if (!imageEl && imageViewRule.config.imageData) {
                 const imageWrapper = document.getElementById('imageWrapper');
-                
+
                 imageEl = document.createElement('img');
                 imageEl.className = 'device-state-image';
                 imageEl.setAttribute('data-image-device-id', device.id);
                 imageEl.src = imageViewRule.config.imageData;
-                
+
                 // Position relative to the image wrapper
                 imageEl.style.cssText = `
                     position: absolute;
@@ -381,7 +384,7 @@ const dimRenderer = {
                 // Get the current state from the device
                 const currentState = device.state === true;
                 const initialColor = currentState ? iconColorRule.config.onColor : iconColorRule.config.offColor;
-                
+
                 deviceEl.style.backgroundColor = `${initialColor}59`;
                 deviceEl.style.boxShadow = `0 0 12px 3px ${initialColor}73`;
                 if (iconWrapper) {
@@ -578,15 +581,15 @@ const dimRenderer = {
         viewButtons.forEach(button => {
             button.addEventListener('click', () => {
                 const view = button.getAttribute('data-view');
-                
+
                 // Update buttons
                 viewButtons.forEach(btn => btn.classList.remove('active'));
                 button.classList.add('active');
-                
+
                 // Update views
                 const onoffView = modal.querySelector('.onoff-view');
                 const dimmerView = modal.querySelector('.dimmer-view');
-                
+
                 if (view === 'onoff') {
                     onoffView.classList.add('active');
                     dimmerView.classList.remove('active');

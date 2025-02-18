@@ -81,6 +81,11 @@ module.exports = {
   async getDeviceState({ homey, params }) {
     try {
       const { deviceId, capabilityId } = params;
+      
+      if (!capabilityId) {
+        throw new Error('Invalid capability ID');
+      }
+
       return await homey.app.capabilityManager.getValue(capabilityId, deviceId);
     } catch (error) {
       homey.app.error('Widget API - getDeviceState error:', error);

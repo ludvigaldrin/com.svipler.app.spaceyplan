@@ -73,10 +73,6 @@ const onOffRenderer = {
                 const floorMapImage = document.getElementById('floorMapImage');
                 const wrapper = document.getElementById('imageWrapper');
                 const parentContainer = wrapper.parentElement;
-                
-                Homey.api('POST', '/log', { 
-                    message: `Widget Parent Container: ${parentContainer.offsetWidth}x${parentContainer.offsetHeight}, Wrapper: ${wrapper.offsetWidth}x${wrapper.offsetHeight}`
-                });
 
                 const setPosition = () => {
                     if (!floorMapImage || !wrapper) return;
@@ -84,19 +80,12 @@ const onOffRenderer = {
 
                     const wrapperRect = wrapper.getBoundingClientRect();
 
-                    // Debug logging for actual image dimensions
-                    Homey.api('POST', '/log', { 
-                        message: `Widget Image: Natural(${floorMapImage.naturalWidth}x${floorMapImage.naturalHeight}), Actual(${floorMapImage.offsetWidth}x${floorMapImage.offsetHeight}), Style(${window.getComputedStyle(floorMapImage).width}x${window.getComputedStyle(floorMapImage).height})`
-                    });
+
 
                     const displayX = (position.x / 100) * wrapperRect.width;
                     const displayY = (position.y / 100) * wrapperRect.height;
 
-                    // Debug logging
-                    Homey.api('POST', '/log', { 
-                        message: `OnOff Device ${device.id}: Original(${position.x}%, ${position.y}%) Calculated(${displayX}px, ${displayY}px)`
-                    });
-
+ 
                     deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
                     deviceEl.style.opacity = '1';
                     resolve();

@@ -199,17 +199,19 @@ function onHomeyReady(Homey) {
             }
 
             try {
+
+
                 const filteredDevices = homeyDevices.filter(device =>
                     device.name.toLowerCase().includes(searchTerm)
-                );
+                ).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
                 if (filteredDevices.length === 0) {
                     resultsContainer.innerHTML = '<div class="no-results">No devices found</div>';
                     return;
                 }
 
-                // Support both onoff and dim capabilities
-                const supportedCapabilities = ['onoff', 'dim'];
+                // Support sensor capabilities along with existing ones
+                const supportedCapabilities = ['onoff', 'dim', 'alarm_contact', 'alarm_motion'];
 
                 resultsContainer.innerHTML = filteredDevices.map(device => {
                     const deviceCapabilities = (device.capabilities || []).map(cap => cap.toLowerCase());
@@ -225,20 +227,34 @@ function onHomeyReady(Homey) {
                                 <div class="device-name" title="${device.name}">${device.name}</div>
                             </div>
                             <div class="capabilities-section">
-                                ${supported.map(capabilityId => `
-                                    <div class="capability-row">
-                                        <div class="capability-name">${capabilityId === 'dim' ? 'Dim (with On/Off)' : 'On/Off'}</div>
-                                        <button class="add-capability-btn ${isDeviceCapabilityAdded(device.id, capabilityId) ? 'added' : ''}" 
-                                                data-device-id="${device.id}" 
-                                                data-capability="${capabilityId}"
-                                                ${isDeviceCapabilityAdded(device.id, capabilityId) ? 'disabled' : ''}>
-                                            ${isDeviceCapabilityAdded(device.id, capabilityId)
-                            ? '✓'
-                            : '+'
+                                ${supported.map(capabilityId => {
+                        let displayName;
+                        if (capabilityId === 'dim') {
+                            displayName = 'Dim (with On/Off)';
+                        } else if (capabilityId === 'onoff') {
+                            displayName = 'On/Off';
+                        } else if (capabilityId === 'alarm_contact') {
+                            displayName = 'Sensor (Contact)';
+                        } else if (capabilityId === 'alarm_motion') {
+                            displayName = 'Sensor (Motion)';
                         }
-                                        </button>
-                                    </div>
-                                `).join('')}
+
+                        return `
+                                        <div class="capability-row">
+                                            <div class="capability-name">${displayName}</div>
+                                            <button class="add-capability-btn ${isDeviceCapabilityAdded(device.id, capabilityId)} ? 'added' : ''}" 
+                                                    data-device-id="${device.id}" 
+                                                    data-capability="${capabilityId}"
+                                                    data-sensor-type="${capabilityId}"
+                                                    ${isDeviceCapabilityAdded(device.id, capabilityId) ? 'disabled' : ''}>
+                                                ${isDeviceCapabilityAdded(device.id, capabilityId)
+                                ? '✓'
+                                : '+'
+                            }
+                                            </button>
+                                        </div>
+                                    `;
+                    }).join('')}
                             </div>
                             ${unsupported.length > 0 ? `
                                 <div class="unsupported-capabilities">
@@ -254,7 +270,7 @@ function onHomeyReady(Homey) {
                     button.addEventListener('click', function (e) {
                         e.stopPropagation();
                         const deviceId = this.dataset.deviceId;
-                        const capability = this.dataset.capability;
+                        const capability = this.dataset.sensorType || this.dataset.capability;
                         const device = filteredDevices.find(d => d.id === deviceId);
                         addDeviceToFloor(device, capability);
                     });
@@ -301,9 +317,9 @@ function onHomeyReady(Homey) {
 
         try {
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = function (e) {
                 const img = new Image();
-                img.onload = function() {
+                img.onload = function () {
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
 
@@ -341,7 +357,7 @@ function onHomeyReady(Homey) {
                 };
                 img.src = e.target.result;
             };
-            reader.onerror = function(e) {
+            reader.onerror = function (e) {
                 Homey.alert('Failed to load image');
                 saveButton.disabled = false;
             };
@@ -447,6 +463,8 @@ function onHomeyReady(Homey) {
             return;
         }
 
+
+
         if (!devices || !devices.length) {
             list.innerHTML = `
                 <div class="floor-device-wrapper">
@@ -458,61 +476,78 @@ function onHomeyReady(Homey) {
             return;
         }
 
-        const html = devices.map(device => `
-            <div class="floor-device-wrapper">
-                <div class="floor-device-item">
-                    <button class="expand-button" onclick="toggleDeviceRules('${device.id}')">
-                        <svg width="20" height="20" viewBox="0 0 24 24">
-                            <path fill="#666" d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/>
-                        </svg>
-                    </button>
-                    <div class="floor-device-info" onclick="highlightDevice('${device.id}')">
-                        <span style="cursor: pointer;">${device.name} (${device.capability === 'dim' ? 'Dim' : 'On/Off'})</span>
-                    </div>
-                    <button class="icon-button delete-button" onclick="removeDevice('${device.id}')">
-                        <svg width="20" height="20" viewBox="0 0 24 24">
-                            <path fill="#ff4444" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                        </svg>
-                    </button>
-                </div>
-                <div class="floor-device-rules" id="rules-${device.id}" style="display: none;">
-                    <div class="floor-rules-content">
-                        ${device.rules && device.rules.length > 0
-                ? device.rules.map(rule => `
-                                <div class="floor-rule-item">
-                                    <div class="floor-rule-info">
-                                        <span>${rule.name}</span>
-                                    </div>
-                                    <div class="floor-rule-actions">
-                                        <button class="rule-action-btn edit-rule" data-device-id="${device.id}" data-rule-id="${rule.id}">
-                                            <svg width="20" height="20" viewBox="0 0 24 24">
-                                                <path fill="#666" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/>
-                                            </svg>
-                                        </button>
-                                        <button class="rule-action-btn delete-rule" data-device-id="${device.id}" data-rule-id="${rule.id}">
-                                            <svg width="20" height="20" viewBox="0 0 24 24">
-                                                <path fill="#666" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </div>
-                            `).join('')
-                : '<p class="no-rules-message">No rules configured</p>'
+        const sortedDevices = [...devices].sort((a, b) => {
+            return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        });
+
+
+        const html = sortedDevices.map(device => {
+            // Determine the capability display text
+            let capabilityText;
+            if (device.capability === 'dim') {
+                capabilityText = 'Dim';
+            } else if (device.capability === 'onoff') {
+                capabilityText = 'On/Off';
+            } else if (device.capability === 'sensor') {
+                capabilityText = 'Sensor';
             }
-                        <button class="add-rule-button" onclick="addNewRule('${device.id}')">
-                            <svg width="16" height="16" viewBox="0 0 24 24">
-                                <path fill="#00a0dc" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+
+            return `
+                <div class="floor-device-wrapper">
+                    <div class="floor-device-item">
+                        <button class="expand-button" onclick="toggleDeviceRules('${device.id}')">
+                            <svg width="20" height="20" viewBox="0 0 24 24">
+                                <path fill="#666" d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/>
                             </svg>
-                            Add Rule
+                        </button>
+                        <div class="floor-device-info" onclick="highlightDevice('${device.id}')">
+                            <span style="cursor: pointer;">${device.name} (${capabilityText})</span>
+                        </div>
+                        <button class="icon-button delete-button" onclick="removeDevice('${device.id}')">
+                            <svg width="20" height="20" viewBox="0 0 24 24">
+                                <path fill="#ff4444" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                            </svg>
                         </button>
                     </div>
+                    <div class="floor-device-rules" id="rules-${device.id}" style="display: none;">
+                        <div class="floor-rules-content">
+                            ${device.rules && device.rules.length > 0
+                    ? device.rules.map(rule => `
+                                    <div class="floor-rule-item">
+                                        <div class="floor-rule-info">
+                                            <span>${rule.name}</span>
+                                        </div>
+                                        <div class="floor-rule-actions">
+                                            <button class="rule-action-btn edit-rule" data-device-id="${device.id}" data-rule-id="${rule.id}">
+                                                <svg width="20" height="20" viewBox="0 0 24 24">
+                                                    <path fill="#666" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/>
+                                                </svg>
+                                            </button>
+                                            <button class="rule-action-btn delete-rule" data-device-id="${device.id}" data-rule-id="${rule.id}">
+                                                <svg width="20" height="20" viewBox="0 0 24 24">
+                                                    <path fill="#666" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                `).join('')
+                    : '<p class="no-rules-message">No rules configured</p>'
+                }
+                            <button class="add-rule-button" onclick="addNewRule('${device.id}')">
+                                <svg width="16" height="16" viewBox="0 0 24 24">
+                                    <path fill="#00a0dc" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                                </svg>
+                                Add Rule
+                            </button>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
 
         list.innerHTML = html;
 
-        // Add event listeners for edit and delete rule buttons
+        // Re-add event listeners for rules
         list.querySelectorAll('.edit-rule').forEach(button => {
             button.addEventListener('click', () => {
                 const deviceId = button.dataset.deviceId;
@@ -537,7 +572,7 @@ function onHomeyReady(Homey) {
             return;
         }
 
-        // Create new device entry with default position in bottom right (but not too far)
+        // Create new device entry
         const newDevice = {
             id: `${device.id}-${capability}`,
             deviceId: device.id,
@@ -548,14 +583,15 @@ function onHomeyReady(Homey) {
                 x: 15,
                 y: 15
             },
-            rules: []  // Initialize rules array
+            rules: []
         };
+
 
         // Add default color rule for onoff and dim capabilities
         if (capability === 'onoff' || capability === 'dim') {
             newDevice.rules.push({
                 id: Date.now().toString(),
-                name: 'On/Off - Icon Color Switcher',
+                name: 'On/Off - Color Switcher',
                 type: 'iconColor',
                 config: {
                     onColor: '#ffeb3b',  // Yellow
@@ -563,6 +599,28 @@ function onHomeyReady(Homey) {
                 }
             });
         }
+
+        // Add default color rule for onoff and dim capabilities
+        if (capability === 'alarm_contact' || capability === 'alarm_motion') {
+            newDevice.rules.push({
+                id: Date.now().toString(),
+                name: 'On/Off - Color Switcher',
+                type: 'iconColor',
+                config: {
+                    onColor: '#ff0000',  // Red
+                    offColor: '#ffffff'   // White
+                }
+            });
+        }
+
+
+        // Special handling for sensors
+        if (capability === 'alarm_contact' || capability === 'alarm_motion') {
+            newDevice.id = `${device.id}-sensor-${capability}`;
+            newDevice.capability = 'sensor';
+            newDevice.sensorType = capability;
+        }
+
 
         // Add to devices array if it doesn't exist
         if (!currentFloor.devices) {
@@ -572,6 +630,7 @@ function onHomeyReady(Homey) {
         // Check if this device+capability combination already exists
         const exists = currentFloor.devices.some(d => d.id === newDevice.id);
         if (exists) {
+            Homey.api('POST', '/log', { message: `Device already exists: ${newDevice.id}` });
             Homey.alert('This capability is already added for this device');
             return;
         }
@@ -603,21 +662,19 @@ function onHomeyReady(Homey) {
         const currentFloor = floors.find(f => f.id === currentFloorId);
         if (!currentFloor || !currentFloor.devices) return false;
 
-        // Convert capability to lowercase for comparison
-        capability = capability.toLowerCase();
-        return currentFloor.devices.some(d =>
-            d.deviceId === deviceId && d.capability.toLowerCase() === capability
-        );
+        return currentFloor.devices.some(d => {
+            if (d.deviceId === deviceId) {
+                if (capability === 'alarm_contact' || capability === 'alarm_motion') {
+                    return d.capability === 'sensor' && d.sensorType === capability;
+                }
+                return d.capability === capability;
+            }
+            return false;
+        });
     }
 
     // Update the search results rendering to show added state
     function updateSearchResults() {
-        const searchTerm = document.getElementById('deviceSearch').value.toLowerCase().trim();
-        if (!searchTerm) return;
-
-        const filteredDevices = homeyDevices.filter(device =>
-            device.name.toLowerCase().includes(searchTerm)
-        );
 
         document.querySelectorAll('.add-capability-btn').forEach(button => {
             const deviceId = button.dataset.deviceId;
@@ -834,7 +891,7 @@ function onHomeyReady(Homey) {
         // Save floors
         saveFloors()
             .then(() => {
-                
+
             })
             .catch(err => {
                 Homey.api('POST', '/log', { message: `Save error: ${err.message}` }, () => { });
@@ -897,9 +954,9 @@ function onHomeyReady(Homey) {
                     <label>Select Rule Type</label>
                     <select id="ruleTypeSelect">
                         <option value="">Choose a rule type...</option>
-                        <option value="iconColor">On/Off - Icon Color Switcher</option>
-                        <option value="allColor">All - Icon Color</option>
-                        <option value="imageView">On/Off - Image View</option>
+                        <option value="allColor">All - Static Color</option>
+                        <option value="iconColor">On/Off - Color Switcher</option>
+                        <option value="imageView">On/Off - Image Switcher</option>
                     </select>
                 </div>
                 <div id="ruleConfig" class="rule-config">
@@ -934,9 +991,9 @@ function onHomeyReady(Homey) {
 
                 try {
                     const reader = new FileReader();
-                    reader.onload = function(e) {
+                    reader.onload = function (e) {
                         const img = new Image();
-                        img.onload = function() {
+                        img.onload = function () {
                             const canvas = document.createElement('canvas');
                             const ctx = canvas.getContext('2d');
 
@@ -979,8 +1036,8 @@ function onHomeyReady(Homey) {
                     };
                     reader.readAsDataURL(file);
                 } catch (err) {
-                    Homey.api('POST', '/log', { 
-                        message: `Error processing image: ${err.message}` 
+                    Homey.api('POST', '/log', {
+                        message: `Error processing image: ${err.message}`
                     });
                     Homey.alert('Failed to process image: ' + err.message);
                 }
@@ -1030,7 +1087,7 @@ function onHomeyReady(Homey) {
                     // Get current preview image
                     const previewImg = document.getElementById('ruleImagePreview').querySelector('img');
                     const imageData = previewImg ? previewImg.src : null;
-                    
+
                     // If editing and no new image uploaded, keep existing image
                     if (!imageData && ruleId) {
                         const existingRule = device.rules.find(r => r.id === ruleId);
@@ -1052,7 +1109,7 @@ function onHomeyReady(Homey) {
                     // Update existing rule
                     const ruleIndex = device.rules.findIndex(r => r.id === ruleId);
                     if (ruleIndex === -1) throw new Error('Rule not found');
-                    
+
                     device.rules[ruleIndex] = {
                         ...device.rules[ruleIndex],
                         config
@@ -1073,11 +1130,11 @@ function onHomeyReady(Homey) {
                 renderDeviceRules(deviceId);
                 closeModal();
             } catch (err) {
-                Homey.api('POST', '/log', { 
-                    message: `Error saving rule: ${err.message}` 
+                Homey.api('POST', '/log', {
+                    message: `Error saving rule: ${err.message}`
                 });
                 Homey.alert('Failed to save rule: ' + err.message);
-                
+
                 // Reset button states on error
                 if (saveButton) {
                     saveButton.disabled = false;
@@ -1090,7 +1147,7 @@ function onHomeyReady(Homey) {
         });
 
         // Handle rule type selection
-        ruleTypeSelect.addEventListener('change', function() {
+        ruleTypeSelect.addEventListener('change', function () {
             const ruleType = this.value;
             if (!ruleType) {
                 ruleConfig.innerHTML = '';
@@ -1173,9 +1230,9 @@ function onHomeyReady(Homey) {
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = function (e) {
             const img = new Image();
-            img.onload = function() {
+            img.onload = function () {
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
 
@@ -1201,7 +1258,7 @@ function onHomeyReady(Homey) {
                 ctx.drawImage(img, 0, 0, width, height);
 
                 const imageData = canvas.toDataURL('image/png');
-                
+
                 // Update preview
                 const preview = document.getElementById(previewId);
                 preview.innerHTML = `
@@ -1218,11 +1275,11 @@ function onHomeyReady(Homey) {
     function getRuleName(ruleType) {
         switch (ruleType) {
             case 'iconColor':
-                return 'On/Off - Icon Color Switcher';
+                return 'On/Off - Color Switcher';
             case 'allColor':
-                return 'All - Icon Color';
+                return 'All - Static Color';
             case 'imageView':
-                return 'On/Off - Image View';
+                return 'On/Off - Image Switcher';
             default:
                 return 'Custom Rule';
         }
@@ -1296,9 +1353,9 @@ function onHomeyReady(Homey) {
                 <div class="rule-type-selector">
                     <label>Rule Type</label>
                     <select id="ruleTypeSelect" disabled>
-                        <option value="iconColor" ${rule.type === 'iconColor' ? 'selected' : ''}>On/Off - Icon Color Switcher</option>
-                        <option value="allColor" ${rule.type === 'allColor' ? 'selected' : ''}>All - Icon Color</option>
-                        <option value="imageView" ${rule.type === 'imageView' ? 'selected' : ''}>On/Off - Image View</option>
+                        <option value="allColor" ${rule.type === 'allColor' ? 'selected' : ''}>All - Static Color</option>
+                        <option value="iconColor" ${rule.type === 'iconColor' ? 'selected' : ''}>On/Off - Color Switcher</option>
+                        <option value="imageView" ${rule.type === 'imageView' ? 'selected' : ''}>On/Off - Image Switcher</option>
                     </select>
                 </div>
                 <div id="ruleConfig" class="rule-config">
@@ -1475,7 +1532,7 @@ function onHomeyReady(Homey) {
     };
 
     // Add this new function for device highlighting
-    window.highlightDevice = function(deviceId) {
+    window.highlightDevice = function (deviceId) {
         // Remove highlight from all devices first
         document.querySelectorAll('.floor-plan-device').forEach(device => {
             device.classList.remove('highlight-device');
@@ -1485,7 +1542,7 @@ function onHomeyReady(Homey) {
         const deviceElement = document.getElementById(`device-${deviceId}`);
         if (deviceElement) {
             deviceElement.classList.add('highlight-device');
-            
+
             // Remove highlight after 2 seconds
             setTimeout(() => {
                 deviceElement.classList.remove('highlight-device');
@@ -1507,7 +1564,7 @@ function onHomeyReady(Homey) {
         rulesSection.innerHTML = `
             <div class="floor-rules-content">
                 ${device.rules && device.rules.length > 0
-                    ? device.rules.map(rule => `
+                ? device.rules.map(rule => `
                         <div class="floor-rule-item">
                             <div class="floor-rule-info">
                                 <span>${rule.name}</span>
@@ -1526,8 +1583,8 @@ function onHomeyReady(Homey) {
                             </div>
                         </div>
                     `).join('')
-                    : '<p class="no-rules-message">No rules configured</p>'
-                }
+                : '<p class="no-rules-message">No rules configured</p>'
+            }
                 <button class="add-rule-button" onclick="addNewRule('${deviceId}')">
                     <svg width="16" height="16" viewBox="0 0 24 24">
                         <path fill="#00a0dc" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>

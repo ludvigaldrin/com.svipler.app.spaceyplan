@@ -120,7 +120,7 @@ const dimRenderer = {
         try {
             const response = await Homey.api('GET', `/devices/${deviceId}/capabilities/dim`);
 
-            if (response && typeof response.dim !== 'undefined') {
+            if (response && typeof response !== 'undefined') {
                 deviceEl.setAttribute('data-dim', response.dim);
                 deviceEl.setAttribute('data-state', response.onoff);
                 deviceEl.classList.toggle('on', response.onoff);
@@ -128,6 +128,7 @@ const dimRenderer = {
 
             // Get stored device data and update with real state
             const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
+            // Important: Set the onoff state, not the dim value for image rules
             deviceData.state = response.onoff;
 
             // Now apply color rules with correct state
@@ -352,7 +353,7 @@ const dimRenderer = {
 
             // Set initial visibility based on device state
             if (imageEl) {
-                const isVisible = device.state?.onoff || device.state?.dim > 0;
+                const isVisible = device.state === true;
                 const showOnState = imageViewRule.config.onStateVisibility === 'show';
                 imageEl.style.opacity = (isVisible === showOnState) ? '1' : '0';
             }

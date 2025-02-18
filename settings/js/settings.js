@@ -484,12 +484,12 @@ function onHomeyReady(Homey) {
                                         <span>${rule.name}</span>
                                     </div>
                                     <div class="floor-rule-actions">
-                                        <button class="rule-action-btn" onclick="editRule('${device.id}', '${rule.id}')">
+                                        <button class="rule-action-btn edit-rule" data-device-id="${device.id}" data-rule-id="${rule.id}">
                                             <svg width="20" height="20" viewBox="0 0 24 24">
                                                 <path fill="#666" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/>
                                             </svg>
                                         </button>
-                                        <button class="rule-action-btn" onclick="deleteRule('${device.id}', '${rule.id}')">
+                                        <button class="rule-action-btn delete-rule" data-device-id="${device.id}" data-rule-id="${rule.id}">
                                             <svg width="20" height="20" viewBox="0 0 24 24">
                                                 <path fill="#666" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                                             </svg>
@@ -511,6 +511,23 @@ function onHomeyReady(Homey) {
         `).join('');
 
         list.innerHTML = html;
+
+        // Add event listeners for edit and delete rule buttons
+        list.querySelectorAll('.edit-rule').forEach(button => {
+            button.addEventListener('click', () => {
+                const deviceId = button.dataset.deviceId;
+                const ruleId = button.dataset.ruleId;
+                editRule(deviceId, ruleId);
+            });
+        });
+
+        list.querySelectorAll('.delete-rule').forEach(button => {
+            button.addEventListener('click', () => {
+                const deviceId = button.dataset.deviceId;
+                const ruleId = button.dataset.ruleId;
+                deleteRule(deviceId, ruleId);
+            });
+        });
     }
 
     function addDeviceToFloor(device, capability) {
@@ -677,7 +694,6 @@ function onHomeyReady(Homey) {
                     width: 14px;
                     height: 14px;
                     pointer-events: none;
-                    background: #FFFFFF;
                 }
                 .floor-plan-device.dragging {
                     transform: scale(1.1);
@@ -923,18 +939,105 @@ function onHomeyReady(Homey) {
         const ruleTypeSelect = document.getElementById('ruleTypeSelect');
         const ruleConfig = document.getElementById('ruleConfig');
         const saveButton = overlay.querySelector('.save-button');
-        const closeButton = overlay.querySelector('.close-button');
         const cancelButton = overlay.querySelector('.cancel-button');
+        const closeButton = overlay.querySelector('.close-button');
 
         // Close modal handlers
+        const closeModal = () => {
+            if (overlay && overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+        };
+
         [closeButton, cancelButton].forEach(button => {
-            button.addEventListener('click', () => {
-                document.body.removeChild(overlay);
-            });
+            button.addEventListener('click', closeModal);
+        });
+
+        saveButton.addEventListener('click', async () => {
+            // Disable buttons and show loading state
+            saveButton.disabled = true;
+            cancelButton.disabled = true;
+            saveButton.innerHTML = '<div class="button-content"><div class="spinner"></div>Saving...</div>';
+
+            try {
+                const currentFloor = floors.find(f => f.id === currentFloorId);
+                if (!currentFloor) throw new Error('Current floor not found');
+
+                const device = currentFloor.devices.find(d => d.id === deviceId);
+                if (!device) throw new Error('Device not found');
+
+                // Get the rule configuration based on type
+                const ruleType = ruleTypeSelect.value;
+                if (!ruleType) throw new Error('Please select a rule type');
+
+                let config = {};
+
+                if (ruleType === 'iconColor') {
+                    config = {
+                        onColor: document.getElementById('onColor').value,
+                        offColor: document.getElementById('offColor').value
+                    };
+                } else if (ruleType === 'allColor') {
+                    config = {
+                        mainColor: document.getElementById('mainColor').value
+                    };
+                } else if (ruleType === 'imageView') {
+                    const imageData = document.getElementById('ruleImagePreview').querySelector('img')?.src;
+                    config = {
+                        imageData: imageData || (ruleId ? device.rules.find(r => r.id === ruleId)?.config?.imageData : null),
+                        onStateVisibility: document.getElementById('onStateVisibility').value,
+                        offStateVisibility: document.getElementById('offStateVisibility').value
+                    };
+                }
+
+                // Initialize rules array if it doesn't exist
+                if (!device.rules) {
+                    device.rules = [];
+                }
+
+                if (ruleId) {
+                    // Update existing rule
+                    const ruleIndex = device.rules.findIndex(r => r.id === ruleId);
+                    if (ruleIndex === -1) throw new Error('Rule not found');
+                    
+                    device.rules[ruleIndex] = {
+                        ...device.rules[ruleIndex],
+                        config
+                    };
+                } else {
+                    // Add new rule
+                    const newRule = {
+                        id: Date.now().toString(),
+                        type: ruleType,
+                        name: getRuleName(ruleType),
+                        config
+                    };
+                    device.rules.push(newRule);
+                }
+
+                // Save changes
+                await saveFloors();
+                renderDeviceRules(deviceId);
+                closeModal();
+            } catch (err) {
+                Homey.api('POST', '/log', { 
+                    message: `Error saving rule: ${err.message}` 
+                });
+                Homey.alert('Failed to save rule: ' + err.message);
+                
+                // Reset button states on error
+                if (saveButton) {
+                    saveButton.disabled = false;
+                    saveButton.innerHTML = 'Save Changes';
+                }
+                if (cancelButton) {
+                    cancelButton.disabled = false;
+                }
+            }
         });
 
         // Handle rule type selection
-        ruleTypeSelect.addEventListener('change', function () {
+        ruleTypeSelect.addEventListener('change', function() {
             const ruleType = this.value;
             if (!ruleType) {
                 ruleConfig.innerHTML = '';
@@ -1010,85 +1113,6 @@ function onHomeyReady(Homey) {
             }
             saveButton.disabled = false;
         });
-
-        // Handle save
-        saveButton.addEventListener('click', () => {
-            const ruleType = ruleTypeSelect.value;
-            if (!ruleType) return;
-
-            const currentFloor = floors.find(f => f.id === currentFloorId);
-            const device = currentFloor.devices.find(d => d.id === deviceId);
-
-            // Check if rule type already exists for this device (skip check for the rule being edited)
-            if (!ruleId && device.rules && device.rules.some(r => r.type === ruleType)) {
-                Homey.alert(`This device already has a ${ruleType === 'iconColor' ? 'On/Off - Icon Color Switcher' :
-                    ruleType === 'allColor' ? 'All - Icon Color' :
-                        'On/Off - Image View'} rule`);
-                return;
-            }
-
-            // Create rule object
-            const ruleData = {
-                name: ruleType === 'iconColor' ? 'On/Off - Icon Color Switcher' :
-                    ruleType === 'allColor' ? 'All - Icon Color' :
-                        'On/Off - Image View',
-                type: ruleType,
-                config: {}
-            };
-
-            // Get configuration based on rule type
-            if (ruleType === 'iconColor') {
-                ruleData.config = {
-                    onColor: document.getElementById('onColor').value,
-                    offColor: document.getElementById('offColor').value
-                };
-            } else if (ruleType === 'allColor') {
-                ruleData.config = {
-                    mainColor: document.getElementById('mainColor').value
-                };
-            } else if (ruleType === 'imageView') {
-                const newImageData = document.getElementById('ruleImagePreview').querySelector('img')?.src;
-
-                if (!newImageData && !ruleId) {
-                    Homey.alert('Please upload an image');
-                    return;
-                }
-
-                ruleData.config = {
-                    imageData: newImageData, // Always use new image data if available
-                    onStateVisibility: document.getElementById('onStateVisibility').value,
-                    offStateVisibility: document.getElementById('offStateVisibility').value
-                };
-            }
-
-            if (ruleId) {
-                // Update existing rule
-                const ruleIndex = device.rules.findIndex(r => r.id === ruleId);
-                if (ruleIndex !== -1) {
-                    // Preserve the ID of the existing rule
-                    device.rules[ruleIndex] = {
-                        ...ruleData,
-                        id: ruleId
-                    };
-                }
-            } else {
-                // Create new rule
-                if (!device.rules) device.rules = [];
-                device.rules.push({
-                    ...ruleData,
-                    id: Date.now().toString()
-                });
-            }
-
-            // Save and update UI
-            saveFloors().then(() => {
-                renderDevicesList(currentFloor.devices);
-                document.body.removeChild(overlay);
-                Homey.alert(ruleId ? 'Rule updated successfully!' : 'Rule saved successfully!');
-            }).catch(err => {
-                Homey.alert(`Failed to ${ruleId ? 'update' : 'save'} rule: ` + err.message);
-            });
-        });
     }
 
     function handleRuleImageUpload(e, previewId) {
@@ -1137,30 +1161,17 @@ function onHomeyReady(Homey) {
         reader.readAsDataURL(file);
     }
 
-    async function saveRule() {
-        const saveButton = document.getElementById('saveRule');
-        const originalButtonText = saveButton.innerHTML;
-        
-        // Disable button and show spinner
-        saveButton.disabled = true;
-        saveButton.innerHTML = `
-            <div class="spinner" style="display: inline-block; margin-right: 5px;">
-                <div class="bounce1"></div>
-                <div class="bounce2"></div>
-                <div class="bounce3"></div>
-            </div>
-            Saving...`;
-
-        try {
-            // Your existing save logic here
-            await saveRuleToFloor();
-            closeRuleModal();
-        } catch (err) {
-            Homey.alert('Failed to save rule');
-        } finally {
-            // Reset button state
-            saveButton.disabled = false;
-            saveButton.innerHTML = originalButtonText;
+    // Helper function to get rule name based on type
+    function getRuleName(ruleType) {
+        switch (ruleType) {
+            case 'iconColor':
+                return 'On/Off - Icon Color Switcher';
+            case 'allColor':
+                return 'All - Icon Color';
+            case 'imageView':
+                return 'On/Off - Image View';
+            default:
+                return 'Custom Rule';
         }
     }
 
@@ -1199,6 +1210,302 @@ function onHomeyReady(Homey) {
         }
     `;
     document.head.appendChild(style);
+
+    // Make functions available globally
+    window.editRule = function (deviceId, ruleId) {
+        // Add debug logging
+        Homey.api('POST', '/log', { 
+            message: `Attempting to edit rule. DeviceId: ${deviceId}, RuleId: ${ruleId}` 
+        });
+
+        const currentFloor = floors.find(f => f.id === currentFloorId);
+        const device = currentFloor.devices.find(d => d.id === deviceId);
+        const rule = device.rules.find(r => r.id === ruleId);
+
+        // Debug log found rule
+        Homey.api('POST', '/log', { 
+            message: `Found rule to edit: ${JSON.stringify(rule)}` 
+        });
+
+        if (!rule) {
+            Homey.alert('Rule not found');
+            return;
+        }
+
+        // Create and show modal
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-content';
+
+        // Pre-populate the rule type and configuration
+        modal.innerHTML = `
+            <div class="modal-header">
+                <h2>Edit Rule</h2>
+                <button class="close-button">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="rule-type-selector">
+                    <label>Rule Type</label>
+                    <select id="ruleTypeSelect" disabled>
+                        <option value="iconColor" ${rule.type === 'iconColor' ? 'selected' : ''}>On/Off - Icon Color Switcher</option>
+                        <option value="allColor" ${rule.type === 'allColor' ? 'selected' : ''}>All - Icon Color</option>
+                        <option value="imageView" ${rule.type === 'imageView' ? 'selected' : ''}>On/Off - Image View</option>
+                    </select>
+                </div>
+                <div id="ruleConfig" class="rule-config">
+                    ${rule.type === 'iconColor' ? `
+                        <div class="color-picker-group">
+                            <div class="color-input-group">
+                                <label>On Color</label>
+                                <input type="color" id="onColor" value="${rule.config.onColor || '#00ff00'}">
+                            </div>
+                            <div class="color-input-group">
+                                <label>Off Color</label>
+                                <input type="color" id="offColor" value="${rule.config.offColor || '#ff0000'}">
+                            </div>
+                        </div>
+                    ` : rule.type === 'allColor' ? `
+                        <div class="color-picker-group">
+                            <div class="color-input-group">
+                                <label>Color</label>
+                                <input type="color" id="mainColor" value="${rule.config.mainColor || '#00ff00'}">
+                            </div>
+                        </div>
+                    ` : rule.type === 'imageView' ? `
+                        <div class="image-rule-config">
+                            <div class="image-upload-group">
+                                <label>Image</label>
+                                <input type="file" id="ruleImage" accept="image/*" class="homey-form-input">
+                            </div>
+                            <div id="ruleImagePreview" class="image-preview">
+                                ${rule.config.imageData ? `<img src="${rule.config.imageData}">` : ''}
+                            </div>
+                            <div class="visibility-options">
+                                <div class="visibility-group">
+                                    <label>On State</label>
+                                    <select id="onStateVisibility" class="homey-form-input">
+                                        <option value="show" ${rule.config.onStateVisibility === 'show' ? 'selected' : ''}>Show</option>
+                                        <option value="hide" ${rule.config.onStateVisibility === 'hide' ? 'selected' : ''}>Hide</option>
+                                    </select>
+                                </div>
+                                <div class="visibility-group">
+                                    <label>Off State</label>
+                                    <select id="offStateVisibility" class="homey-form-input">
+                                        <option value="show" ${rule.config.offStateVisibility === 'show' ? 'selected' : ''}>Show</option>
+                                        <option value="hide" ${rule.config.offStateVisibility === 'hide' ? 'selected' : ''}>Hide</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="button button-secondary cancel-button">Cancel</button>
+                <button class="button button-primary save-button">Save Changes</button>
+            </div>
+        `;
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Add event listeners
+        const saveButton = modal.querySelector('.save-button');
+        const cancelButton = modal.querySelector('.cancel-button');
+        const closeButton = modal.querySelector('.close-button');
+
+        const closeModal = () => {
+            document.body.removeChild(overlay);
+        };
+
+        closeButton.addEventListener('click', closeModal);
+        cancelButton.addEventListener('click', closeModal);
+
+        saveButton.addEventListener('click', async () => {
+            // Disable buttons and show loading state
+            saveButton.disabled = true;
+            cancelButton.disabled = true;
+            saveButton.innerHTML = '<div class="button-content"><div class="spinner"></div>Saving...</div>';
+
+            try {
+                // Your existing save logic here
+                await saveFloors();
+                renderDeviceRules(deviceId);
+                closeModal();
+            } catch (err) {
+                Homey.alert('Failed to save rule: ' + err.message);
+                // Reset button states on error
+                saveButton.disabled = false;
+                cancelButton.disabled = false;
+                saveButton.innerHTML = 'Save Changes';
+            }
+        });
+
+        setupRuleEventListeners(overlay, deviceId, ruleId);
+    };
+
+    window.deleteRule = function (deviceId, ruleId) {
+        // Add debug logging
+        Homey.api('POST', '/log', { 
+            message: `Attempting to delete rule. DeviceId: ${deviceId}, RuleId: ${ruleId}` 
+        });
+
+        // Create and show delete confirmation modal
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-content';
+
+        modal.innerHTML = `
+            <div class="modal-header">
+                <h2>Delete Rule</h2>
+                <button class="close-button">×</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this rule?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="button button-secondary cancel-button">Cancel</button>
+                <button class="button button-primary confirm-delete">Delete</button>
+            </div>
+        `;
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Add event listeners for the modal buttons
+        const closeButton = modal.querySelector('.close-button');
+        const cancelButton = modal.querySelector('.cancel-button');
+        const confirmButton = modal.querySelector('.confirm-delete');
+
+        const closeModal = () => {
+            document.body.removeChild(overlay);
+        };
+
+        closeButton.addEventListener('click', closeModal);
+        cancelButton.addEventListener('click', closeModal);
+
+        confirmButton.addEventListener('click', async () => {
+            // Disable buttons and show loading state
+            confirmButton.disabled = true;
+            cancelButton.disabled = true;
+            confirmButton.innerHTML = '<div class="button-content"><div class="spinner"></div>Deleting...</div>';
+
+            try {
+                const currentFloor = floors.find(f => f.id === currentFloorId);
+                if (!currentFloor) throw new Error('Current floor not found');
+
+                const device = currentFloor.devices.find(d => d.id === deviceId);
+                if (!device) throw new Error('Device not found');
+
+                if (!device.rules) throw new Error('No rules found for device');
+
+                const originalLength = device.rules.length;
+                device.rules = device.rules.filter(r => r.id !== ruleId);
+
+                if (device.rules.length === originalLength) {
+                    throw new Error('Rule not found');
+                }
+
+                await saveFloors();
+                renderDeviceRules(deviceId);
+                closeModal();
+            } catch (err) {
+                Homey.alert('Failed to delete rule: ' + err.message);
+                // Reset button states on error
+                confirmButton.disabled = false;
+                cancelButton.disabled = false;
+                confirmButton.innerHTML = 'Delete';
+            }
+        });
+    };
+
+    // Add this new function for device highlighting
+    window.highlightDevice = function(deviceId) {
+        // Remove highlight from all devices first
+        document.querySelectorAll('.floor-plan-device').forEach(device => {
+            device.classList.remove('highlight-device');
+        });
+
+        // Add highlight to the selected device
+        const deviceElement = document.getElementById(`device-${deviceId}`);
+        if (deviceElement) {
+            deviceElement.classList.add('highlight-device');
+            
+            // Remove highlight after 2 seconds
+            setTimeout(() => {
+                deviceElement.classList.remove('highlight-device');
+            }, 2000);
+        }
+    };
+
+    // Add this new function to render just the rules for a specific device
+    function renderDeviceRules(deviceId) {
+        const currentFloor = floors.find(f => f.id === currentFloorId);
+        if (!currentFloor) return;
+
+        const device = currentFloor.devices.find(d => d.id === deviceId);
+        if (!device) return;
+
+        const rulesSection = document.getElementById(`rules-${deviceId}`);
+        if (!rulesSection) return;
+
+        rulesSection.innerHTML = `
+            <div class="floor-rules-content">
+                ${device.rules && device.rules.length > 0
+                    ? device.rules.map(rule => `
+                        <div class="floor-rule-item">
+                            <div class="floor-rule-info">
+                                <span>${rule.name}</span>
+                            </div>
+                            <div class="floor-rule-actions">
+                                <button class="rule-action-btn edit-rule" data-device-id="${deviceId}" data-rule-id="${rule.id}">
+                                    <svg width="20" height="20" viewBox="0 0 24 24">
+                                        <path fill="#666" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/>
+                                    </svg>
+                                </button>
+                                <button class="rule-action-btn delete-rule" data-device-id="${deviceId}" data-rule-id="${rule.id}">
+                                    <svg width="20" height="20" viewBox="0 0 24 24">
+                                        <path fill="#666" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')
+                    : '<p class="no-rules-message">No rules configured</p>'
+                }
+                <button class="add-rule-button" onclick="addNewRule('${deviceId}')">
+                    <svg width="16" height="16" viewBox="0 0 24 24">
+                        <path fill="#00a0dc" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                    </svg>
+                    Add Rule
+                </button>
+            </div>
+        `;
+
+        // Re-add event listeners for the new buttons
+        rulesSection.querySelectorAll('.edit-rule').forEach(button => {
+            button.addEventListener('click', () => {
+                const deviceId = button.dataset.deviceId;
+                const ruleId = button.dataset.ruleId;
+                editRule(deviceId, ruleId);
+            });
+        });
+
+        rulesSection.querySelectorAll('.delete-rule').forEach(button => {
+            button.addEventListener('click', () => {
+                const deviceId = button.dataset.deviceId;
+                const ruleId = button.dataset.ruleId;
+                deleteRule(deviceId, ruleId);
+            });
+        });
+
+        // Keep the section expanded
+        rulesSection.style.display = 'block';
+    }
 
     // Initialize
     init();

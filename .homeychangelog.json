@@ -7,5 +7,8 @@
   },
   "0.0.4": {
     "en": "Fixes to backend stuff"
+  },
+  "0.0.5": {
+    "en": "Sensor view, bug fixes"
   }
 }

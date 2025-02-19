@@ -199,8 +199,6 @@ function onHomeyReady(Homey) {
             }
 
             try {
-
-
                 const filteredDevices = homeyDevices.filter(device =>
                     device.name.toLowerCase().includes(searchTerm)
                 ).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
@@ -463,8 +461,6 @@ function onHomeyReady(Homey) {
             return;
         }
 
-
-
         if (!devices || !devices.length) {
             list.innerHTML = `
                 <div class="floor-device-wrapper">
@@ -479,7 +475,6 @@ function onHomeyReady(Homey) {
         const sortedDevices = [...devices].sort((a, b) => {
             return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
         });
-
 
         const html = sortedDevices.map(device => {
             // Determine the capability display text
@@ -586,7 +581,6 @@ function onHomeyReady(Homey) {
             rules: []
         };
 
-
         // Add default color rule for onoff and dim capabilities
         if (capability === 'onoff' || capability === 'dim') {
             newDevice.rules.push({
@@ -613,14 +607,12 @@ function onHomeyReady(Homey) {
             });
         }
 
-
         // Special handling for sensors
         if (capability === 'alarm_contact' || capability === 'alarm_motion') {
             newDevice.id = `${device.id}-sensor-${capability}`;
             newDevice.capability = 'sensor';
             newDevice.sensorType = capability;
         }
-
 
         // Add to devices array if it doesn't exist
         if (!currentFloor.devices) {
@@ -639,7 +631,6 @@ function onHomeyReady(Homey) {
 
         // Save floors
         saveFloors().then(() => {
-
             // Update the floor plan display
             renderFloorPlanDevices(currentFloor);
 
@@ -675,7 +666,6 @@ function onHomeyReady(Homey) {
 
     // Update the search results rendering to show added state
     function updateSearchResults() {
-
         document.querySelectorAll('.add-capability-btn').forEach(button => {
             const deviceId = button.dataset.deviceId;
             const capability = button.dataset.capability;
@@ -699,7 +689,6 @@ function onHomeyReady(Homey) {
         const wrapper = document.getElementById('imageWrapper');
         const parentContainer = wrapper.parentElement;
 
-
         container.innerHTML = '';
 
         // Wait for image to load to get correct dimensions
@@ -709,7 +698,6 @@ function onHomeyReady(Homey) {
         }
 
         const wrapperRect = wrapper.getBoundingClientRect();
-
 
         // Store original dimensions for drag calculations
         container.dataset.originalWidth = image.naturalWidth;
@@ -761,7 +749,6 @@ function onHomeyReady(Homey) {
             // Use percentages directly for positioning
             const displayX = (device.position.x / 100) * wrapperRect.width;
             const displayY = (device.position.y / 100) * wrapperRect.height;
-
 
             deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
 
@@ -957,6 +944,7 @@ function onHomeyReady(Homey) {
                         <option value="allColor">All - Static Color</option>
                         <option value="iconColor">On/Off - Color Switcher</option>
                         <option value="imageView">On/Off - Image Switcher</option>
+                        <option value="iconSelect">All - Icon Select</option>
                     </select>
                 </div>
                 <div id="ruleConfig" class="rule-config">
@@ -1098,6 +1086,11 @@ function onHomeyReady(Homey) {
 
                     config.onStateVisibility = document.getElementById('onStateVisibility').value;
                     config.offStateVisibility = document.getElementById('offStateVisibility').value;
+                } else if (ruleType === 'iconSelect') {
+                    // Implement icon selection logic
+                    config = {
+                        selectedIcon: document.getElementById('selectedIcon').value
+                    };
                 }
 
                 // Initialize rules array if it doesn't exist
@@ -1220,6 +1213,266 @@ function onHomeyReady(Homey) {
                 imageInput.addEventListener('change', (e) => {
                     handleRuleImageUpload(e, 'ruleImagePreview');
                 });
+            } else if (ruleType === 'iconSelect') {
+                ruleConfig.innerHTML = `
+                    <div class="icon-search-section">
+                        <div class="search-container">
+                            <label for="iconSearch" class="search-label">Search Icons</label>
+                            <input type="text" id="iconSearch" class="homey-form-input" placeholder="Type to search...">
+                        </div>
+                        <div id="iconSearchResults" class="icon-results">
+                            <div class="initial-state">Type to search for icons</div>
+                        </div>
+                    </div>
+                `;
+
+                // Add icon search functionality
+                const searchInput = document.getElementById('iconSearch');
+                const resultsContainer = document.getElementById('iconSearchResults');
+                let icons = null;
+
+                // Load icons.json
+                fetch('./assets/icons.json')
+                    .then(response => response.json())
+                    .then(data => {
+                        icons = data;
+                    })
+                    .catch(err => {
+                        console.error('Failed to load icons:', err);
+                        resultsContainer.innerHTML = 'Failed to load icons';
+                    });
+
+                // Add search handler with debounce
+                searchInput.addEventListener('input', debounce(async (e) => {
+                    const searchTerm = e.target.value.toLowerCase().trim();
+                    
+                    if (searchTerm.length < 2) {
+                        resultsContainer.innerHTML = '<div class="initial-state">Type at least 2 characters to search</div>';
+                        return;
+                    }
+
+                    if (!icons) {
+                        resultsContainer.innerHTML = 'Loading icons...';
+                        return;
+                    }
+
+                    // Search through icons
+                    const matches = Object.entries(icons)
+                        .filter(([name, data]) => 
+                            name.toLowerCase().includes(searchTerm) ||
+                            data.search?.terms?.some(term => term.toLowerCase().includes(searchTerm))
+                        )
+                        .slice(0, 3); // Limit to 3 results
+
+                    if (matches.length === 0) {
+                        resultsContainer.innerHTML = '<div class="no-results">No icons found</div>';
+                        return;
+                    }
+
+                    // Display results
+                    resultsContainer.innerHTML = matches.map(([name, data]) => {
+                        const svgData = data.svg?.solid || data.svg?.regular;
+                        const stylesCount = data.styles.length;
+                        const stylesText = stylesCount > 1 ? ` (${stylesCount} styles)` : '';
+                        
+                        return `
+                            <div class="icon-result" data-icon-name="${name}">
+                                <div class="icon-preview">
+                                    ${svgData ? `
+                                        <svg xmlns="http://www.w3.org/2000/svg" 
+                                             viewBox="0 0 ${data.width || 512} ${data.height || 512}" 
+                                             width="24" 
+                                             height="24">
+                                            <path d="${svgData.path}" fill="currentColor"/>
+                                        </svg>
+                                    ` : '(no icon)'}
+                                </div>
+                                <div class="icon-name">${name}${stylesText}</div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    // Add click handlers for icon selection
+                    resultsContainer.querySelectorAll('.icon-result').forEach(result => {
+                        result.addEventListener('click', function() {
+                            const iconName = this.dataset.iconName;
+                            const iconData = icons[iconName];
+                            
+                            // Clear previous results and show selection
+                            resultsContainer.innerHTML = '';
+                            
+                            // Show selected icon with style selector
+                            const selectedSection = document.createElement('div');
+                            selectedSection.className = '';
+                            
+                            // Only show style selector if there are multiple styles
+                            const hasMultipleStyles = iconData.styles.length > 1;
+                            
+                            selectedSection.innerHTML = `
+                                <label class="selected-label">Selected Icon</label>
+                                <div class="selection-content">
+                                    <h4>${iconName}</h4>
+                                    
+                                    ${hasMultipleStyles ? `
+                                        <div class="style-box">
+                                            <label>Style Options</label>
+                                            <select class="style-select">
+                                                ${iconData.styles.map(style => `
+                                                    <option value="${style}">${style.charAt(0).toUpperCase() + style.slice(1)}</option>
+                                                `).join('')}
+                                            </select>
+                                        </div>
+                                    ` : ''}
+                                    
+                                    <div class="preview-box">
+                                        <label>Icon Preview</label>
+                                        <div class="preview-content">
+                                            <svg xmlns="http://www.w3.org/2000/svg" 
+                                                 viewBox="0 0 ${iconData.width || 512} ${iconData.height || 512}" 
+                                                 width="32" 
+                                                 height="32">
+                                                <path d="${iconData.svg.solid.path}" fill="currentColor"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+
+                            resultsContainer.appendChild(selectedSection);
+
+                            // Add style change handler
+                            if (hasMultipleStyles) {
+                                const styleSelect = selectedSection.querySelector('.style-select');
+                                styleSelect.addEventListener('change', function() {
+                                    const selectedStyle = this.value;
+                                    const previewSvg = selectedSection.querySelector('.preview-content svg path');
+                                    previewSvg.setAttribute('d', iconData.svg[selectedStyle].path);
+                                });
+                            }
+
+                            // Store selected icon data
+                            ruleConfig.dataset.selectedIcon = JSON.stringify({
+                                name: iconName,
+                                style: hasMultipleStyles ? selectedSection.querySelector('.style-select').value : iconData.styles[0],
+                                ...iconData
+                            });
+
+                            // Enable save button
+                            document.querySelector('.save-button').disabled = false;
+                        });
+                    });
+                }, 300));
+
+                // Update the styles
+                if (!document.getElementById('iconSearchStyles')) {
+                    const styles = document.createElement('style');
+                    styles.id = 'iconSearchStyles';
+                    styles.textContent = `
+                        .modal-content {
+                            max-height: 90vh;
+                            display: flex;
+                            flex-direction: column;
+                        }
+                        
+                        .modal-header {
+                            flex: 0 0 auto;
+                            border-bottom: 1px solid #ddd;
+                        }
+                        
+                        .modal-body {
+                            flex: 1;
+                            overflow-y: auto;
+                            padding: 20px;
+                            /* Remove any border that might appear on the scrollable area */
+                            border: none;
+                        }
+                        
+                        .modal-footer {
+                            flex: 0 0 auto;
+                            border-top: 1px solid #ddd;
+                        }
+                        
+                        .icon-search-section {
+                            padding: 10px 0;
+                        }
+                        
+                        .search-label, .selected-label {
+                            display: block;
+                            font-weight: 500;
+                            margin-bottom: 8px;
+                            color: #333;
+                        }
+                        
+                        .icon-results {
+                            margin-top: 10px;
+                            border: 1px solid #ddd;
+                            border-radius: 4px;
+                            overflow: hidden;
+                        }
+                        
+                        .icon-result {
+                            display: flex;
+                            align-items: center;
+                            padding: 8px 12px;
+                            cursor: pointer;
+                            border-bottom: 1px solid #ddd;
+                        }
+                        
+                        .icon-result:last-child {
+                            border-bottom: none;
+                        }
+                        
+                        .icon-result:hover {
+                            background: #f5f5f5;
+                        }
+                        
+                        .icon-preview {
+                            width: 30px;
+                            height: 30px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            margin-right: 12px;
+                        }
+                        
+                        .icon-preview svg {
+                            width: 20px;
+                            height: 20px;
+                            color: #333;
+                        }
+                        
+                        .selected-section {
+                            margin-top: 15px;
+                            border: none;
+                            padding: 0;
+                        }
+                        
+                        .selected-label {
+                            display: block;
+                            font-weight: 500;
+                            margin-bottom: 8px;
+                            color: #333;
+                            border: none;
+                            background: none;
+                        }
+                        
+                        .selection-content {
+                            border: 1px solid #ddd;
+                            border-radius: 4px;
+                            padding: 15px;
+                            margin: 0;
+                        }
+
+                        /* Ensure no default form fieldset borders */
+                        .modal-body fieldset,
+                        .rule-config fieldset {
+                            border: none;
+                            padding: 0;
+                            margin: 0;
+                        }
+                    `;
+                    document.head.appendChild(styles);
+                }
             }
             saveButton.disabled = false;
         });
@@ -1280,6 +1533,8 @@ function onHomeyReady(Homey) {
                 return 'All - Static Color';
             case 'imageView':
                 return 'On/Off - Image Switcher';
+            case 'iconSelect':  // Add new type
+                return 'All - Icon Select';
             default:
                 return 'Custom Rule';
         }

@@ -124,7 +124,6 @@ const onOffRenderer = {
     async initializeState(deviceEl, deviceId, widgetId) {
         try {
             const response = await Homey.api('GET', `/devices/${deviceId}/capabilities/onoff`);
-            console.log('Initial onoff state:', response);
 
             if (response && typeof response !== 'undefined') {
                 deviceEl.setAttribute('data-state', response);
@@ -213,8 +212,6 @@ const onOffRenderer = {
 
             const currentState = deviceEl.getAttribute('data-state') === 'true';
             const newState = !currentState;
-
-            console.log('Handling click for device:', cleanDeviceId, 'current state:', currentState, 'new state:', newState); // Debug log
 
             // Update visual state immediately for responsive feel
             this.handleDeviceUpdate(deviceEl, newState);
@@ -360,7 +357,7 @@ const onOffRenderer = {
         // Continue with color rules
         const allColorRule = device.rules?.find(r => r.type === 'allColor');
         if (allColorRule?.config?.mainColor) {
-            console.log('Applying allColor rule:', allColorRule.config.mainColor);
+
             deviceEl.setAttribute('data-all-color', allColorRule.config.mainColor);
             deviceEl.setAttribute('data-color-rule', 'true');
             deviceEl.style.backgroundColor = `${allColorRule.config.mainColor}59`;

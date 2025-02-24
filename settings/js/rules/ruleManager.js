@@ -10,7 +10,7 @@ const ruleManager = {
         allIcon: { name: 'All - Icon Select', allowMultiple: false },
         allColor: { name: 'All - Color Select', allowMultiple: false },
         onOffColor: { name: 'On/Off - Color Switcher', allowMultiple: false },
-        onOffImage: { name: 'On/Off - Image Switcher', allowMultiple: true }
+        onOffImage: { name: 'On/Off - Image Switcher', allowMultiple: false }
     },
 
     init(floorManager, Homey) {
@@ -699,85 +699,63 @@ const ruleManager = {
 
     attachRuleEventListeners() {
         const ruleDialog = document.getElementById('ruleDialog');
-        if (!ruleDialog) {
-            console.error('Rule dialog not found');
-            return;
+        if (!ruleDialog) return;
+
+        // Add event listeners for color inputs and checkboxes
+        const colorInputs = ruleDialog.querySelectorAll('input[type="color"]');
+        const checkboxes = ruleDialog.querySelectorAll('input[type="checkbox"]');
+
+        colorInputs.forEach(input => {
+            input.addEventListener('input', () => {
+                // Enable save button when color is changed
+                const saveButton = ruleDialog.querySelector('#saveRule');
+                if (saveButton) saveButton.disabled = false;
+
+                // Update disabled state of color inputs based on checkboxes
+                this.updateColorInputStates();
+            });
+        });
+
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                // Enable save button when checkbox is changed
+                const saveButton = ruleDialog.querySelector('#saveRule');
+                if (saveButton) saveButton.disabled = false;
+
+                // Update disabled state of color inputs based on checkboxes
+                this.updateColorInputStates();
+            });
+        });
+    },
+
+    updateColorInputStates() {
+        const ruleDialog = document.getElementById('ruleDialog');
+        if (!ruleDialog) return;
+
+        // Handle On state inputs
+        const showIconOn = ruleDialog.querySelector('#showIconOn');
+        const iconColorOn = ruleDialog.querySelector('#iconColorOn');
+        if (showIconOn && iconColorOn) {
+            iconColorOn.disabled = !showIconOn.checked;
         }
 
-        const searchInput = ruleDialog.querySelector('#iconSearch');
-        const resultsDiv = ruleDialog.querySelector('#searchResults');
-        const selectedIconDisplay = ruleDialog.querySelector('.selected-icon-box');
-        const saveButton = ruleDialog.querySelector('#saveRule');
+        const showCloudOn = ruleDialog.querySelector('#showCloudOn');
+        const cloudColorOn = ruleDialog.querySelector('#cloudColorOn');
+        if (showCloudOn && cloudColorOn) {
+            cloudColorOn.disabled = !showCloudOn.checked;
+        }
 
-        if (searchInput && resultsDiv) {
-            let debounceTimeout;
+        // Handle Off state inputs
+        const showIconOff = ruleDialog.querySelector('#showIconOff');
+        const iconColorOff = ruleDialog.querySelector('#iconColorOff');
+        if (showIconOff && iconColorOff) {
+            iconColorOff.disabled = !showIconOff.checked;
+        }
 
-            const handleSearch = async () => {
-                const searchTerm = searchInput.value.trim();
-
-                // Clear results if search is empty
-                if (!searchTerm) {
-                    resultsDiv.innerHTML = '<div class="no-results">Type to search icons...</div>';
-                    return;
-                }
-
-                // Show loading state
-                resultsDiv.innerHTML = '<div class="loading-state">Searching icons...</div>';
-
-                try {
-                    const icons = await this.searchMaterialIcons(searchTerm);
-
-                    if (icons.length === 0) {
-                        resultsDiv.innerHTML = '<div class="no-results">No matching icons found</div>';
-                        return;
-                    }
-
-                    resultsDiv.innerHTML = icons.map(icon => `
-                        <div class="icon-result" data-icon="${icon}">
-                            <span class="material-symbols-outlined">${icon}</span>
-                            <span class="icon-name">${icon}</span>
-                        </div>
-                    `).join('');
-
-                    // Add click handlers
-                    resultsDiv.querySelectorAll('.icon-result').forEach(el => {
-                        el.addEventListener('click', () => {
-                            const selectedIcon = el.dataset.icon;
-
-                            selectedIconDisplay.innerHTML = `
-                                <div class="selected-icon">
-                                    <span class="material-symbols-outlined">${selectedIcon}</span>
-                                    <span class="icon-name">${selectedIcon}</span>
-                                </div>`;
-
-                            if (saveButton) {
-                                saveButton.disabled = false;
-                            }
-                            resultsDiv.innerHTML = '';
-                            searchInput.value = '';
-                        });
-                    });
-                } catch (error) {
-                    console.error('Search failed:', error);
-                    resultsDiv.innerHTML = '<div class="error-state">Failed to search icons</div>';
-                }
-            };
-
-            // Trigger search on input with 250ms debounce
-            searchInput.addEventListener('input', () => {
-                clearTimeout(debounceTimeout);
-                debounceTimeout = setTimeout(() => {
-                    handleSearch();
-                }, 250);
-            });
-
-            // Initial state
-            resultsDiv.innerHTML = '<div class="no-results">Type to search icons...</div>';
-        } else {
-            console.error('Required elements not found:', {
-                searchInput: !!searchInput,
-                resultsDiv: !!resultsDiv
-            });
+        const showCloudOff = ruleDialog.querySelector('#showCloudOff');
+        const cloudColorOff = ruleDialog.querySelector('#cloudColorOff');
+        if (showCloudOff && cloudColorOff) {
+            cloudColorOff.disabled = !showCloudOff.checked;
         }
     },
 

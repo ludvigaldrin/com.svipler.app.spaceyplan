@@ -360,20 +360,24 @@ const onOffRenderer = {
             // Check for onOffImageRule rule first
             const onOffImageRule = device.rules?.find(r => r.type === 'onOffImage');
             if (onOffImageRule?.config) {
-                deviceEl.setAttribute('data-image-rule', 'true');
+                // Check if we've already initialized this device's image
                 const deviceId = deviceEl.getAttribute('data-device-id');
+                const existingImage = document.querySelector(`.state-image-${deviceId}`);
                 
-                // Remove ALL existing images for this device
-                const existingImages = document.querySelectorAll(`.state-image-${deviceId}`);
-                Homey.api('POST', '/log', { 
-                    message: `[Cleanup] Removing ${existingImages.length} existing images for ${device.name}` 
-                });
-                existingImages.forEach(img => img.remove());
-                
-                const imageWrapper = document.getElementById('imageWrapper');
-                if (imageWrapper && onOffImageRule.config.imageData) {
-                    // Double check no images exist before creating new one
-                    if (!document.querySelector(`.state-image-${deviceId}`)) {
+                if (existingImage) {
+                    // Just update visibility if image already exists
+                    const showImage = onOffImageRule.config.showOn === currentState;
+                    existingImage.style.display = showImage ? 'block' : 'none';
+                    
+                    Homey.api('POST', '/log', { 
+                        message: `[Initial] Updated existing image visibility for ${device.name}: showImage=${showImage}, state=${currentState}` 
+                    });
+                } else {
+                    // Create new image only if it doesn't exist
+                    deviceEl.setAttribute('data-image-rule', 'true');
+                    
+                    const imageWrapper = document.getElementById('imageWrapper');
+                    if (imageWrapper && onOffImageRule.config.imageData) {
                         const imageEl = document.createElement('img');
                         
                         // Set styles directly - start hidden
@@ -395,26 +399,15 @@ const onOffRenderer = {
                         // Wait for image to load before setting visibility
                         imageEl.onload = () => {
                             const showImage = onOffImageRule.config.showOn === currentState;
-                            
-                            if (showImage) {
-                                imageEl.style.display = 'block';
-                            }
+                            imageEl.style.display = showImage ? 'block' : 'none';
                             
                             Homey.api('POST', '/log', { 
-                                message: `[Initial] Image loaded and visibility set for ${device.name}: showImage=${showImage}, state=${currentState}, showOn=${onOffImageRule.config.showOn}, display=${imageEl.style.display}, totalImages=${document.querySelectorAll('.state-image').length}` 
+                                message: `[Initial] Created and set visibility for ${device.name}: showImage=${showImage}, state=${currentState}` 
                             });
                         };
                         
                         // Set src after setting onload handler
                         imageEl.src = onOffImageRule.config.imageData;
-                        
-                        Homey.api('POST', '/log', { 
-                            message: `[Initial] Image created for ${device.name}, totalImages=${document.querySelectorAll('.state-image').length}` 
-                        });
-                    } else {
-                        Homey.api('POST', '/log', { 
-                            message: `[Warning] Prevented duplicate image creation for ${device.name}` 
-                        });
                     }
                 }
             }

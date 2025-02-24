@@ -6,3 +6,4 @@ package-lock.json
 .cursorignore
 preview-light-org.png
 .DS_Store
+settings-old.js

@@ -1,0 +1,250 @@
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 500;
+    color: #333;
+}
+
+.modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0; /* Important for scroll to work */
+}
+
+.modal-footer {
+    padding: 16px 20px;
+    border-top: 1px solid #eee;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.modal-close-button {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 4px;
+    color: #666;
+}
+
+.modal-close-button:hover {
+    color: #333;
+}
+
+/* Modal Button Styles */
+.modal-button {
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: normal;
+    min-width: 80px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-button-primary {
+    background: #eee;
+    color: #333;
+    border: 1px solid #ddd;
+}
+
+.modal-button-primary:hover:not(:disabled) {
+    background: #e0e0e0;
+}
+
+.modal-button-secondary {
+    background: #f5f5f5;
+    color: #333;
+    border: 1px solid #ddd;
+}
+
+.modal-button-secondary:hover:not(:disabled) {
+    background: #eee;
+}
+
+.modal-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Image Preview */
+.modal-image-preview {
+    margin: 12px auto;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f5f5f5;
+    max-width: 400px;    /* Fixed width, increased from 240px */
+    padding: 16px;       /* Added padding to container */
+    overflow-y: auto;    /* Allow vertical scrolling */
+}
+
+.modal-image-preview img {
+    width: 100%;
+    height: auto;        /* Let height adjust automatically */
+    display: block;      /* Remove any extra space below image */
+    margin: 0 auto;      /* Center the image */
+}
+
+/* Form Elements */
+.modal-form-group {
+    margin-bottom: 20px;
+}
+
+.modal-form-group:last-child {
+    margin-bottom: 0;
+}
+
+.modal-form-group label {
+    display: block;
+    text-transform: uppercase;
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.modal-form-input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+/* File input specific styles */
+.modal-form-input[type="file"] {
+    display: block;
+    width: 100%;
+    font-size: 14px;
+    margin-top: 8px;
+    border: none;
+    padding: 0;
+}
+
+/* Custom file input button */
+.modal-form-input[type="file"]::file-selector-button {
+    font-size: 14px;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+    margin-right: 12px;
+    cursor: pointer;
+}
+
+.modal-form-input[type="file"]::file-selector-button:hover {
+    background: #f5f5f5;
+}
+
+/* Button Styles */
+.homey-button-primary,
+.homey-button-secondary,
+.homey-button-danger {
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: normal;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 80px;
+}
+
+.homey-button-primary {
+    background: #eee;
+    color: #333;
+    border: 1px solid #ddd;
+}
+
+.homey-button-primary:hover:not(:disabled) {
+    background: #e0e0e0;
+}
+
+.homey-button-secondary {
+    background: #f5f5f5;
+    color: #333;
+    border: 1px solid #ddd;
+}
+
+.homey-button-secondary:hover:not(:disabled) {
+    background: #eee;
+}
+
+.homey-button-danger {
+    background: #dc3545;
+    color: white;
+    border: none;
+}
+
+.homey-button-danger:hover:not(:disabled) {
+    background: #c82333;
+}
+
+.homey-button-primary:disabled,
+.homey-button-secondary:disabled,
+.homey-button-danger:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Spinner */
+.button-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+} 

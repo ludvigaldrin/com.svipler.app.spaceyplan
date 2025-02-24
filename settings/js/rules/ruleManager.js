@@ -3,11 +3,13 @@ const ruleManager = {
     floorManager: null,
     currentDeviceId: null,
     currentRuleId: null,
+    iconData: null, // Store icon data
 
     init(floorManager, Homey) {
         this.floorManager = floorManager;
         this.Homey = Homey;
         this.attachImageUploadHandlers();
+        this.initialize();
     },
 
     attachImageUploadHandlers() {
@@ -68,31 +70,157 @@ const ruleManager = {
         const types = {
             'onOffColor': 'On/Off - Color Switcher',
             'allColor': 'All - Static Color',
-            'imageView': 'On/Off - Image Switcher'
+            'imageView': 'On/Off - Image Switcher',
+            'allIcon': 'All - Icon Select'
         };
         return types[ruleType] || 'Unknown Rule Type';
     },
 
     renderRuleConfig(ruleType, existingRule = null) {
-        if (ruleType === 'allColor') {
+        if (ruleType === 'allIcon') {
             return `
-                <div class="color-picker-group">
-                    <div class="color-input-group">
-                        <label>Color</label>
-                        <input type="color" id="staticColor" value="${existingRule?.config?.color || '#00ff00'}">
+                <div class="rule-config-group">
+                    <div class="icon-search-container">
+                        <h3>Search Icons</h3>
+                        <div class="search-input-group">
+                            <input type="text" 
+                                   id="iconSearch" 
+                                   class="homey-form-input" 
+                                   placeholder="Type to search Material Icons...">
+                        </div>
+                        <div id="searchResults" class="icon-search-results"></div>
+                    </div>
+
+                    <div id="selectedIconDisplay" class="selected-icon-container">
+                        <h3>Selected Icon</h3>
+                        <div class="selected-icon-box">
+                            ${existingRule?.config?.selectedIcon ? `
+                                <div class="selected-icon">
+                                    <span class="material-symbols-outlined">${existingRule.config.selectedIcon}</span>
+                                    <span class="icon-name">${existingRule.config.selectedIcon}</span>
+                                </div>
+                            ` : `
+                                <div class="no-icon-selected">
+                                    No icon selected. Search above to find an icon.
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (ruleType === 'allColor') {
+            return `
+                <div class="rule-config-group">
+                    <div class="icon-settings">
+                        <div class="settings-header">
+                            <h3>Icon Settings</h3>
+                            <label class="switch">
+                                <input type="checkbox" id="showIcon" 
+                                    ${existingRule?.config?.showIcon !== false ? 'checked' : ''}>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div class="color-input-group">
+                            <label>Icon Color</label>
+                            <input type="color" id="iconColor" 
+                                value="${existingRule?.config?.iconColor || '#00ff00'}"
+                                ${existingRule?.config?.showIcon === false ? 'disabled' : ''}>
+                        </div>
+                    </div>
+
+                    <div class="cloud-settings">
+                        <div class="settings-header">
+                            <h3>Cloud Effect Settings</h3>
+                            <label class="switch">
+                                <input type="checkbox" id="showCloud" 
+                                    ${existingRule?.config?.showCloud !== false ? 'checked' : ''}>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div class="color-input-group">
+                            <label>Cloud Color</label>
+                            <input type="color" id="cloudColor" 
+                                value="${existingRule?.config?.cloudColor || '#00ff00'}"
+                                ${existingRule?.config?.showCloud === false ? 'disabled' : ''}>
+                        </div>
                     </div>
                 </div>
             `;
         } else if (ruleType === 'onOffColor') {
             return `
-                <div class="color-picker-group">
-                    <div class="color-input-group">
-                        <label>On Color</label>
-                        <input type="color" id="onColor" value="${existingRule?.config?.onColor || '#ffeb3b'}">
+                <div class="rule-config-group">
+                    <div class="icon-settings">
+                        <div class="settings-header">
+                            <h3>On - Icon Settings</h3>
+                            <label class="switch">
+                                <input type="checkbox" id="showIconOn" 
+                                    ${existingRule?.config?.showIconOn !== false ? 'checked' : ''}>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div class="color-input-group">
+                            <label>Icon Color</label>
+                            <input type="color" id="iconColorOn" 
+                                value="${existingRule?.config?.iconColorOn || '#ffeb3b'}"
+                                ${existingRule?.config?.showIconOn === false ? 'disabled' : ''}>
+                        </div>
+                        <div class="settings-note">
+                            Note: Not all icons allow for color change
+                        </div>
                     </div>
-                    <div class="color-input-group">
-                        <label>Off Color</label>
-                        <input type="color" id="offColor" value="${existingRule?.config?.offColor || '#ffffff'}">
+
+                    <div class="cloud-settings">
+                        <div class="settings-header">
+                            <h3>On - Cloud Effect Settings</h3>
+                            <label class="switch">
+                                <input type="checkbox" id="showCloudOn" 
+                                    ${existingRule?.config?.showCloudOn !== false ? 'checked' : ''}>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div class="color-input-group">
+                            <label>Cloud Color</label>
+                            <input type="color" id="cloudColorOn" 
+                                value="${existingRule?.config?.cloudColorOn || '#ffeb3b'}"
+                                ${existingRule?.config?.showCloudOn === false ? 'disabled' : ''}>
+                        </div>
+                    </div>
+
+                    <div class="icon-settings">
+                        <div class="settings-header">
+                            <h3>Off - Icon Settings</h3>
+                            <label class="switch">
+                                <input type="checkbox" id="showIconOff" 
+                                    ${existingRule?.config?.showIconOff !== false ? 'checked' : ''}>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div class="color-input-group">
+                            <label>Icon Color</label>
+                            <input type="color" id="iconColorOff" 
+                                value="${existingRule?.config?.iconColorOff || '#ffffff'}"
+                                ${existingRule?.config?.showIconOff === false ? 'disabled' : ''}>
+                        </div>
+                        <div class="settings-note">
+                            Note: Not all icons allow for color change
+                        </div>
+                    </div>
+
+                    <div class="cloud-settings">
+                        <div class="settings-header">
+                            <h3>Off - Cloud Effect Settings</h3>
+                            <label class="switch">
+                                <input type="checkbox" id="showCloudOff" 
+                                    ${existingRule?.config?.showCloudOff !== false ? 'checked' : ''}>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div class="color-input-group">
+                            <label>Cloud Color</label>
+                            <input type="color" id="cloudColorOff" 
+                                value="${existingRule?.config?.cloudColorOff || '#ffffff'}"
+                                ${existingRule?.config?.showCloudOff === false ? 'disabled' : ''}>
+                        </div>
                     </div>
                 </div>
             `;
@@ -215,85 +343,42 @@ const ruleManager = {
 
         // Get existing rule types for this device
         const floor = this.floorManager.floors.find(f => f.id === this.floorManager.currentFloorId);
-        const device = floor?.devices.find(d => d.id === deviceId);
-        const existingRuleTypes = device?.rules?.map(r => r.type) || [];
+        if (!floor) return;
 
-        // Update rule type options - only filter color rules
-        if (typeSelect) {
-            typeSelect.innerHTML = `
-                <option value="">Choose a rule type...</option>
-                ${!existingRuleTypes.includes('allColor') ? '<option value="allColor">All - Static Color</option>' : ''}
-                ${!existingRuleTypes.includes('onOffColor') ? '<option value="onOffColor">On/Off - Color Switcher</option>' : ''}
-                <option value="imageView">On/Off - Image Switcher</option>
-            `;
-            typeSelect.disabled = false;
-            
-            // Add change listener for rule type
-            typeSelect.onchange = () => {
-                const ruleType = typeSelect.value;
-                if (!ruleType) {
-                    configSection.innerHTML = '';
-                    saveButton.disabled = true;
-                    return;
-                }
+        const device = floor.devices.find(d => d.id === deviceId);
+        if (!device) return;
 
-                configSection.innerHTML = this.renderRuleConfig(ruleType);
-                saveButton.disabled = false;
-            };
-        }
-        if (configSection) configSection.innerHTML = '';
+        const hasAllIconRule = device.rules.some(r => r.type === 'allIcon');
 
-        dialog.style.display = 'flex';
+        // Populate rule type dropdown
+        typeSelect.innerHTML = `
+            <option value="">Choose a rule type...</option>
+            ${!hasAllIconRule ? '<option value="allIcon">All - Icon Select</option>' : ''}
+            <option value="allColor">All - Static Color</option>
+            <option value="onOffColor">On/Off - Color Switcher</option>
+            <option value="imageView">On/Off - Image Switcher</option>
+        `;
 
-        const handleSave = async () => {
-            try {
-                const floor = this.floorManager.floors.find(f => f.id === this.floorManager.currentFloorId);
-                if (!floor) return;
-
-                const device = floor.devices.find(d => d.id === deviceId);
-                if (!device) return;
-
-                const ruleType = typeSelect.value;
-                if (!ruleType) {
-                    this.Homey.alert('Please select a rule type');
-                    return;
-                }
-
-                const config = await this.getRuleConfig(ruleType);
-                const newRule = {
-                    id: Date.now().toString(),
-                    type: ruleType,
-                    name: this.getRuleName(ruleType),
-                    config
-                };
-
-                if (!device.rules) device.rules = [];
-                device.rules.push(newRule);
-
-                await this.floorManager.saveFloors();
-                const rulesSection = document.getElementById(`rules-${deviceId}`);
-                if (rulesSection) {
-                    const rulesContent = rulesSection.querySelector('.floor-rules-content');
-                    if (rulesContent) {
-                        rulesContent.innerHTML = this.renderRules(device);
-                        this.floorManager.attachRuleEventListeners(rulesContent);
-                    }
-                }
-                dialog.style.display = 'none';
-            } catch (err) {
-                console.error('Failed to save rule:', err);
-                this.Homey.alert('Failed to save rule');
+        // Add change listener for rule type
+        typeSelect.onchange = () => {
+            const ruleType = typeSelect.value;
+            if (!ruleType) {
+                configSection.innerHTML = '';
+                saveButton.disabled = true;
+                return;
             }
+
+            configSection.innerHTML = this.renderRuleConfig(ruleType);
+            
+            // Attach event listeners after rendering the config
+            if (ruleType === 'allIcon') {
+                this.attachRuleEventListeners();
+            }
+            
+            saveButton.disabled = ruleType === 'allIcon'; // Disabled until icon is selected
         };
 
-        // Event listeners
-        const saveBtn = dialog.querySelector('#saveRule');
-        const cancelBtn = dialog.querySelector('#cancelRule');
-        const closeBtn = dialog.querySelector('.modal-close-button');
-        
-        if (saveBtn) saveBtn.onclick = handleSave;
-        if (cancelBtn) cancelBtn.onclick = () => dialog.style.display = 'none';
-        if (closeBtn) closeBtn.onclick = () => dialog.style.display = 'none';
+        dialog.style.display = 'flex';
     },
 
     editRule(deviceId, ruleId) {
@@ -478,14 +563,44 @@ const ruleManager = {
     },
 
     async getRuleConfig(ruleType) {
-        if (ruleType === 'allColor') {
+        if (ruleType === 'allIcon') {
+            const selectedIconElement = document.querySelector('.selected-icon .material-symbols-outlined');
+            if (!selectedIconElement) {
+                console.warn('No icon selected when trying to save');
+                return null;
+            }
+
+            const selectedIcon = selectedIconElement.textContent;
+            console.log('Saving icon configuration:', selectedIcon);
+
             return {
-                color: document.getElementById('staticColor').value
+                selectedIcon
+            };
+        } else if (ruleType === 'allColor') {
+            const showIcon = document.getElementById('showIcon').checked;
+            const showCloud = document.getElementById('showCloud').checked;
+
+            return {
+                showIcon,
+                iconColor: showIcon ? document.getElementById('iconColor').value : null,
+                showCloud,
+                cloudColor: showCloud ? document.getElementById('cloudColor').value : null
             };
         } else if (ruleType === 'onOffColor') {
+            const showIconOn = document.getElementById('showIconOn').checked;
+            const showCloudOn = document.getElementById('showCloudOn').checked;
+            const showIconOff = document.getElementById('showIconOff').checked;
+            const showCloudOff = document.getElementById('showCloudOff').checked;
+            
             return {
-                onColor: document.getElementById('onColor').value,
-                offColor: document.getElementById('offColor').value
+                showIconOn,
+                iconColorOn: showIconOn ? document.getElementById('iconColorOn').value : null,
+                showCloudOn,
+                cloudColorOn: showCloudOn ? document.getElementById('cloudColorOn').value : null,
+                showIconOff,
+                iconColorOff: showIconOff ? document.getElementById('iconColorOff').value : null,
+                showCloudOff,
+                cloudColorOff: showCloudOff ? document.getElementById('cloudColorOff').value : null
             };
         } else if (ruleType === 'imageView') {
             const imagePreview = document.getElementById('ruleImagePreview').querySelector('img');
@@ -554,27 +669,165 @@ const ruleManager = {
     },
 
     attachRuleEventListeners() {
-        document.querySelectorAll('.edit-rule').forEach(button => {
-            button.addEventListener('click', (e) => {
-                e.preventDefault();
-                const deviceId = button.dataset.deviceId;
-                const ruleId = button.dataset.ruleId;
-                this.editRule(deviceId, ruleId);
-            });
-        });
+        console.log('🔍 Initializing rule event listeners');
+        
+        const ruleDialog = document.getElementById('ruleDialog');
+        if (!ruleDialog) {
+            console.error('❌ Rule dialog not found');
+            return;
+        }
 
-        // Add type select change listener
-        const typeSelect = document.getElementById('ruleType');
-        if (typeSelect) {
-            typeSelect.addEventListener('change', (e) => {
-                this.onRuleTypeChange(e.target.value);
+        const searchInput = ruleDialog.querySelector('#iconSearch');
+        const resultsDiv = ruleDialog.querySelector('#searchResults');
+        const selectedIconDisplay = ruleDialog.querySelector('.selected-icon-box');
+        const saveButton = ruleDialog.querySelector('#saveRule');
+
+        if (searchInput && resultsDiv) {
+            console.log('✅ Found all required elements for icon search');
+            let debounceTimeout;
+            
+            const handleSearch = async () => {
+                const searchTerm = searchInput.value.trim();
+                console.log('🔍 Search triggered with term:', searchTerm);
+                
+                // Clear results if search is empty
+                if (!searchTerm) {
+                    console.log('ℹ️ Empty search term, showing initial state');
+                    resultsDiv.innerHTML = '<div class="no-results">Type to search icons...</div>';
+                    return;
+                }
+
+                // Show loading state
+                console.log('⏳ Showing loading state');
+                resultsDiv.innerHTML = '<div class="loading-state">Searching icons...</div>';
+
+                try {
+                    console.log('🔍 Calling searchMaterialIcons with term:', searchTerm);
+                    const icons = await this.searchMaterialIcons(searchTerm);
+                    console.log('✅ Search completed, found icons:', icons);
+                    
+                    if (icons.length === 0) {
+                        console.log('ℹ️ No icons found');
+                        resultsDiv.innerHTML = '<div class="no-results">No matching icons found</div>';
+                        return;
+                    }
+
+                    console.log('🎨 Rendering icon results');
+                    resultsDiv.innerHTML = icons.map(icon => `
+                        <div class="icon-result" data-icon="${icon}">
+                            <span class="material-symbols-outlined">${icon}</span>
+                            <span class="icon-name">${icon}</span>
+                        </div>
+                    `).join('');
+
+                    // Add click handlers
+                    resultsDiv.querySelectorAll('.icon-result').forEach(el => {
+                        el.addEventListener('click', () => {
+                            const selectedIcon = el.dataset.icon;
+                            console.log('👆 Icon selected:', selectedIcon);
+                            selectedIconDisplay.innerHTML = `
+                                <div class="selected-icon">
+                                    <span class="material-symbols-outlined">${selectedIcon}</span>
+                                    <span class="icon-name">${selectedIcon}</span>
+                                </div>`;
+                            
+                            if (saveButton) {
+                                saveButton.disabled = false;
+                                console.log('✅ Save button enabled');
+                            }
+                            resultsDiv.innerHTML = '';
+                            searchInput.value = '';
+                        });
+                    });
+                } catch (error) {
+                    console.error('❌ Search failed:', error);
+                    resultsDiv.innerHTML = '<div class="error-state">Failed to search icons</div>';
+                }
+            };
+
+            // Trigger search on input with 250ms debounce
+            searchInput.addEventListener('input', () => {
+                console.log('⌨️ Input detected, debouncing search');
+                clearTimeout(debounceTimeout);
+                debounceTimeout = setTimeout(() => {
+                    console.log('⏱️ Debounce timeout reached, executing search');
+                    handleSearch();
+                }, 250);
+            });
+
+            // Initial state
+            console.log('🎨 Setting initial state');
+            resultsDiv.innerHTML = '<div class="no-results">Type to search icons...</div>';
+        } else {
+            console.error('❌ Required elements not found:', {
+                searchInput: !!searchInput,
+                resultsDiv: !!resultsDiv
             });
         }
     },
 
-    initialize() {
-        // Attach event listeners for rule buttons
+    async searchMaterialIcons(searchTerm) {
+        console.log('🔍 searchMaterialIcons called with term:', searchTerm);
+        
+        if (!this.iconData) {
+            console.warn('⚠️ Icon data not loaded');
+            return [];
+        }
+
+        console.log('📚 Searching through cached icon data');
+        const results = this.iconData
+            .filter(icon => 
+                icon.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (icon.tags && icon.tags.some(tag => 
+                    tag.toLowerCase().includes(searchTerm.toLowerCase())
+                ))
+            )
+            .map(icon => icon.name)
+            .slice(0, 3);
+
+        console.log('✅ Search complete, found results:', results);
+        return results;
+    },
+
+    async initialize() {
+        // Fetch icons data on initialization
+        try {
+            const response = await fetch(`https://fonts.google.com/metadata/icons?key=material_symbols&incomplete=1`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch icons');
+            }
+
+            const text = await response.text();
+            const cleanJson = text.replace(/^\)\]\}'\n/, '');
+            const data = JSON.parse(cleanJson);
+            this.iconData = data.icons;
+
+        } catch (error) {
+            console.error('Error loading Material Icons:', error);
+            this.iconData = [];
+        }
+
+        // Attach event listeners
         this.attachRuleEventListeners();
+    },
+
+    // Update the default rule configuration for new devices
+    createDefaultRule() {
+        return {
+            id: Date.now().toString(),
+            type: 'onOffColor',
+            name: this.getRuleName('onOffColor'),
+            config: {
+                showIconOn: true,
+                iconColorOn: '#ffeb3b',
+                showCloudOn: true,
+                cloudColorOn: '#ffeb3b',
+                showIconOff: true,
+                iconColorOff: '#ffffff',
+                showCloudOff: true,
+                cloudColorOff: '#ffffff'
+            }
+        };
     }
 };
 

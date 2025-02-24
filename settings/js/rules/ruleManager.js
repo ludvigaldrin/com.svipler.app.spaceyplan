@@ -481,8 +481,59 @@ const ruleManager = {
     },
 
     deleteRule(deviceId, ruleId) {
-        console.log('Deleting rule:', { deviceId, ruleId });
-        // Implementation for delete rule
+        const dialog = document.getElementById('deleteConfirmDialog');
+        if (!dialog) {
+            console.error('Delete confirmation dialog not found');
+            return;
+        }
+
+        // Update dialog text for rule deletion
+        const modalTitle = dialog.querySelector('#deleteDialogTitle');
+        const modalDescription = dialog.querySelector('#deleteDialogDescription');
+
+        if (modalTitle) modalTitle.textContent = 'Delete Rule';
+        if (modalDescription) modalDescription.textContent = 'Are you sure you want to delete this rule? This action cannot be undone.';
+
+        // Show dialog
+        dialog.style.display = 'flex';
+
+        const handleDelete = async () => {
+            try {
+                const floor = this.floorManager.floors.find(f => f.id === this.floorManager.currentFloorId);
+                if (!floor) return;
+
+                const device = floor.devices.find(d => d.id === deviceId);
+                if (!device) return;
+
+                // Remove rule from device
+                device.rules = device.rules.filter(r => r.id !== ruleId);
+
+                await this.floorManager.saveFloors();
+
+                // Update UI
+                const rulesSection = document.getElementById(`rules-${deviceId}`);
+                if (rulesSection) {
+                    const rulesContent = rulesSection.querySelector('.floor-rules-content');
+                    if (rulesContent) {
+                        rulesContent.innerHTML = this.renderRules(device);
+                        this.floorManager.attachRuleEventListeners(rulesContent);
+                    }
+                }
+                dialog.style.display = 'none';
+            } catch (err) {
+                console.error('Failed to delete rule:', err);
+                this.Homey.alert('Failed to delete rule');
+            }
+        };
+
+        // Event listeners
+        const confirmBtn = document.getElementById('confirmDelete');
+        const cancelBtn = document.getElementById('cancelDelete');
+        const closeBtn = dialog.querySelector('.modal-close-button');
+        
+        if (confirmBtn) confirmBtn.onclick = handleDelete;
+        if (cancelBtn) cancelBtn.onclick = () => dialog.style.display = 'none';
+        if (closeBtn) closeBtn.onclick = () => dialog.style.display = 'none';
     },
 
     attachRuleEventListeners() {

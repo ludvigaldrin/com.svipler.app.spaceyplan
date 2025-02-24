@@ -156,9 +156,6 @@ const floorManager = {
     },
 
     attachFloorEventListeners() {
-        const floorsList = document.getElementById('floorsList');
-        if (!floorsList) return;
-
         // Edit floor handlers
         floorsList.querySelectorAll('.edit-floor').forEach(button => {
             button.addEventListener('click', () => {
@@ -442,26 +439,24 @@ const floorManager = {
                 </div>`;
         }).join('');
 
-        // Add event listeners
+        // Add expand button listeners
         list.querySelectorAll('.expand-button').forEach(button => {
             button.addEventListener('click', () => {
                 const deviceId = button.dataset.deviceId;
                 const rulesSection = document.getElementById(`rules-${deviceId}`);
-                const isExpanded = rulesSection.style.display !== 'none';
-                
-                // Toggle arrow direction
-                const arrow = button.querySelector('svg');
-                arrow.style.transform = isExpanded ? '' : 'rotate(180deg)';
-                
-                // Toggle rules section
-                rulesSection.style.display = isExpanded ? 'none' : 'block';
+                if (rulesSection) {
+                    const isHidden = rulesSection.style.display === 'none';
+                    rulesSection.style.display = isHidden ? 'block' : 'none';
+                    if (isHidden) {
+                        this.attachRuleEventListeners(rulesSection);
+                    }
+                }
             });
         });
 
-        // Existing event listeners for delete and highlight
+        // Add other listeners
         list.querySelectorAll('.delete-button').forEach(button => {
             button.addEventListener('click', (e) => {
-                e.preventDefault();
                 e.stopPropagation();
                 const deviceId = button.dataset.deviceId;
                 this.removeDevice(deviceId);
@@ -495,19 +490,23 @@ const floorManager = {
     },
 
     attachRuleEventListeners(element) {
-        element.querySelectorAll('.edit-rule').forEach(button => {
-            button.addEventListener('click', () => {
+        element.querySelectorAll('.delete-rule').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 const deviceId = button.dataset.deviceId;
                 const ruleId = button.dataset.ruleId;
-                this.ruleManager.editRule(deviceId, ruleId);
+                this.deleteRule(deviceId, ruleId);
             });
         });
 
-        element.querySelectorAll('.delete-rule').forEach(button => {
-            button.addEventListener('click', () => {
+        element.querySelectorAll('.edit-rule').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 const deviceId = button.dataset.deviceId;
                 const ruleId = button.dataset.ruleId;
-                this.ruleManager.deleteRule(deviceId, ruleId);
+                this.ruleManager.editRule(deviceId, ruleId);
             });
         });
 
@@ -824,11 +823,20 @@ const floorManager = {
     },
 
     deleteRule(deviceId, ruleId) {
-        const dialog = document.getElementById('deleteRuleDialog');
+        console.log('deleteRule called with:', { deviceId, ruleId });
+        const dialog = document.getElementById('deleteConfirmDialog');
         if (!dialog) {
-            console.error('Delete rule dialog not found');
+            console.error('Delete confirmation dialog not found');
             return;
         }
+
+        console.log('Found delete dialog, showing it');
+        // Update dialog text for rule deletion
+        const modalTitle = dialog.querySelector('#deleteDialogTitle');
+        const modalDescription = dialog.querySelector('#deleteDialogDescription');
+
+        if (modalTitle) modalTitle.textContent = 'Delete Rule';
+        if (modalDescription) modalDescription.textContent = 'Are you sure you want to delete this rule? This action cannot be undone.';
 
         // Show dialog
         dialog.style.display = 'flex';
@@ -848,18 +856,9 @@ const floorManager = {
                 // Update just the rules section
                 const rulesSection = document.getElementById(`rules-${deviceId}`);
                 if (rulesSection) {
-                    const rulesContent = rulesSection.querySelector('.floor-rules-content');
-                    if (rulesContent) {
-                        rulesContent.innerHTML = this.renderDeviceRules(device);
-                        // Re-attach event listeners for the new rule buttons
-                        rulesContent.querySelectorAll('.delete-rule').forEach(button => {
-                            button.addEventListener('click', () => {
-                                const deviceId = button.dataset.deviceId;
-                                const ruleId = button.dataset.ruleId;
-                                this.deleteRule(deviceId, ruleId);
-                            });
-                        });
-                    }
+                    rulesSection.innerHTML = this.renderDeviceRules(device);
+                    // Re-attach all event listeners
+                    this.attachRuleEventListeners(rulesSection);
                 }
                 dialog.style.display = 'none';
             } catch (err) {
@@ -869,8 +868,8 @@ const floorManager = {
         };
 
         // Event listeners
-        const confirmBtn = document.getElementById('confirmDeleteRule');
-        const cancelBtn = document.getElementById('cancelDeleteRule');
+        const confirmBtn = document.getElementById('confirmDelete');
+        const cancelBtn = document.getElementById('cancelDelete');
         const closeBtn = dialog.querySelector('.modal-close-button');
         
         if (confirmBtn) confirmBtn.onclick = handleDelete;

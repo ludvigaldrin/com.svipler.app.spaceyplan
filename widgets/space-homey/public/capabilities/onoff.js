@@ -351,49 +351,32 @@ const onOffRenderer = {
                 deviceEl.setAttribute('data-image-rule', 'true');
                 const deviceId = deviceEl.getAttribute('data-device-id');
                 
-                // Remove any existing images for this device
+                // Remove any existing images
                 const existingImages = document.querySelectorAll(`.state-image-${deviceId}`);
                 existingImages.forEach(img => img.remove());
                 
                 const imageWrapper = document.getElementById('imageWrapper');
                 if (imageWrapper && onOffImageRule.config.imageData) {
-                    // Create and add styles element if it doesn't exist
-                    if (!document.getElementById('deviceImageStyles')) {
-                        const styleSheet = document.createElement('style');
-                        styleSheet.id = 'deviceImageStyles';
-                        styleSheet.textContent = `
-                            .state-image {
-                                position: absolute;
-                                top: 0;
-                                left: 0;
-                                width: 100%;
-                                height: 100%;
-                                object-fit: contain;
-                                pointer-events: none;
-                                z-index: 200;
-                                opacity: 0;
-                            }
-                        `;
-                        document.head.appendChild(styleSheet);
-                    }
-                    
                     const imageEl = document.createElement('img');
+                    
+                    // Set styles directly - start hidden
+                    imageEl.style.display = 'none';
+                    imageEl.style.position = 'absolute';
+                    imageEl.style.top = '0';
+                    imageEl.style.left = '0';
+                    imageEl.style.width = '100%';
+                    imageEl.style.height = '100%';
+                    imageEl.style.objectFit = 'contain';
+                    imageEl.style.pointerEvents = 'none';
+                    imageEl.style.zIndex = '200';
+                    
                     imageEl.className = `state-image state-image-${deviceId}`;
-                    
-                    // Add to DOM before setting src
-                    imageWrapper.appendChild(imageEl);
-                    
-                    // Get the current state
-                    const showImage = onOffImageRule.config.showOn === currentState;
-                    
-                    // Set source after adding to DOM
                     imageEl.src = onOffImageRule.config.imageData;
                     
-                    // Only show if needed
-                    imageEl.style.opacity = showImage ? '1' : '0';
+                    imageWrapper.appendChild(imageEl);
                     
                     Homey.api('POST', '/log', { 
-                        message: `[Initial] Image TEST - Created for ${device.name}: showImage=${showImage}, state=${currentState}, showOn=${onOffImageRule.config.showOn}, opacity=${imageEl.style.opacity}` 
+                        message: `[Initial] Image TEST - Created hidden image for ${device.name}, display=${imageEl.style.display}` 
                     });
                 }
             }

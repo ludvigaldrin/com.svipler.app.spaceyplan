@@ -190,8 +190,17 @@ const deviceManager = {
                 name: 'On/Off - Color Switcher',
                 type: 'onOffColor',
                 config: {
-                    onColor: '#ffeb3b',  // Yellow
-                    offColor: '#ffffff'   // White
+                    // On state settings
+                    showIconOn: true,
+                    iconColorOn: '#ffeb3b',
+                    showCloudOn: true,
+                    cloudColorOn: '#ffeb3b',
+                    
+                    // Off state settings
+                    showIconOff: true,
+                    iconColorOff: '#ffffff',
+                    showCloudOff: true,
+                    cloudColorOff: '#ffffff'
                 }
             });
         }
@@ -203,8 +212,17 @@ const deviceManager = {
                 name: 'On/Off - Color Switcher',
                 type: 'onOffColor',
                 config: {
-                    onColor: '#ff0000',  // Red
-                    offColor: '#ffffff'   // White
+                    // On state settings
+                    showIconOn: true,
+                    iconColorOn: '#ff0000',
+                    showCloudOn: true,
+                    cloudColorOn: '#ff0000',
+                    
+                    // Off state settings
+                    showIconOff: true,
+                    iconColorOff: '#ffffff',
+                    showCloudOff: true,
+                    cloudColorOff: '#ffffff'
                 }
             });
 

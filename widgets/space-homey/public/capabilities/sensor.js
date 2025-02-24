@@ -4,7 +4,7 @@ const sensorRenderer = {
     createDeviceElement(device, position) {
         const deviceEl = document.createElement('div');
         deviceEl.className = this.id + '-device';
-        
+
         deviceEl.style.cssText = `
             position: absolute;
             left: 0;
@@ -18,26 +18,35 @@ const sensorRenderer = {
             align-items: center;
             justify-content: center;
             transition: all 0.3s ease;
-            opacity: 0;  // Start hidden until positioned
+            opacity: 0;
             background: rgba(255, 255, 255, 0.35);
             box-shadow: 0 0 12px 3px rgba(255, 255, 255, 0.45);
         `;
 
-        // Store position data for later use
         deviceEl.setAttribute('data-x', position.x);
         deviceEl.setAttribute('data-y', position.y);
-
-        // Store device attributes
         deviceEl.setAttribute('data-name', device.name);
-        deviceEl.setAttribute('data-device-id', device.deviceId);
-        deviceEl.setAttribute('data-capability', 'sensor');
-        deviceEl.setAttribute('data-sensor-type', device.sensorType);
+        deviceEl.setAttribute('data-device-id', device.id);
+        deviceEl.setAttribute('data-homey-id', device.homeyId);
+        deviceEl.setAttribute('data-capability', this.id);
         deviceEl.setAttribute('data-state', device.state || false);
-
-        // Store device data for later use
         deviceEl.setAttribute('data-device', JSON.stringify(device));
 
-        // Create a promise to handle image loading and positioning
+        deviceEl.setAttribute('data-sensor-type', device.sensorType);
+
+        const iconWrapper = document.createElement('div');
+        iconWrapper.className = 'icon-wrapper';
+
+        // Add icon if available
+        if (device.iconObj?.url) {
+            const img = document.createElement('img');
+            img.src = device.iconObj.url;
+            img.className = 'device-icon';
+            iconWrapper.appendChild(img);
+        }
+
+        deviceEl.appendChild(iconWrapper);
+
         const positionDevice = () => {
             return new Promise((resolve) => {
                 const floorMapImage = document.getElementById('floorMapImage');
@@ -56,15 +65,12 @@ const sensorRenderer = {
                     resolve();
                 };
 
-                // Try to position immediately if image is loaded
                 if (floorMapImage && floorMapImage.complete && floorMapImage.naturalWidth > 0) {
                     setPosition();
                 } else if (floorMapImage) {
-                    // Wait for image to load
                     floorMapImage.onload = setPosition;
                 }
 
-                // Retry positioning if initial attempt fails
                 const retryInterval = setInterval(() => {
                     if (floorMapImage && floorMapImage.complete && floorMapImage.naturalWidth > 0) {
                         setPosition();
@@ -72,7 +78,6 @@ const sensorRenderer = {
                     }
                 }, 100);
 
-                // Clear interval after 5 seconds to prevent infinite retries
                 setTimeout(() => clearInterval(retryInterval), 5000);
             });
         };
@@ -83,143 +88,57 @@ const sensorRenderer = {
             Homey.api('POST', '/log', { message: `Error positioning device: ${error.message}` });
         });
 
-        // Add icon if available
-        if (device.iconObj?.url) {
-            const iconWrapper = document.createElement('div');
-            iconWrapper.className = 'icon-wrapper';
-            iconWrapper.style.cssText = `
-                width: 14px;
-                height: 14px;
-                position: relative;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                background: rgba(255, 255, 255, 0.9);
-                border-radius: 50%;
-                box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
-            `;
-
-            const img = document.createElement('img');
-            img.src = device.iconObj.url;
-            img.style.cssText = `
-                width: 14px;
-                height: 14px;
-                object-fit: contain;
-                position: relative;
-                z-index: 1;
-            `;
-
-            iconWrapper.appendChild(img);
-            deviceEl.appendChild(iconWrapper);
-        }
+        // Apply initial rules
+        this.applyInitialRules(device, deviceEl);
 
         return deviceEl;
     },
 
     async initializeState(deviceEl, deviceId, widgetId) {
         try {
-            // Get the sensor type from the device element
-            const sensorType = deviceEl.getAttribute('data-sensor-type');
-
-            if (!sensorType) {
-                console.error('No sensor type found for device:', deviceId);
-                return;
-            }
-
-            // Get the state using the specific sensor type
-          
             const response = await Homey.api('GET', `/devices/${deviceId}/capabilities/sensor`);
 
             if (response !== undefined) {
-                deviceEl.setAttribute('data-state', response);
-                deviceEl.classList.toggle('on', response);
-            }
-
-            const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
-            deviceData.state = response;
-
-            this.applyInitialColorRules(deviceData, deviceEl);
-
-            // Subscribe using the specific sensor type
-            await Homey.api('POST', `/subscribeToDevices`, {
-                widgetId: widgetId,
-                devices: [{ deviceId, capability: sensorType }]
-            });
-        } catch (error) {
-            console.error('Error initializing sensor state:', error);
-        }
-    },
-
-    handleDeviceUpdate(deviceEl, value, capability) {
-        if (!deviceEl) return;
-
-        deviceEl.setAttribute('data-state', value);
-        deviceEl.classList.toggle('on', value);
+                const onoff = response;
+                deviceEl.setAttribute('data-state', onoff);
+                deviceEl.classList.toggle('on', onoff);
 
 
-        if (deviceEl.getAttribute('data-color-rule') === 'true') {
-            const allColor = deviceEl.getAttribute('data-all-color');
-            if (allColor) {
-                deviceEl.style.backgroundColor = `${allColor}59`;
-                deviceEl.style.boxShadow = `0 0 12px 3px ${allColor}73`;
-                const iconWrapper = deviceEl.querySelector('.icon-wrapper');
-                if (iconWrapper) {
-                    iconWrapper.style.backgroundColor = `${allColor}E6`;
-                    iconWrapper.style.boxShadow = `0 0 8px ${allColor}CC`;
-                }
-            } else {
-                const onColor = deviceEl.getAttribute('data-on-color');
-                const offColor = deviceEl.getAttribute('data-off-color');
-                const currentColor = value ? onColor : offColor;
-                if (currentColor) {
-                    deviceEl.style.backgroundColor = `${currentColor}59`;
-                    deviceEl.style.boxShadow = `0 0 12px 3px ${currentColor}73`;
-                    const iconWrapper = deviceEl.querySelector('.icon-wrapper');
-                    if (iconWrapper) {
-                        iconWrapper.style.backgroundColor = `${currentColor}E6`;
-                        iconWrapper.style.boxShadow = `0 0 8px ${currentColor}CC`;
+
+                const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
+                deviceData.state = onoff;
+                deviceEl.setAttribute('data-device', JSON.stringify(deviceData));
+
+                // Handle initial image visibility
+                if (deviceEl.getAttribute('data-image-rule') === 'true') {
+                    const ruleId = deviceEl.getAttribute('data-rule-id');
+                    const imageEl = document.querySelector(`.state-image-${ruleId}`);
+
+                    if (imageEl) {
+                        const onOffImageRule = deviceData.rules?.find(r => r.id === ruleId);
+                        if (onOffImageRule?.config) {
+                            const showImage = onOffImageRule.config.showOn === onoff;
+                            imageEl.style.display = showImage ? 'block' : 'none';
+                        }
                     }
                 }
-            }
-        }
-    },
 
-    applyInitialColorRules(device, deviceEl) {
-        deviceEl.setAttribute('data-device', JSON.stringify(device));
-        const iconWrapper = deviceEl.querySelector('.icon-wrapper');
-
-        const allColorRule = device.rules?.find(r => r.type === 'allColor');
-        if (allColorRule?.config?.mainColor) {
-            deviceEl.setAttribute('data-all-color', allColorRule.config.mainColor);
-            deviceEl.setAttribute('data-color-rule', 'true');
-            deviceEl.style.backgroundColor = `${allColorRule.config.mainColor}59`;
-            deviceEl.style.boxShadow = `0 0 12px 3px ${allColorRule.config.mainColor}73`;
-            if (iconWrapper) {
-                iconWrapper.style.backgroundColor = `${allColorRule.config.mainColor}E6`;
-                iconWrapper.style.boxShadow = `0 0 8px ${allColorRule.config.mainColor}CC`;
+                this.applyInitialRules(deviceData, deviceEl);
             }
-        } else {
-            const onOffColorRule = device.rules?.find(r => r.type === 'onOffColor');
-            if (onOffColorRule?.config) {
-                deviceEl.setAttribute('data-color-rule', 'true');
-                deviceEl.setAttribute('data-on-color', onOffColorRule.config.onColor);
-                deviceEl.setAttribute('data-off-color', onOffColorRule.config.offColor);
 
-                const currentState = device.state === true;
-                const initialColor = currentState ? onOffColorRule.config.onColor : onOffColorRule.config.offColor;
-                
-                deviceEl.style.backgroundColor = `${initialColor}59`;
-                deviceEl.style.boxShadow = `0 0 12px 3px ${initialColor}73`;
-                if (iconWrapper) {
-                    iconWrapper.style.backgroundColor = `${initialColor}E6`;
-                    iconWrapper.style.boxShadow = `0 0 8px ${initialColor}CC`;
-                }
-            }
+            await Homey.api('POST', `/subscribeToDevices`, {
+                widgetId: widgetId,
+                devices: [{ deviceId, capability: sensorType },
+
+                ]
+            });
+
+        } catch (error) {
+            Homey.api('POST', '/log', { message: `Error in initializeState: ${error.message}` });
         }
     },
 
     initializeInteractions(deviceEl) {
-        // For sensors, we only need to show info on click/touch
         let touchStartTime;
         let longPressTimer;
         let touchMoved = false;
@@ -258,24 +177,300 @@ const sensorRenderer = {
 
             const touchDuration = Date.now() - touchStartTime;
 
-            if (!touchMoved && touchDuration < 500) {
-                this.showDeviceModal(deviceEl);
-            }
 
             touchMoved = false;
         }, { passive: false });
 
-        // Keep click for desktop/testing
-        deviceEl.addEventListener('click', () => {
-            this.showDeviceModal(deviceEl);
-        });
+
+    },
+
+    async handleClick(deviceEl) {
+       
+    },
+
+    handleDeviceUpdate(deviceEl, value, capability) {
+        try {
+            if (!deviceEl) return;
+
+            // Update state attribute and class
+            deviceEl.setAttribute('data-state', value);
+            deviceEl.classList.toggle('on', value);
+
+            // Get device data and update state
+            const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
+            deviceData.state = value;
+            deviceEl.setAttribute('data-device', JSON.stringify(deviceData));
+
+            const iconWrapper = deviceEl.querySelector('.icon-wrapper');
+
+            // Reset cloud effect first
+            deviceEl.style.backgroundColor = 'transparent';
+            deviceEl.style.boxShadow = 'none';
+            if (iconWrapper) {
+                iconWrapper.style.backgroundColor = 'transparent';
+                iconWrapper.style.boxShadow = 'none';
+            }
+
+            // Handle image rule
+            if (deviceEl.getAttribute('data-image-rule') === 'true') {
+                const ruleId = deviceEl.getAttribute('data-rule-id');
+                const imageEl = document.querySelector(`.state-image-${ruleId}`);
+
+                if (imageEl) {
+                    const onOffImageRule = deviceData.rules?.find(r => r.id === ruleId);
+
+                    if (onOffImageRule?.config) {
+                        const showImage = onOffImageRule.config.showOn === value;
+                        imageEl.style.display = showImage ? 'block' : 'none';
+                    }
+                }
+            }
+
+            const allColorRule = deviceData.rules?.find(r => r.type === 'allColor');
+            if (allColorRule?.config) {
+                if (allColorRule.config.showCloud) {
+                    const color = allColorRule.config.cloudColor || allColorRule.config.mainColor;
+                    deviceEl.style.backgroundColor = `${color}80`;
+                    deviceEl.style.boxShadow = `0 0 12px 6px ${color}90`;
+
+                    if (iconWrapper) {
+                        iconWrapper.style.backgroundColor = `${color}F0`;
+                        iconWrapper.style.boxShadow = `0 0 8px ${color}E0`;
+                    }
+                }
+
+                // Handle icon visibility and color
+                if (iconWrapper) {
+                    iconWrapper.style.display = allColorRule.config.showIcon ? 'flex' : 'none';
+                    if (allColorRule.config.showIcon) {
+                        const iconElement = iconWrapper.querySelector('img, .material-symbols-outlined');
+                        if (iconElement && allColorRule.config.iconColor) {
+                            if (iconElement.tagName.toLowerCase() === 'img') {
+                                iconElement.style.filter = `brightness(0) saturate(100%) drop-shadow(0 0 4px ${allColorRule.config.iconColor})`;
+                            } else {
+                                iconElement.style.color = allColorRule.config.iconColor;
+                                iconElement.style.filter = `drop-shadow(0 0 4px ${allColorRule.config.iconColor})`;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Only process onOffColor if no allColor rule exists
+            const onOffColorRule = deviceData.rules?.find(r => r.type === 'onOffColor');
+            if (onOffColorRule?.config) {
+                const currentColor = value ? onOffColorRule.config.cloudColorOn : onOffColorRule.config.cloudColorOff;
+                const showCloud = value ? onOffColorRule.config.showCloudOn : onOffColorRule.config.showCloudOff;
+                const showIcon = value ? onOffColorRule.config.showIconOn : onOffColorRule.config.showIconOff;
+                const iconColor = value ? onOffColorRule.config.iconColorOn : onOffColorRule.config.iconColorOff;
+
+                if (showCloud && currentColor) {
+                    deviceEl.style.backgroundColor = `${currentColor}80`;
+                    deviceEl.style.boxShadow = `0 0 12px 6px ${currentColor}90`;
+
+                    if (iconWrapper) {
+                        iconWrapper.style.backgroundColor = `${currentColor}F0`;
+                        iconWrapper.style.boxShadow = `0 0 8px ${currentColor}E0`;
+                    }
+                }
+
+                // Handle icon visibility and color
+                if (iconWrapper) {
+                    iconWrapper.style.display = showIcon ? 'flex' : 'none';
+                    if (showIcon) {
+                        const iconElement = iconWrapper.querySelector('img, .material-symbols-outlined');
+                        if (iconElement && iconColor) {
+                            if (iconElement.tagName.toLowerCase() === 'img') {
+                                iconElement.style.filter = `brightness(0) saturate(100%) drop-shadow(0 0 4px ${iconColor})`;
+                            } else {
+                                iconElement.style.color = iconColor;
+                                iconElement.style.filter = `drop-shadow(0 0 4px ${iconColor})`;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Update modal if it exists
+            const modalId = deviceEl.getAttribute('data-device-id');
+            const modal = document.querySelector(`.device-modal[data-device-id="${modalId}"]`);
+            if (modal) {
+                const powerButton = modal.querySelector('.power-button');
+                if (powerButton) {
+                    powerButton.classList.toggle('on', value);
+                }
+
+
+
+
+            }
+        } catch (error) {
+            Homey.api('POST', '/log', { message: `Error in handleDeviceUpdate: ${error.message}` });
+        }
+    },
+
+    applyInitialRules(device, deviceEl) {
+        try {
+            const iconWrapper = deviceEl.querySelector('.icon-wrapper');
+            const currentState = device.state === true;
+
+            // Reset cloud effect first
+            deviceEl.style.backgroundColor = 'transparent';
+            deviceEl.style.boxShadow = 'none';
+            if (iconWrapper) {
+                iconWrapper.style.backgroundColor = 'transparent';
+                iconWrapper.style.boxShadow = 'none';
+            }
+
+            // Check for allIcon rule first
+            const allIconRule = device.rules?.find(r => r.type === 'allIcon');
+            if (allIconRule?.config?.selectedIcon) {
+                // Clear existing icon wrapper content
+                if (iconWrapper) {
+                    iconWrapper.innerHTML = '';
+
+                    // Add material icon
+                    const iconSpan = document.createElement('span');
+                    iconSpan.className = 'material-symbols-outlined';
+                    iconSpan.textContent = allIconRule.config.selectedIcon;
+                    iconWrapper.appendChild(iconSpan);
+
+                    // Make sure icon wrapper is visible
+                    iconWrapper.style.display = 'flex';
+
+                }
+            }
+
+            // Check for onOffImageRule rule first
+            const onOffImageRule = device.rules?.find(r => r.type === 'onOffImage');
+            if (onOffImageRule?.config) {
+                const ruleId = onOffImageRule.id;
+
+                // Check if we've already initialized this device
+                if (!deviceEl.hasAttribute('data-image-initialized')) {
+                    // Remove ANY existing images first
+                    const existingImages = document.querySelectorAll(`.state-image-${ruleId}`);
+                    existingImages.forEach(img => img.remove());
+
+                    deviceEl.setAttribute('data-image-rule', 'true');
+                    deviceEl.setAttribute('data-image-initialized', 'true');
+                    deviceEl.setAttribute('data-rule-id', ruleId);
+
+                    const imageWrapper = document.getElementById('imageWrapper');
+                    if (imageWrapper) {
+                        const imageEl = document.createElement('img');
+
+
+                        imageEl.style.cssText = `
+                            display: none;
+                            position: absolute;
+                            top: 0;
+                            left: 0;
+                            width: 100%;
+                            height: 100%;
+                            object-fit: contain;
+                            pointer-events: none;
+                            z-index: 200;
+                        `;
+
+                        imageEl.className = `state-image state-image-${ruleId}`;
+                        imageWrapper.appendChild(imageEl);
+
+                        imageEl.src = onOffImageRule.config.imageData;
+                    }
+                }
+            }
+
+            // Check allColor first - if it exists, only apply allColor and ignore all others
+            const allColorRule = device.rules?.find(r => r.type === 'allColor');
+            if (allColorRule?.config) {
+
+                deviceEl.setAttribute('data-color-rule', 'true');
+                deviceEl.setAttribute('data-all-color', allColorRule.config.cloudColor || allColorRule.config.mainColor);
+
+                // Handle cloud effect with intense values
+                if (allColorRule.config.showCloud) {
+                    const color = allColorRule.config.cloudColor || allColorRule.config.mainColor;
+                    // Device background cloud
+                    deviceEl.style.backgroundColor = `${color}80`;
+                    deviceEl.style.boxShadow = `0 0 12px 6px ${color}90`;
+
+                    // Icon wrapper cloud
+                    if (iconWrapper) {
+                        iconWrapper.style.backgroundColor = `${color}F0`;
+                        iconWrapper.style.boxShadow = `0 0 8px ${color}E0`;
+                    }
+                }
+
+                // Handle icon visibility and color
+                if (iconWrapper) {
+                    if (!allColorRule.config.showIcon) {
+                        iconWrapper.style.display = 'none';
+                    } else {
+                        iconWrapper.style.display = 'flex';
+                        const iconElement = iconWrapper.querySelector('img, .material-symbols-outlined');
+                        if (iconElement && allColorRule.config.iconColor) {
+                            if (iconElement.tagName.toLowerCase() === 'img') {
+                                iconElement.style.filter = `brightness(0) saturate(100%) drop-shadow(0 0 4px ${allColorRule.config.iconColor})`;
+                            } else {
+                                iconElement.style.color = allColorRule.config.iconColor;
+                                iconElement.style.filter = `drop-shadow(0 0 4px ${allColorRule.config.iconColor})`;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Only process onOffColor if no allColor rule exists
+            const onOffColorRule = device.rules?.find(r => r.type === 'onOffColor');
+            if (!allColorRule && onOffColorRule?.config) {
+                const currentColor = currentState ? onOffColorRule.config.cloudColorOn : onOffColorRule.config.cloudColorOff;
+                const showCloud = currentState ? onOffColorRule.config.showCloudOn : onOffColorRule.config.showCloudOff;
+                const showIcon = currentState ? onOffColorRule.config.showIconOn : onOffColorRule.config.showIconOff;
+                const iconColor = currentState ? onOffColorRule.config.iconColorOn : onOffColorRule.config.iconColorOff;
+
+                deviceEl.setAttribute('data-color-rule', 'true');
+                deviceEl.setAttribute('data-on-color', onOffColorRule.config.cloudColorOn);
+                deviceEl.setAttribute('data-off-color', onOffColorRule.config.cloudColorOff);
+
+                if (showCloud) {
+                    deviceEl.style.backgroundColor = `${currentColor}80`;
+                    deviceEl.style.boxShadow = `0 0 12px 6px ${currentColor}90`;
+
+                    if (iconWrapper) {
+                        iconWrapper.style.backgroundColor = `${currentColor}F0`;
+                        iconWrapper.style.boxShadow = `0 0 8px ${currentColor}E0`;
+                    }
+                }
+
+                // Handle icon visibility and color
+                if (iconWrapper) {
+                    if (!showIcon) {
+                        iconWrapper.style.display = 'none';
+                    } else {
+                        iconWrapper.style.display = 'flex';
+                        const iconElement = iconWrapper.querySelector('img, .material-symbols-outlined');
+                        if (iconElement && iconColor) {
+                            if (iconElement.tagName.toLowerCase() === 'img') {
+                                iconElement.style.filter = `brightness(0) saturate(100%) drop-shadow(0 0 4px ${iconColor})`;
+                            } else {
+                                iconElement.style.color = iconColor;
+                                iconElement.style.filter = `drop-shadow(0 0 4px ${iconColor})`;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            Homey.api('POST', '/log', { message: `Error in applyInitialRules: ${error.message}` });
+        }
     },
 
     showDeviceModal(deviceEl) {
         const name = deviceEl.getAttribute('data-name');
         const deviceId = deviceEl.getAttribute('data-device-id');
-        const sensorType = deviceEl.getAttribute('data-sensor-type');
         const currentState = deviceEl.getAttribute('data-state') === 'true';
+
 
         const overlay = document.createElement('div');
         overlay.className = 'device-modal-overlay';
@@ -294,40 +489,50 @@ const sensorRenderer = {
 
         const modal = document.createElement('div');
         modal.className = 'device-modal';
+        modal.setAttribute('data-device-id', deviceId);
         modal.innerHTML = `
             <div class="modal-header">
                 <h2>${name}</h2>
                 <button class="close-button" aria-label="Close">×</button>
             </div>
-            <div class="sensor-status">
-                <div class="status-indicator ${currentState ? 'active' : ''}"></div>
-                <span>${sensorType === 'alarm_contact' ? 'Contact' : 'Motion'} Sensor: ${currentState ? 'Triggered' : 'Not Triggered'}</span>
+            <div class="dim-view-toggle">
+                <button class="view-button active" data-view="onoff">Power</button>
+            </div>
+            <div class="dim-views">
+                <div class="dim-view onoff-view active">
+                    <div class="power-button ${currentState ? 'on' : ''}" role="button">
+                        <div class="power-icon"></div>
+                    </div>
+                </div>
             </div>
         `;
 
         // Add styles if not present
-        if (!document.getElementById('sensorModalStyles')) {
+        if (!document.getElementById('onoffModalStyles')) {
             const styles = document.createElement('style');
-            styles.id = 'sensorModalStyles';
+            styles.id = 'onoffModalStyles';
             styles.textContent = `
                 .device-modal {
                     background: rgba(245, 245, 245, 0.95);
                     border-radius: 15px;
-                    padding: 20px;
+                    padding: 12px;
                     width: 260px;
                     max-width: 90vw;
                 }
+
                 .modal-header {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    margin-bottom: 20px;
+                    margin-bottom: 12px;
                 }
+
                 .modal-header h2 {
                     margin: 0;
                     font-size: 18px;
                     color: #333;
                 }
+
                 .close-button {
                     background: none;
                     border: none;
@@ -336,22 +541,60 @@ const sensorRenderer = {
                     cursor: pointer;
                     padding: 5px;
                 }
-                .sensor-status {
+
+                .dim-view-toggle {
                     display: flex;
-                    align-items: center;
-                    gap: 10px;
-                    padding: 10px;
-                    background: rgba(0, 0, 0, 0.05);
-                    border-radius: 8px;
+                    justify-content: center;
+                    gap: 8px;
+                    margin-bottom: 12px;
                 }
-                .status-indicator {
-                    width: 12px;
-                    height: 12px;
+
+                .view-button {
+                    padding: 6px 12px;
+                    border: 1px solid #1C1C1E;
+                    background: none;
+                    color: #1C1C1E;
+                    border-radius: 20px;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                }
+
+                .view-button.active {
+                    background: #1C1C1E;
+                    color: white;
+                }
+
+                .power-button {
+                    width: 60px;
+                    height: 60px;
                     border-radius: 50%;
-                    background: #666;
+                    background: #1C1C1E;
+                    position: relative;
+                    cursor: pointer;
+                    margin: 12px auto;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                    transition: all 0.2s ease;
                 }
-                .status-indicator.active {
-                    background: #ff3b30;
+
+                .power-button.on {
+                    background: #FFFFFF;
+                }
+
+                .power-icon {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    width: 25px;
+                    height: 25px;
+                    transform: translate(-50%, -50%);
+                    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18.36 6.64a9 9 0 1 1-12.73 0'/%3E%3Cline x1='12' y1='2' x2='12' y2='12'/%3E%3C/svg%3E") no-repeat center center;
+                    background-size: contain;
+                    transition: background-image 0.2s ease;
+                }
+
+                .power-button.on .power-icon {
+                    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231C1C1E' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18.36 6.64a9 9 0 1 1-12.73 0'/%3E%3Cline x1='12' y1='2' x2='12' y2='12'/%3E%3C/svg%3E") no-repeat center center;
+                    background-size: contain;
                 }
             `;
             document.head.appendChild(styles);
@@ -367,13 +610,110 @@ const sensorRenderer = {
             }
         });
 
+        // Handle power button clicks
+        const powerButton = modal.querySelector('.power-button');
+        powerButton.addEventListener('click', async () => {
+            try {
+                const newState = !powerButton.classList.contains('on');
+                powerButton.classList.toggle('on', newState);
+                await this.handleClick(deviceEl);
+            } catch (error) {
+                powerButton.classList.toggle('on');
+                console.error('Error toggling state:', error);
+            }
+        });
+
         // Add close button handler
         const closeButton = modal.querySelector('.close-button');
         closeButton.addEventListener('click', () => {
             overlay.remove();
         });
+    },
+
+
+
+
+
+
+
+
+
+    handleExternalUpdate(deviceEl, value, capability) {
+        try {
+
+
+
+
+
+            deviceEl.setAttribute('data-state', value);
+            deviceEl.classList.toggle('on', value);
+
+
+
+            const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
+
+
+            deviceData.state = value;  // Update the stored state
+            deviceEl.setAttribute('data-device', JSON.stringify(deviceData));
+
+            // Update visual state using existing method
+            this.handleDeviceUpdate(deviceEl, value, 'onoff');
+
+            const cleanDeviceId = deviceData.id.replace('-onoff', '');
+            const modal = document.querySelector(`.device-modal[data-device-id="${cleanDeviceId}"]`);
+            if (modal) {
+                const powerButton = modal.querySelector('.power-button');
+                if (powerButton) {
+                    powerButton.classList.toggle('on', value);
+                }
+                // Update modal's color display
+                const deviceStateEl = modal.querySelector('.device-state');
+                if (deviceStateEl) {
+                    deviceStateEl.textContent = value ? 'ON' : 'OFF';
+                    deviceStateEl.className = `device-state ${value ? 'on' : 'off'}`;
+                }
+            } else {
+                Homey.api('POST', '/log', { message: `No modal found for device: ${cleanDeviceId}` });
+            }
+        } catch (error) {
+            Homey.api('POST', '/log', { message: `Error in handleExternalUpdate: ${error.message}` });
+        }
+    },
+
+    setupExternalUpdates() {
+        if (!window.Homey) {
+            Homey.api('POST', '/log', { message: 'No Homey object available' });
+            return;
+        }
+
+        // Remove any existing listeners first
+        window.Homey.removeAllListeners('realtime/device');
+
+        window.Homey.on('realtime/device', (data) => {
+
+            if (data && data.capability === 'onoff') {
+                const deviceElements = document.querySelectorAll(`[data-device-id="${data.id}"]`);
+                deviceElements.forEach(deviceEl => {
+                    this.handleExternalUpdate(deviceEl, data.value, 'onoff');
+                });
+            }
+        });
+    },
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
     }
-}; 
+}
+
 
 window.capabilityRenderers = window.capabilityRenderers || {};
 window.capabilityRenderers.sensor = sensorRenderer;
+
+sensorRenderer.setupExternalUpdates();

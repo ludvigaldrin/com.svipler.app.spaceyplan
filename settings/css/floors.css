@@ -332,4 +332,61 @@
 
 .edit-header .back-button {
     order: 2;
+}
+
+.floor-plan-device {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    transform-origin: center;
+    pointer-events: auto;
+    cursor: move;
+    background: rgba(255, 255, 255, 0.35);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 12px 3px rgba(255, 255, 255, 0.45);
+}
+
+.floor-plan-device img {
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+    position: relative;
+    z-index: 1;
+}
+
+.floor-plan-device.dragging {
+    transform: scale(1.1);
+    z-index: 1000;
+}
+
+.floor-plan-device:hover::after {
+    content: attr(data-name);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 8px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 1000;
+}
+
+.icon-wrapper {
+    width: 14px;
+    height: 14px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
 } 

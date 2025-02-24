@@ -10,7 +10,7 @@ const ruleManager = {
         allIcon: { name: 'All - Icon Select', allowMultiple: false },
         allColor: { name: 'All - Color Select', allowMultiple: false },
         onOffColor: { name: 'On/Off - Color Switcher', allowMultiple: false },
-        imageView: { name: 'On/Off - Image Switcher', allowMultiple: true }
+        onOffImage: { name: 'On/Off - Image Switcher', allowMultiple: true }
     },
 
     init(floorManager, Homey) {
@@ -226,7 +226,7 @@ const ruleManager = {
                     </div>
                 </div>
             `;
-        } else if (ruleType === 'imageView') {
+        } else if (ruleType === 'onOffImage') {
             return `
                 <div class="image-rule-config">
                     <div class="image-upload-group">
@@ -297,15 +297,6 @@ const ruleManager = {
                     </button>
                 </div>
             </div>`;
-    },
-
-    getRuleTypeName(type) {
-        const types = {
-            onEnter: 'On Enter',
-            onLeave: 'On Leave',
-            onStay: 'While Present'
-        };
-        return types[type] || type;
     },
 
     getRuleActionDescription(rule) {
@@ -640,7 +631,7 @@ const ruleManager = {
                 showCloudOff,
                 cloudColorOff: showCloudOff ? document.getElementById('cloudColorOff').value : null
             };
-        } else if (ruleType === 'imageView') {
+        } else if (ruleType === 'onOffImage') {
             const imagePreview = document.getElementById('ruleImagePreview').querySelector('img');
             const visibilitySelect = document.getElementById('imageVisibility');
             return {

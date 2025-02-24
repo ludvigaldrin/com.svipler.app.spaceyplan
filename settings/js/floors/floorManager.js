@@ -176,7 +176,7 @@ const floorManager = {
 
         // Render devices list
         this.renderDevicesList(floor.devices || []);
-        this.renderFloorPlanDevices(floor.devices || []);
+        this.renderFloorPlanDevices(floor);
 
         // Add back button handler
         const backButton = document.getElementById('backToList');
@@ -555,151 +555,69 @@ const floorManager = {
         });
     },
 
-    renderFloorPlanDevices(devices) {
+    renderFloorPlanDevices(floor) {
         const container = document.getElementById('floorPlanDevices');
         const image = document.getElementById('floorMapImage');
         const wrapper = document.getElementById('imageWrapper');
-        const parentContainer = wrapper.parentElement;
 
         container.innerHTML = '';
 
-        // Wait for image to load to get correct dimensions
+        // Add required CSS styles for container and wrapper
+        container.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 200;
+        `;
+
+        wrapper.style.cssText = `
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        `;
+
+        // Wait for image to load
         if (!image.complete) {
-            image.onload = () => this.renderFloorPlanDevices(devices);
+            image.onload = () => this.renderFloorPlanDevices(floor);
             return;
         }
 
         const wrapperRect = wrapper.getBoundingClientRect();
 
-        // Store original dimensions for drag calculations
-        container.dataset.originalWidth = image.naturalWidth;
-        container.dataset.originalHeight = image.naturalHeight;
+        floor.devices.forEach(device => {
+            const deviceEl = document.createElement('div');
+            deviceEl.className = 'floor-plan-device';
+            deviceEl.id = `device-${device.id}`;
+            deviceEl.setAttribute('data-name', device.name);
 
-        devices.forEach(device => {
-            const deviceElement = document.createElement('div');
-            deviceElement.className = 'floor-plan-device';
-            deviceElement.id = `device-${device.id}`;
+            // Position relative to wrapper
+            const displayX = (device.position.x / 100) * wrapperRect.width;
+            const displayY = (device.position.y / 100) * wrapperRect.height;
             
-            // Get the capability text
-            let capabilityText = device.capability;
-            if (device.capability === 'dim') {
-                capabilityText = 'Dim';
-            } else if (device.capability === 'onoff') {
-                capabilityText = 'On/Off';
-            } else if (device.capability === 'sensor') {
-                capabilityText = device.sensorType === 'alarm_motion' ? 'Motion' : 'Contact';
-            }
-            
-            // Add custom tooltip element with name and type
-            const tooltip = document.createElement('div');
-            tooltip.className = 'device-tooltip';
-            tooltip.textContent = `${device.name} (${capabilityText})`;
-            deviceElement.appendChild(tooltip);
+            deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
+            deviceEl.style.left = '0';
+            deviceEl.style.top = '0';
 
-            // Use percentages directly for positioning
-            deviceElement.style.left = `${device.position.x}%`;
-            deviceElement.style.top = `${device.position.y}%`;
+            // Create icon wrapper for consistent styling
+            const iconWrapper = document.createElement('div');
+            iconWrapper.className = 'icon-wrapper';
+            const img = document.createElement('img');
+            img.src = device.iconObj?.url || 'default-icon.png';
+            img.alt = device.name;
+            iconWrapper.appendChild(img);
+            deviceEl.appendChild(iconWrapper);
 
-            const icon = document.createElement('img');
-            icon.src = device.iconObj ? device.iconObj.url : '';
-            icon.alt = device.name;
-            deviceElement.appendChild(icon);
+            // Add event listeners
+            deviceEl.addEventListener('touchstart', this.handleDragStart.bind(this), { passive: false });
+            deviceEl.addEventListener('mousedown', this.handleDragStart.bind(this));
 
-            let isDragging = false;
-            let currentX;
-            let currentY;
-
-            const dragStart = (e) => {
-                if (e.type === 'touchstart') {
-                    e.preventDefault();  // Prevent default touch behavior
-                    e.stopPropagation(); // Stop event from bubbling up
-                    
-                    // Use first touch point
-                    const touch = e.touches[0];
-                    e.clientX = touch.clientX;
-                    e.clientY = touch.clientY;
-                }
-
-                isDragging = true;
-                deviceElement.classList.add('dragging');
-
-                const rect = deviceElement.getBoundingClientRect();
-                const wrapperRect = wrapper.getBoundingClientRect();
-                
-                // Calculate offset relative to wrapper
-                const offsetX = (e.type === 'touchstart' ? e.touches[0].clientX : e.clientX) - rect.left;
-                const offsetY = (e.type === 'touchstart' ? e.touches[0].clientY : e.clientY) - rect.top;
-                
-                deviceElement.dataset.offsetX = offsetX;
-                deviceElement.dataset.offsetY = offsetY;
-            };
-
-            const drag = (e) => {
-                if (!isDragging) return;
-                
-                if (e.type === 'touchmove') {
-                    e.preventDefault();  // Prevent scrolling
-                    e.stopPropagation();
-                    
-                    // Use first touch point
-                    const touch = e.touches[0];
-                    e.clientX = touch.clientX;
-                    e.clientY = touch.clientY;
-                }
-
-                const wrapperRect = wrapper.getBoundingClientRect();
-                const offsetX = parseFloat(deviceElement.dataset.offsetX);
-                const offsetY = parseFloat(deviceElement.dataset.offsetY);
-
-                // Calculate new position
-                let newX = ((e.clientX - wrapperRect.left - offsetX) / wrapperRect.width) * 100;
-                let newY = ((e.clientY - wrapperRect.top - offsetY) / wrapperRect.height) * 100;
-
-                // Clamp values
-                newX = Math.max(0, Math.min(100, newX));
-                newY = Math.max(0, Math.min(100, newY));
-
-                deviceElement.style.left = `${newX}%`;
-                deviceElement.style.top = `${newY}%`;
-
-                currentX = newX;
-                currentY = newY;
-            };
-
-            const dragEnd = async () => {
-                if (!isDragging) return;
-                isDragging = false;
-                deviceElement.classList.remove('dragging');
-
-                const floor = this.floors.find(f => f.id === this.currentFloorId);
-                if (!floor) return;
-
-                const deviceToUpdate = floor.devices.find(d => d.id === device.id);
-                if (!deviceToUpdate) return;
-
-                deviceToUpdate.position = {
-                    x: currentX,
-                    y: currentY
-                };
-
-                try {
-                    await this.saveFloors();
-                } catch (err) {
-                    console.error('Failed to save device position:', err);
-                    this.Homey.alert('Failed to save device position');
-                    this.renderFloorPlanDevices(floor.devices);
-                }
-            };
-
-            deviceElement.addEventListener('mousedown', dragStart);
-            document.addEventListener('mousemove', drag);
-            document.addEventListener('mouseup', dragEnd);
-
-            deviceElement.addEventListener('touchstart', dragStart, { passive: false });
-            document.addEventListener('touchmove', drag, { passive: false });
-            document.addEventListener('touchend', dragEnd);
-
-            container.appendChild(deviceElement);
+            container.appendChild(deviceEl);
         });
     },
 
@@ -730,7 +648,7 @@ const floorManager = {
             try {
                 await this.saveFloors();
                 this.renderDevicesList(floor.devices);
-                this.renderFloorPlanDevices(floor.devices);
+                this.renderFloorPlanDevices(floor);
                 dialog.style.display = 'none';
             } catch (err) {
                 console.error('Failed to remove device:', err);
@@ -985,6 +903,166 @@ const floorManager = {
         if (saveBtn) saveBtn.onclick = handleSave;
         if (cancelBtn) cancelBtn.onclick = () => dialog.style.display = 'none';
         if (closeBtn) closeBtn.onclick = () => dialog.style.display = 'none';
+    },
+
+    addDeviceToFloor(device) {
+        const floor = this.floors.find(f => f.id === this.currentFloorId);
+        if (!floor) return;
+
+        // Initialize devices array if it doesn't exist
+        if (!floor.devices) {
+            floor.devices = [];
+        }
+
+        // Get wrapper dimensions for positioning
+        const wrapper = document.getElementById('imageWrapper');
+        const wrapperRect = wrapper.getBoundingClientRect();
+
+        // Calculate center position in percentages
+        const position = {
+            x: 50, // Center horizontally
+            y: 50  // Center vertically
+        };
+
+        // Create new device object with position
+        const newDevice = {
+            id: device.id,
+            name: device.name,
+            iconObj: device.iconObj,
+            capability: device.capability,
+            position: position,
+            rules: []
+        };
+
+        // Add device to floor
+        floor.devices.push(newDevice);
+
+        try {
+            // Render the new device
+            const deviceEl = document.createElement('div');
+            deviceEl.className = 'floor-plan-device';
+            deviceEl.id = `device-${device.id}`;
+            deviceEl.setAttribute('data-name', device.name);
+
+            // Use the same positioning logic as settings-old.js
+            const displayX = (position.x / 100) * wrapperRect.width;
+            const displayY = (position.y / 100) * wrapperRect.height;
+
+            deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
+            
+            deviceEl.innerHTML = `
+                <img src="${device.iconObj?.url || 'default-icon.png'}" alt="${device.name}">
+            `;
+
+            // Add drag handlers
+            deviceEl.addEventListener('touchstart', this.handleDragStart.bind(this), { passive: false });
+            deviceEl.addEventListener('mousedown', this.handleDragStart.bind(this));
+
+            // Add to container
+            const container = document.getElementById('floorPlanDevices');
+            container.appendChild(deviceEl);
+
+            // Save floors
+            this.saveFloors();
+            
+            // Update device list
+            this.renderDevicesList(floor.devices);
+
+            return newDevice;
+        } catch (err) {
+            console.error('Failed to add device:', err);
+            this.Homey.alert('Failed to add device: ' + err.message);
+        }
+    },
+
+    handleDragStart(e) {
+        e.preventDefault();
+        const deviceEl = e.target.closest('.floor-plan-device');
+        if (!deviceEl) return;
+
+        this.draggedDevice = deviceEl;
+        deviceEl.classList.add('dragging');
+
+        // Get initial touch/mouse position
+        const event = e.touches ? e.touches[0] : e;
+        const wrapper = document.getElementById('imageWrapper');
+        const wrapperRect = wrapper.getBoundingClientRect();
+        const deviceRect = deviceEl.getBoundingClientRect();
+
+        // Calculate offset from device center to click/touch point
+        this.dragOffset = {
+            x: event.clientX - (deviceRect.left + deviceRect.width / 2),
+            y: event.clientY - (deviceRect.top + deviceRect.height / 2)
+        };
+
+        // Add move and end event listeners
+        if (e.type === 'mousedown') {
+            document.addEventListener('mousemove', this.handleDragMove.bind(this));
+            document.addEventListener('mouseup', this.handleDragEnd.bind(this));
+        } else {
+            document.addEventListener('touchmove', this.handleDragMove.bind(this), { passive: false });
+            document.addEventListener('touchend', this.handleDragEnd.bind(this));
+        }
+    },
+
+    handleDragMove(e) {
+        e.preventDefault();
+        if (!this.draggedDevice) return;
+
+        const event = e.touches ? e.touches[0] : e;
+        const wrapper = document.getElementById('imageWrapper');
+        const wrapperRect = wrapper.getBoundingClientRect();
+
+        // Calculate new position relative to wrapper
+        let x = event.clientX - wrapperRect.left - this.dragOffset.x;
+        let y = event.clientY - wrapperRect.top - this.dragOffset.y;
+
+        // Convert to percentages
+        const posX = (x / wrapperRect.width) * 100;
+        const posY = (y / wrapperRect.height) * 100;
+
+        // Update device position
+        const displayX = (posX / 100) * wrapperRect.width;
+        const displayY = (posY / 100) * wrapperRect.height;
+        
+        this.draggedDevice.style.transform = `translate(${displayX}px, ${displayY}px)`;
+
+        // Store current position for drag end
+        this.currentDragPosition = { x: posX, y: posY };
+    },
+
+    handleDragEnd(e) {
+        if (!this.draggedDevice) return;
+
+        const deviceEl = this.draggedDevice;
+        deviceEl.classList.remove('dragging');
+
+        // Update device position in data
+        if (this.currentDragPosition) {
+            const floor = this.floors.find(f => f.id === this.currentFloorId);
+            if (floor && floor.devices) {
+                const deviceId = deviceEl.id.replace('device-', '');
+                const device = floor.devices.find(d => d.id === deviceId);
+                if (device) {
+                    device.position = {
+                        x: Math.max(0, Math.min(100, this.currentDragPosition.x)),
+                        y: Math.max(0, Math.min(100, this.currentDragPosition.y))
+                    };
+                    this.saveFloors();
+                }
+            }
+        }
+
+        // Clean up
+        this.draggedDevice = null;
+        this.dragOffset = null;
+        this.currentDragPosition = null;
+
+        // Remove event listeners
+        document.removeEventListener('mousemove', this.handleDragMove);
+        document.removeEventListener('mouseup', this.handleDragEnd);
+        document.removeEventListener('touchmove', this.handleDragMove);
+        document.removeEventListener('touchend', this.handleDragEnd);
     }
 };
 

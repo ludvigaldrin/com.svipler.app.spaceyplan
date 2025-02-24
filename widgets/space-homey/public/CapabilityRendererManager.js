@@ -18,8 +18,6 @@ class CapabilityRendererManager {
     }
 
     async renderDevice(device, container) {
-
-        // We don't need to determine sensor type here anymore since it's saved correctly
         const renderer = this.getRenderer(device.capability);
         if (!renderer) {
             Homey.api('POST', '/log', { message: `No renderer found for capability: ${device.capability}` });
@@ -28,14 +26,15 @@ class CapabilityRendererManager {
 
         const deviceEl = renderer.createDeviceElement(device, device.position);
         
-        // Set data attributes
-        deviceEl.setAttribute('data-device-id', device.deviceId);
+        // Set data attributes with the correct device ID format
+        const fullDeviceId = `${device.homeyId}`;
+        deviceEl.setAttribute('data-device-id', fullDeviceId);
         deviceEl.setAttribute('data-capability', device.capability);
         deviceEl.setAttribute('data-name', device.name);
         deviceEl.setAttribute('data-sensor-type', device.sensorType);
 
-        // Initialize state with widgetId
-        await renderer.initializeState(deviceEl, device.deviceId, this.widgetId);
+        // Initialize state with the correct device ID
+        await renderer.initializeState(deviceEl, fullDeviceId, this.widgetId);
 
         // Initialize interactions
         if (typeof renderer.initializeInteractions === 'function') {
@@ -48,7 +47,7 @@ class CapabilityRendererManager {
         deviceEl.addEventListener('touchstart', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            renderer.handleTouchStart.call(renderer, e, deviceEl, device.deviceId, device.capability);
+            renderer.handleTouchStart.call(renderer, e, deviceEl, fullDeviceId, device.capability);
         }, { passive: false });
 
         deviceEl.addEventListener('touchmove', (e) => {
@@ -59,7 +58,7 @@ class CapabilityRendererManager {
         deviceEl.addEventListener('touchend', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            renderer.handleTouchEnd.call(renderer, e, deviceEl, device.deviceId, device.capability);
+            renderer.handleTouchEnd.call(renderer, e, deviceEl, fullDeviceId, device.capability);
         });
 
         container.appendChild(deviceEl);

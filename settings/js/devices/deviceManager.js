@@ -175,10 +175,11 @@ const deviceManager = {
 
         const newDevice = {
             id: capability === 'dim' ? `${device.id}-dim` : capability === 'onoff' ? `${device.id}-onoff` : device.id,
+            homeyId: device.id,
             name: device.name,
             capability: capability,
             iconObj: device.iconObj,
-            position: { x: 10, y: 10 },
+            position: { x: 5, y: 5 },  // Center of the floor plan (was 10, 10)
             rules: []
         };
 
@@ -222,7 +223,7 @@ const deviceManager = {
             
             // Let floorManager handle UI updates with all devices
             floorManager.renderDevicesList(floor.devices);
-            floorManager.renderFloorPlanDevices(floor.devices);
+            floorManager.renderFloorPlanDevices(floor);
             
             // Close the dialog
             document.getElementById('deviceDialog').style.display = 'none';

@@ -458,3 +458,41 @@ body {
     height: 100%;
     z-index: 300;
 }
+
+.device-base {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    z-index: 300;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    opacity: 0;  /* Start hidden until positioned */
+    background: rgba(255, 255, 255, 0.35);
+    box-shadow: 0 0 8px 2px rgba(255, 255, 255, 0.45);
+}
+
+.icon-wrapper {
+    width: 14px;
+    height: 14px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
+}
+
+.device-icon {
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
+    position: relative;
+    z-index: 1;
+}

@@ -543,6 +543,22 @@ const floorManager = {
             const deviceElement = document.createElement('div');
             deviceElement.className = 'floor-plan-device';
             deviceElement.id = `device-${device.id}`;
+            
+            // Get the capability text
+            let capabilityText = device.capability;
+            if (device.capability === 'dim') {
+                capabilityText = 'Dim';
+            } else if (device.capability === 'onoff') {
+                capabilityText = 'On/Off';
+            } else if (device.capability === 'sensor') {
+                capabilityText = device.sensorType === 'alarm_motion' ? 'Motion' : 'Contact';
+            }
+            
+            // Add custom tooltip element with name and type
+            const tooltip = document.createElement('div');
+            tooltip.className = 'device-tooltip';
+            tooltip.textContent = `${device.name} (${capabilityText})`;
+            deviceElement.appendChild(tooltip);
 
             // Use percentages directly for positioning
             deviceElement.style.left = `${device.position.x}%`;

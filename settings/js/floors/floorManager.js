@@ -803,14 +803,11 @@ const floorManager = {
     },
 
     deleteRule(deviceId, ruleId) {
-        console.log('deleteRule called with:', { deviceId, ruleId });
         const dialog = document.getElementById('deleteConfirmDialog');
         if (!dialog) {
             console.error('Delete confirmation dialog not found');
             return;
         }
-
-        console.log('Found delete dialog, showing it');
         // Update dialog text for rule deletion
         const modalTitle = dialog.querySelector('#deleteDialogTitle');
         const modalDescription = dialog.querySelector('#deleteDialogDescription');

@@ -66,7 +66,7 @@ const ruleManager = {
 
     getRuleName(ruleType) {
         const types = {
-            'iconColor': 'On/Off - Color Switcher',
+            'onOffColor': 'On/Off - Color Switcher',
             'allColor': 'All - Static Color',
             'imageView': 'On/Off - Image Switcher'
         };
@@ -83,7 +83,7 @@ const ruleManager = {
                     </div>
                 </div>
             `;
-        } else if (ruleType === 'iconColor') {
+        } else if (ruleType === 'onOffColor') {
             return `
                 <div class="color-picker-group">
                     <div class="color-input-group">
@@ -223,7 +223,7 @@ const ruleManager = {
             typeSelect.innerHTML = `
                 <option value="">Choose a rule type...</option>
                 ${!existingRuleTypes.includes('allColor') ? '<option value="allColor">All - Static Color</option>' : ''}
-                ${!existingRuleTypes.includes('iconColor') ? '<option value="iconColor">On/Off - Color Switcher</option>' : ''}
+                ${!existingRuleTypes.includes('onOffColor') ? '<option value="onOffColor">On/Off - Color Switcher</option>' : ''}
                 <option value="imageView">On/Off - Image Switcher</option>
             `;
             typeSelect.disabled = false;
@@ -342,7 +342,7 @@ const ruleManager = {
             typeSelect.innerHTML = `
                 <option value="">Choose a rule type...</option>
                 <option value="allColor" ${rule.type === 'allColor' ? 'selected' : ''}>All - Static Color</option>
-                <option value="iconColor" ${rule.type === 'iconColor' ? 'selected' : ''}>On/Off - Color Switcher</option>
+                <option value="onOffColor" ${rule.type === 'onOffColor' ? 'selected' : ''}>On/Off - Color Switcher</option>
                 <option value="imageView" ${rule.type === 'imageView' ? 'selected' : ''}>On/Off - Image Switcher</option>
             `;
             typeSelect.disabled = true;
@@ -384,7 +384,6 @@ const ruleManager = {
     },
 
     onRuleTypeChange(type, existingRule = null) {
-        console.log('Rule type changed:', type);
         const configSection = document.getElementById('ruleConfig');
         if (!configSection) return;
 
@@ -444,7 +443,6 @@ const ruleManager = {
     },
 
     async saveRule(type) {
-        console.log('Saving rule');
         try {
             const config = await this.getRuleConfig(type);
             const floor = this.floorManager.floors.find(f => f.id === this.floorManager.currentFloorId);
@@ -484,7 +482,7 @@ const ruleManager = {
             return {
                 color: document.getElementById('staticColor').value
             };
-        } else if (ruleType === 'iconColor') {
+        } else if (ruleType === 'onOffColor') {
             return {
                 onColor: document.getElementById('onColor').value,
                 offColor: document.getElementById('offColor').value
@@ -556,14 +554,11 @@ const ruleManager = {
     },
 
     attachRuleEventListeners() {
-        console.log('Attaching rule event listeners');
         document.querySelectorAll('.edit-rule').forEach(button => {
-            console.log('Found edit rule button:', button.dataset);
             button.addEventListener('click', (e) => {
                 e.preventDefault();
                 const deviceId = button.dataset.deviceId;
                 const ruleId = button.dataset.ruleId;
-                console.log('Edit rule clicked:', { deviceId, ruleId });
                 this.editRule(deviceId, ruleId);
             });
         });
@@ -571,16 +566,13 @@ const ruleManager = {
         // Add type select change listener
         const typeSelect = document.getElementById('ruleType');
         if (typeSelect) {
-            console.log('Adding type select listener');
             typeSelect.addEventListener('change', (e) => {
-                console.log('Rule type changed:', e.target.value);
                 this.onRuleTypeChange(e.target.value);
             });
         }
     },
 
     initialize() {
-        console.log('Initializing rule manager');
         // Attach event listeners for rule buttons
         this.attachRuleEventListeners();
     }

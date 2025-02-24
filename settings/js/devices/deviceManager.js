@@ -187,7 +187,7 @@ const deviceManager = {
             newDevice.rules.push({
                 id: Date.now().toString(),
                 name: 'On/Off - Color Switcher',
-                type: 'iconColor',
+                type: 'onOffColor',
                 config: {
                     onColor: '#ffeb3b',  // Yellow
                     offColor: '#ffffff'   // White
@@ -200,7 +200,7 @@ const deviceManager = {
             newDevice.rules.push({
                 id: Date.now().toString(),
                 name: 'On/Off - Color Switcher',
-                type: 'iconColor',
+                type: 'onOffColor',
                 config: {
                     onColor: '#ff0000',  // Red
                     offColor: '#ffffff'   // White

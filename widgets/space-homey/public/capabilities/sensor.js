@@ -199,14 +199,14 @@ const sensorRenderer = {
                 iconWrapper.style.boxShadow = `0 0 8px ${allColorRule.config.mainColor}CC`;
             }
         } else {
-            const iconColorRule = device.rules?.find(r => r.type === 'iconColor');
-            if (iconColorRule?.config) {
+            const onOffColorRule = device.rules?.find(r => r.type === 'onOffColor');
+            if (onOffColorRule?.config) {
                 deviceEl.setAttribute('data-color-rule', 'true');
-                deviceEl.setAttribute('data-on-color', iconColorRule.config.onColor);
-                deviceEl.setAttribute('data-off-color', iconColorRule.config.offColor);
+                deviceEl.setAttribute('data-on-color', onOffColorRule.config.onColor);
+                deviceEl.setAttribute('data-off-color', onOffColorRule.config.offColor);
 
                 const currentState = device.state === true;
-                const initialColor = currentState ? iconColorRule.config.onColor : iconColorRule.config.offColor;
+                const initialColor = currentState ? onOffColorRule.config.onColor : onOffColorRule.config.offColor;
                 
                 deviceEl.style.backgroundColor = `${initialColor}59`;
                 deviceEl.style.boxShadow = `0 0 12px 3px ${initialColor}73`;

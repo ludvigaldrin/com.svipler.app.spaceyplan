@@ -96,14 +96,13 @@ const sensorRenderer = {
 
     async initializeState(deviceEl, deviceId, widgetId) {
         try {
+            const sensorType = deviceEl.getAttribute('data-sensor-type');
             const response = await Homey.api('GET', `/devices/${deviceId}/capabilities/sensor`);
 
             if (response !== undefined) {
                 const onoff = response;
                 deviceEl.setAttribute('data-state', onoff);
                 deviceEl.classList.toggle('on', onoff);
-
-
 
                 const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
                 deviceData.state = onoff;
@@ -185,7 +184,7 @@ const sensorRenderer = {
     },
 
     async handleClick(deviceEl) {
-       
+
     },
 
     handleDeviceUpdate(deviceEl, value, capability) {
@@ -470,7 +469,11 @@ const sensorRenderer = {
         const name = deviceEl.getAttribute('data-name');
         const deviceId = deviceEl.getAttribute('data-device-id');
         const currentState = deviceEl.getAttribute('data-state') === 'true';
+        const sensorType = deviceEl.getAttribute('data-sensor-type');
 
+        // Determine label and icon based on sensor type
+        const sensorLabel = sensorType === 'alarm_contact' ? 'Contact' : 'Motion';
+        const sensorIcon = sensorType === 'alarm_contact' ? 'door_open' : 'motion_sensor_alert';
 
         const overlay = document.createElement('div');
         overlay.className = 'device-modal-overlay';
@@ -496,21 +499,21 @@ const sensorRenderer = {
                 <button class="close-button" aria-label="Close">×</button>
             </div>
             <div class="dim-view-toggle">
-                <button class="view-button active" data-view="onoff">Power</button>
+                <button class="view-button active" data-view="onoff">${sensorLabel}</button>
             </div>
             <div class="dim-views">
                 <div class="dim-view onoff-view active">
                     <div class="power-button ${currentState ? 'on' : ''}" role="button">
-                        <div class="power-icon"></div>
+                        <span class="material-symbols-outlined">${sensorIcon}</span>
                     </div>
                 </div>
             </div>
         `;
 
         // Add styles if not present
-        if (!document.getElementById('onoffModalStyles')) {
+        if (!document.getElementById('sensorModalStyles')) {
             const styles = document.createElement('style');
-            styles.id = 'onoffModalStyles';
+            styles.id = 'sensorModalStyles';
             styles.textContent = `
                 .device-modal {
                     background: rgba(245, 245, 245, 0.95);
@@ -570,31 +573,32 @@ const sensorRenderer = {
                     border-radius: 50%;
                     background: #1C1C1E;
                     position: relative;
-                    cursor: pointer;
                     margin: 12px auto;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
                     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
                     transition: all 0.2s ease;
                 }
 
                 .power-button.on {
-                    background: #FFFFFF;
+                    background: #ff0000;
                 }
 
-                .power-icon {
-                    position: absolute;
-                    top: 50%;
-                    left: 50%;
-                    width: 25px;
-                    height: 25px;
-                    transform: translate(-50%, -50%);
-                    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18.36 6.64a9 9 0 1 1-12.73 0'/%3E%3Cline x1='12' y1='2' x2='12' y2='12'/%3E%3C/svg%3E") no-repeat center center;
-                    background-size: contain;
-                    transition: background-image 0.2s ease;
+                .sensor-icon {
+                    color: #FFFFFF;
+                    font-size: 32px;
                 }
 
-                .power-button.on .power-icon {
-                    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231C1C1E' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18.36 6.64a9 9 0 1 1-12.73 0'/%3E%3Cline x1='12' y1='2' x2='12' y2='12'/%3E%3C/svg%3E") no-repeat center center;
-                    background-size: contain;
+                .sensor-state {
+                    text-align: center;
+                    font-weight: bold;
+                    margin-top: 12px;
+                    color: #1C1C1E;
+                }
+
+                .sensor-state.triggered {
+                    color: #ff0000;
                 }
             `;
             document.head.appendChild(styles);
@@ -607,19 +611,6 @@ const sensorRenderer = {
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
                 overlay.remove();
-            }
-        });
-
-        // Handle power button clicks
-        const powerButton = modal.querySelector('.power-button');
-        powerButton.addEventListener('click', async () => {
-            try {
-                const newState = !powerButton.classList.contains('on');
-                powerButton.classList.toggle('on', newState);
-                await this.handleClick(deviceEl);
-            } catch (error) {
-                powerButton.classList.toggle('on');
-                console.error('Error toggling state:', error);
             }
         });
 

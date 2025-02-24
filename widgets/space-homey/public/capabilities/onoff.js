@@ -18,26 +18,20 @@ const onOffRenderer = {
             align-items: center;
             justify-content: center;
             transition: all 0.3s ease;
-            opacity: 0;  // Start hidden until positioned
+            opacity: 0;
             background: rgba(255, 255, 255, 0.35);
             box-shadow: 0 0 12px 3px rgba(255, 255, 255, 0.45);
         `;
 
-        // Store position data for later use
         deviceEl.setAttribute('data-x', position.x);
         deviceEl.setAttribute('data-y', position.y);
-
-        // Add device attributes
         deviceEl.setAttribute('data-name', device.name);
         deviceEl.setAttribute('data-device-id', device.id);
         deviceEl.setAttribute('data-homey-id', device.homeyId);
         deviceEl.setAttribute('data-capability', this.id);
         deviceEl.setAttribute('data-state', device.state || false);
-
-        // Store device data for later use
         deviceEl.setAttribute('data-device', JSON.stringify(device));
 
-        // Add icon wrapper
         const iconWrapper = document.createElement('div');
         iconWrapper.className = 'icon-wrapper';
 
@@ -51,7 +45,6 @@ const onOffRenderer = {
 
         deviceEl.appendChild(iconWrapper);
 
-        // Position the device
         const positionDevice = () => {
             return new Promise((resolve) => {
                 const floorMapImage = document.getElementById('floorMapImage');
@@ -76,7 +69,6 @@ const onOffRenderer = {
                     floorMapImage.onload = setPosition;
                 }
 
-                // Retry positioning if initial attempt fails
                 const retryInterval = setInterval(() => {
                     if (floorMapImage && floorMapImage.complete && floorMapImage.naturalWidth > 0) {
                         setPosition();
@@ -84,7 +76,6 @@ const onOffRenderer = {
                     }
                 }, 100);
 
-                // Clear interval after 5 seconds
                 setTimeout(() => clearInterval(retryInterval), 5000);
             });
         };
@@ -443,7 +434,7 @@ const onOffRenderer = {
 
             // Only process onOffColor if no allColor rule exists
             const onOffColorRule = device.rules?.find(r => r.type === 'onOffColor');
-            if (onOffColorRule?.config) {
+            if (!allColorRule && onOffColorRule?.config) {
                 const currentColor = currentState ? onOffColorRule.config.cloudColorOn : onOffColorRule.config.cloudColorOff;
                 const showCloud = currentState ? onOffColorRule.config.showCloudOn : onOffColorRule.config.showCloudOff;
                 const showIcon = currentState ? onOffColorRule.config.showIconOn : onOffColorRule.config.showIconOff;

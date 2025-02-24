@@ -10,5 +10,8 @@
   },
   "0.0.5": {
     "en": "Sensor view, bug fixes"
+  },
+  "0.0.6": {
+    "en": "Refactor backend, fixed onoff, dim, sensor so they all follow the same pattern. New rules to use."
   }
 }

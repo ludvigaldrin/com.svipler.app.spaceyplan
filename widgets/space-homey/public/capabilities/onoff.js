@@ -113,13 +113,21 @@ const onOffRenderer = {
                 deviceData.state = response;
                 deviceEl.setAttribute('data-device', JSON.stringify(deviceData));
                 
-                // Update image visibility based on initial state
-                const imageEl = document.querySelector(`img.device-state-image[data-image-device-id="${deviceId}"]`);
-                if (imageEl) {
-                    const onOffImageRule = deviceData.rules?.find(r => r.type === 'onOffImage');
-                    if (onOffImageRule?.config) {
-                        const showImage = onOffImageRule.config.showOn === response;
-                        imageEl.classList.toggle('hidden', !showImage);
+                // Handle initial image visibility
+                if (deviceEl.getAttribute('data-image-rule') === 'true') {
+                    const ruleId = deviceEl.getAttribute('data-rule-id');
+                    const imageEl = document.querySelector(`.state-image-${ruleId}`);
+                    
+                    if (imageEl) {
+                        const onOffImageRule = deviceData.rules?.find(r => r.id === ruleId);
+                        if (onOffImageRule?.config) {
+                            const showImage = onOffImageRule.config.showOn === response;
+                            imageEl.style.display = showImage ? 'block' : 'none';
+                            
+                            Homey.api('POST', '/log', { 
+                                message: `[InitialState] Setting visibility for ruleId ${ruleId}: showOn=${onOffImageRule.config.showOn}, initialState=${response}, showImage=${showImage}` 
+                            });
+                        }
                     }
                 }
                 
@@ -235,32 +243,20 @@ const onOffRenderer = {
 
             // Handle image rule
             if (deviceEl.getAttribute('data-image-rule') === 'true') {
-                const deviceId = deviceEl.getAttribute('data-device-id');
-                
-                // Log all state-images for debugging
-                const allImages = document.querySelectorAll('.state-image');
-                Homey.api('POST', '/log', { 
-                    message: `[Debug] Found ${allImages.length} total state-images` 
-                });
-                
-                // Try to find our specific image
-                const imageEl = document.querySelector(`.state-image-${deviceId}`);
+                const ruleId = deviceEl.getAttribute('data-rule-id');
+                const imageEl = document.querySelector(`.state-image-${ruleId}`);
                 
                 if (imageEl) {
-                    const onOffImageRule = deviceData.rules?.find(r => r.type === 'onOffImage');
+                    const onOffImageRule = deviceData.rules?.find(r => r.id === ruleId);
                     
                     if (onOffImageRule?.config) {
                         const showImage = onOffImageRule.config.showOn === value;
                         imageEl.style.display = showImage ? 'block' : 'none';
                         
                         Homey.api('POST', '/log', { 
-                            message: `[Update] Found and updated image for ${deviceData.name}: showImage=${showImage}, state=${value}, showOn=${onOffImageRule.config.showOn}, display=${imageEl.style.display}, imageId=${imageEl.className}` 
+                            message: `[Debug] Setting visibility for ruleId ${ruleId}: showOn=${onOffImageRule.config.showOn}, currentState=${value}, showImage=${showImage}` 
                         });
                     }
-                } else {
-                    Homey.api('POST', '/log', { 
-                        message: `[Error] Could not find image for device ${deviceId}. Searching for: .state-image-${deviceId}` 
-                    });
                 }
             }
 
@@ -360,53 +356,47 @@ const onOffRenderer = {
             // Check for onOffImageRule rule first
             const onOffImageRule = device.rules?.find(r => r.type === 'onOffImage');
             if (onOffImageRule?.config) {
-                // Check if we've already initialized this device's image
-                const deviceId = deviceEl.getAttribute('data-device-id');
-                const existingImage = document.querySelector(`.state-image-${deviceId}`);
+                const ruleId = onOffImageRule.id;
                 
-                if (existingImage) {
-                    // Just update visibility if image already exists
-                    const showImage = onOffImageRule.config.showOn === currentState;
-                    existingImage.style.display = showImage ? 'block' : 'none';
+                // Debug the rule config
+                Homey.api('POST', '/log', { 
+                    message: `[Debug] Rule config for ${ruleId}: showOn=${onOffImageRule.config.showOn}` 
+                });
+                
+                // Check if we've already initialized this device
+                if (!deviceEl.hasAttribute('data-image-initialized')) {
+                    // Remove ANY existing images first
+                    const existingImages = document.querySelectorAll(`.state-image-${ruleId}`);
+                    existingImages.forEach(img => img.remove());
                     
-                    Homey.api('POST', '/log', { 
-                        message: `[Initial] Updated existing image visibility for ${device.name}: showImage=${showImage}, state=${currentState}` 
-                    });
-                } else {
-                    // Create new image only if it doesn't exist
                     deviceEl.setAttribute('data-image-rule', 'true');
+                    deviceEl.setAttribute('data-image-initialized', 'true');
+                    deviceEl.setAttribute('data-rule-id', ruleId);
                     
                     const imageWrapper = document.getElementById('imageWrapper');
-                    if (imageWrapper && onOffImageRule.config.imageData) {
+                    if (imageWrapper) {
                         const imageEl = document.createElement('img');
                         
-                        // Set styles directly - start hidden
-                        imageEl.style.display = 'none';
-                        imageEl.style.position = 'absolute';
-                        imageEl.style.top = '0';
-                        imageEl.style.left = '0';
-                        imageEl.style.width = '100%';
-                        imageEl.style.height = '100%';
-                        imageEl.style.objectFit = 'contain';
-                        imageEl.style.pointerEvents = 'none';
-                        imageEl.style.zIndex = '200';
+                        // Always start hidden
+                        imageEl.style.cssText = `
+                            display: none;
+                            position: absolute;
+                            top: 0;
+                            left: 0;
+                            width: 100%;
+                            height: 100%;
+                            object-fit: contain;
+                            pointer-events: none;
+                            z-index: 200;
+                        `;
                         
-                        imageEl.className = `state-image state-image-${deviceId}`;
-                        
-                        // Add to DOM first
+                        imageEl.className = `state-image state-image-${ruleId}`;
                         imageWrapper.appendChild(imageEl);
                         
-                        // Wait for image to load before setting visibility
-                        imageEl.onload = () => {
-                            const showImage = onOffImageRule.config.showOn === currentState;
-                            imageEl.style.display = showImage ? 'block' : 'none';
-                            
-                            Homey.api('POST', '/log', { 
-                                message: `[Initial] Created and set visibility for ${device.name}: showImage=${showImage}, state=${currentState}` 
-                            });
-                        };
+                        Homey.api('POST', '/log', { 
+                            message: `[Debug] Created new image element for ruleId ${ruleId}, initial state=${device.state}` 
+                        });
                         
-                        // Set src after setting onload handler
                         imageEl.src = onOffImageRule.config.imageData;
                     }
                 }

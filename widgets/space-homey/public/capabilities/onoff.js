@@ -236,6 +236,14 @@ const onOffRenderer = {
             // Handle image rule
             if (deviceEl.getAttribute('data-image-rule') === 'true') {
                 const deviceId = deviceEl.getAttribute('data-device-id');
+                
+                // Log all state-images for debugging
+                const allImages = document.querySelectorAll('.state-image');
+                Homey.api('POST', '/log', { 
+                    message: `[Debug] Found ${allImages.length} total state-images` 
+                });
+                
+                // Try to find our specific image
                 const imageEl = document.querySelector(`.state-image-${deviceId}`);
                 
                 if (imageEl) {
@@ -243,12 +251,16 @@ const onOffRenderer = {
                     
                     if (onOffImageRule?.config) {
                         const showImage = onOffImageRule.config.showOn === value;
-                        imageEl.style.opacity = showImage ? '1' : '0';
+                        imageEl.style.display = showImage ? 'block' : 'none';
                         
                         Homey.api('POST', '/log', { 
-                            message: `[Update] Image TEST - Visibility for ${deviceData.name}: showImage=${showImage}, state=${value}, showOn=${onOffImageRule.config.showOn}, opacity=${imageEl.style.opacity}` 
+                            message: `[Update] Found and updated image for ${deviceData.name}: showImage=${showImage}, state=${value}, showOn=${onOffImageRule.config.showOn}, display=${imageEl.style.display}, imageId=${imageEl.className}` 
                         });
                     }
+                } else {
+                    Homey.api('POST', '/log', { 
+                        message: `[Error] Could not find image for device ${deviceId}. Searching for: .state-image-${deviceId}` 
+                    });
                 }
             }
 
@@ -351,33 +363,59 @@ const onOffRenderer = {
                 deviceEl.setAttribute('data-image-rule', 'true');
                 const deviceId = deviceEl.getAttribute('data-device-id');
                 
-                // Remove any existing images
+                // Remove ALL existing images for this device
                 const existingImages = document.querySelectorAll(`.state-image-${deviceId}`);
+                Homey.api('POST', '/log', { 
+                    message: `[Cleanup] Removing ${existingImages.length} existing images for ${device.name}` 
+                });
                 existingImages.forEach(img => img.remove());
                 
                 const imageWrapper = document.getElementById('imageWrapper');
                 if (imageWrapper && onOffImageRule.config.imageData) {
-                    const imageEl = document.createElement('img');
-                    
-                    // Set styles directly - start hidden
-                    imageEl.style.display = 'none';
-                    imageEl.style.position = 'absolute';
-                    imageEl.style.top = '0';
-                    imageEl.style.left = '0';
-                    imageEl.style.width = '100%';
-                    imageEl.style.height = '100%';
-                    imageEl.style.objectFit = 'contain';
-                    imageEl.style.pointerEvents = 'none';
-                    imageEl.style.zIndex = '200';
-                    
-                    imageEl.className = `state-image state-image-${deviceId}`;
-                    imageEl.src = onOffImageRule.config.imageData;
-                    
-                    imageWrapper.appendChild(imageEl);
-                    
-                    Homey.api('POST', '/log', { 
-                        message: `[Initial] Image TEST - Created hidden image for ${device.name}, display=${imageEl.style.display}` 
-                    });
+                    // Double check no images exist before creating new one
+                    if (!document.querySelector(`.state-image-${deviceId}`)) {
+                        const imageEl = document.createElement('img');
+                        
+                        // Set styles directly - start hidden
+                        imageEl.style.display = 'none';
+                        imageEl.style.position = 'absolute';
+                        imageEl.style.top = '0';
+                        imageEl.style.left = '0';
+                        imageEl.style.width = '100%';
+                        imageEl.style.height = '100%';
+                        imageEl.style.objectFit = 'contain';
+                        imageEl.style.pointerEvents = 'none';
+                        imageEl.style.zIndex = '200';
+                        
+                        imageEl.className = `state-image state-image-${deviceId}`;
+                        
+                        // Add to DOM first
+                        imageWrapper.appendChild(imageEl);
+                        
+                        // Wait for image to load before setting visibility
+                        imageEl.onload = () => {
+                            const showImage = onOffImageRule.config.showOn === currentState;
+                            
+                            if (showImage) {
+                                imageEl.style.display = 'block';
+                            }
+                            
+                            Homey.api('POST', '/log', { 
+                                message: `[Initial] Image loaded and visibility set for ${device.name}: showImage=${showImage}, state=${currentState}, showOn=${onOffImageRule.config.showOn}, display=${imageEl.style.display}, totalImages=${document.querySelectorAll('.state-image').length}` 
+                            });
+                        };
+                        
+                        // Set src after setting onload handler
+                        imageEl.src = onOffImageRule.config.imageData;
+                        
+                        Homey.api('POST', '/log', { 
+                            message: `[Initial] Image created for ${device.name}, totalImages=${document.querySelectorAll('.state-image').length}` 
+                        });
+                    } else {
+                        Homey.api('POST', '/log', { 
+                            message: `[Warning] Prevented duplicate image creation for ${device.name}` 
+                        });
+                    }
                 }
             }
 

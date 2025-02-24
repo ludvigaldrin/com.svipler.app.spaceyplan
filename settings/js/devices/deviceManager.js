@@ -31,7 +31,7 @@ const deviceManager = {
         if (searchInput) {
             searchInput.addEventListener('input', debounce(async (e) => {
                 const searchTerm = e.target.value.toLowerCase();
-                
+
                 try {
                     // Clear previous results
                     searchResults.innerHTML = '';
@@ -90,10 +90,10 @@ const deviceManager = {
 
     updateSearchResults(searchTerm, filteredDevices) {
         const resultsContainer = document.getElementById('searchResults');
-        
+
         const html = filteredDevices.map(device => {
             const deviceCapabilities = device.capabilities || [];
-            const supported = deviceCapabilities.filter(cap => 
+            const supported = deviceCapabilities.filter(cap =>
                 this.supportedCapabilities.includes(cap)
             );
 
@@ -110,9 +110,9 @@ const deviceManager = {
                     </div>
                     <div class="capabilities-section">
                         ${supported.map(capability => {
-                            const displayName = this.getCapabilityDisplayName(capability);
-                            const isAdded = this.isDeviceCapabilityAdded(device.id, capability);
-                            return `
+                const displayName = this.getCapabilityDisplayName(capability);
+                const isAdded = this.isDeviceCapabilityAdded(device.id, capability);
+                return `
                                 <div class="capability-row">
                                     <span class="capability-name">${displayName}</span>
                                     <button class="add-capability-btn ${isAdded ? 'added' : ''}" 
@@ -122,7 +122,7 @@ const deviceManager = {
                                         ${isAdded ? 'Added' : 'Add'}
                                     </button>
                                 </div>`;
-                        }).join('')}
+            }).join('')}
                     </div>
                 </div>`;
         }).join('');
@@ -155,14 +155,14 @@ const deviceManager = {
             if (capability === 'alarm_motion' || capability === 'alarm_contact') {
                 return d.id === `${deviceId}-sensor-${capability}`;
             }
-            
+
             // For onoff and dim, check the modified device IDs
-            const expectedId = capability === 'dim' ? 
-                `${deviceId}-dim` : 
-                capability === 'onoff' ? 
-                    `${deviceId}-onoff` : 
+            const expectedId = capability === 'dim' ?
+                `${deviceId}-dim` :
+                capability === 'onoff' ?
+                    `${deviceId}-onoff` :
                     deviceId;
-                
+
             return d.id === expectedId;
         });
     },
@@ -186,7 +186,7 @@ const deviceManager = {
         // Add default color rule for onoff and dim capabilities
         if (capability === 'onoff' || capability === 'dim') {
             newDevice.rules.push({
-                id: Date.now().toString(),
+                id: generateUUID(),
                 name: 'On/Off - Color Switcher',
                 type: 'onOffColor',
                 config: {
@@ -199,7 +199,7 @@ const deviceManager = {
         // Add default color rule for alarm_contact and alarm_motion capabilities
         if (capability === 'alarm_contact' || capability === 'alarm_motion') {
             newDevice.rules.push({
-                id: Date.now().toString(),
+                id: generateUUID(),
                 name: 'On/Off - Color Switcher',
                 type: 'onOffColor',
                 config: {
@@ -220,11 +220,11 @@ const deviceManager = {
         try {
             // Save to Homey
             await this.Homey.set('floors', floorManager.floors);
-            
+
             // Let floorManager handle UI updates with all devices
             floorManager.renderDevicesList(floor.devices);
             floorManager.renderFloorPlanDevices(floor);
-            
+
             // Close the dialog
             document.getElementById('deviceDialog').style.display = 'none';
         } catch (err) {
@@ -240,12 +240,12 @@ const deviceManager = {
                     const deviceId = button.dataset.deviceId;
                     const capability = button.dataset.capability;
                     const device = filteredDevices.find(d => d.id === deviceId);
-                    
+
                     if (!device) {
                         console.error('Device not found:', deviceId);
                         return;
                     }
-                    
+
                     try {
                         // Disable button and show loading state
                         button.disabled = true;
@@ -253,15 +253,15 @@ const deviceManager = {
                         button.textContent = 'Adding...';
 
                         await this.addDeviceToFloor(device, capability);
-                        
+
                         // Update button state
                         button.textContent = 'Added';
                         button.classList.add('added');
-                        
+
                     } catch (err) {
                         console.error('Failed to add device:', err);
                         this.Homey.alert(err.message || 'Failed to add device');
-                        
+
                         // Reset button state on error
                         button.disabled = false;
                         button.textContent = 'Add';

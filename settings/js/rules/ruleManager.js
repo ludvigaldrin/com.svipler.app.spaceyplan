@@ -5,7 +5,7 @@ const ruleManager = {
     currentRuleId: null,
     iconData: null, // Store icon data
     isEditing: false,
-    
+
     RULE_TYPES: {
         allIcon: { name: 'All - Icon Select', allowMultiple: false },
         allColor: { name: 'All - Color Select', allowMultiple: false },
@@ -305,13 +305,13 @@ const ruleManager = {
             turnOff: 'Turn Off'
         };
         let desc = actions[rule.config.action] || rule.config.action;
-        
+
         if (rule.type === 'onLeave' && rule.config.delay) {
             desc += ` after ${rule.config.delay}s`;
         } else if (rule.type === 'onStay' && rule.config.interval) {
             desc += ` every ${rule.config.interval}s`;
         }
-        
+
         return desc;
     },
 
@@ -369,16 +369,16 @@ const ruleManager = {
         // Filter available rule types based on existing rules
         const existingRuleTypes = device.rules.map(r => r.type);
         const availableTypes = Object.entries(this.RULE_TYPES)
-            .filter(([type, config]) => 
+            .filter(([type, config]) =>
                 config.allowMultiple || !existingRuleTypes.includes(type)
             );
 
         // Populate rule type dropdown
         typeSelect.innerHTML = `
             <option value="">Choose a rule type...</option>
-            ${availableTypes.map(([type, config]) => 
-                `<option value="${type}">${config.name}</option>`
-            ).join('')}
+            ${availableTypes.map(([type, config]) =>
+            `<option value="${type}">${config.name}</option>`
+        ).join('')}
         `;
 
         // Add change listener for rule type
@@ -391,11 +391,11 @@ const ruleManager = {
             }
 
             configSection.innerHTML = this.renderRuleConfig(ruleType);
-            
+
             if (ruleType === 'allIcon') {
                 this.attachRuleEventListeners();
             }
-            
+
             saveButton.disabled = ruleType === 'allIcon';
         };
 
@@ -458,7 +458,7 @@ const ruleManager = {
         }
 
         configSection.innerHTML = this.renderRuleConfig(rule.type, rule);
-        
+
         if (rule.type === 'allIcon') {
             this.attachRuleEventListeners();
         }
@@ -550,9 +550,9 @@ const ruleManager = {
                     };
                 }
             } else {
-                // Create new rule
+                // Create new rule with UUID
                 const newRule = {
-                    id: Date.now().toString(),
+                    id: generateUUID(),
                     type: type,
                     name: this.getRuleName(type),
                     config: config
@@ -560,10 +560,10 @@ const ruleManager = {
 
                 device.rules.push(newRule);
             }
-            
+
             // Save and update UI
             await this.floorManager.saveFloors();
-            
+
             const rulesSection = document.getElementById(`rules-${this.currentDeviceId}`);
             if (rulesSection) {
                 const rulesContent = rulesSection.querySelector('.floor-rules-content');
@@ -620,7 +620,7 @@ const ruleManager = {
             const showCloudOn = document.getElementById('showCloudOn').checked;
             const showIconOff = document.getElementById('showIconOff').checked;
             const showCloudOff = document.getElementById('showCloudOff').checked;
-            
+
             return {
                 showIconOn,
                 iconColorOn: showIconOn ? document.getElementById('iconColorOn').value : null,
@@ -691,7 +691,7 @@ const ruleManager = {
         const confirmBtn = document.getElementById('confirmDelete');
         const cancelBtn = document.getElementById('cancelDelete');
         const closeBtn = dialog.querySelector('.modal-close-button');
-        
+
         if (confirmBtn) confirmBtn.onclick = handleDelete;
         if (cancelBtn) cancelBtn.onclick = () => dialog.style.display = 'none';
         if (closeBtn) closeBtn.onclick = () => dialog.style.display = 'none';
@@ -711,10 +711,10 @@ const ruleManager = {
 
         if (searchInput && resultsDiv) {
             let debounceTimeout;
-            
+
             const handleSearch = async () => {
                 const searchTerm = searchInput.value.trim();
-                
+
                 // Clear results if search is empty
                 if (!searchTerm) {
                     resultsDiv.innerHTML = '<div class="no-results">Type to search icons...</div>';
@@ -726,7 +726,7 @@ const ruleManager = {
 
                 try {
                     const icons = await this.searchMaterialIcons(searchTerm);
-                    
+
                     if (icons.length === 0) {
                         resultsDiv.innerHTML = '<div class="no-results">No matching icons found</div>';
                         return;
@@ -743,13 +743,13 @@ const ruleManager = {
                     resultsDiv.querySelectorAll('.icon-result').forEach(el => {
                         el.addEventListener('click', () => {
                             const selectedIcon = el.dataset.icon;
-      
+
                             selectedIconDisplay.innerHTML = `
                                 <div class="selected-icon">
                                     <span class="material-symbols-outlined">${selectedIcon}</span>
                                     <span class="icon-name">${selectedIcon}</span>
                                 </div>`;
-                            
+
                             if (saveButton) {
                                 saveButton.disabled = false;
                             }
@@ -782,7 +782,7 @@ const ruleManager = {
     },
 
     async searchMaterialIcons(searchTerm) {
-       
+
         if (!Array.isArray(this.iconData)) {
             console.warn('⚠️ Icon data not properly loaded');
             return [];
@@ -790,7 +790,7 @@ const ruleManager = {
 
         try {
             searchTerm = searchTerm.toLowerCase();
-            
+
             // First try exact matches in name
             let results = this.iconData
                 .filter(icon => {
@@ -818,7 +818,7 @@ const ruleManager = {
                 const bLower = b.toLowerCase();
                 const aStartsWith = aLower.startsWith(searchTerm);
                 const bStartsWith = bLower.startsWith(searchTerm);
-                
+
                 if (aStartsWith && !bStartsWith) return -1;
                 if (!aStartsWith && bStartsWith) return 1;
                 return aLower.localeCompare(bLower);
@@ -851,25 +851,6 @@ const ruleManager = {
             this.iconData = [];
         }
     },
-
-    // Update the default rule configuration for new devices
-    createDefaultRule() {
-        return {
-            id: Date.now().toString(),
-            type: 'onOffColor',
-            name: this.getRuleName('onOffColor'),
-            config: {
-                showIconOn: true,
-                iconColorOn: '#ffeb3b',
-                showCloudOn: true,
-                cloudColorOn: '#ffeb3b',
-                showIconOff: true,
-                iconColorOff: '#ffffff',
-                showCloudOff: true,
-                cloudColorOff: '#ffffff'
-            }
-        };
-    }
 };
 
 window.ruleManager = ruleManager; 

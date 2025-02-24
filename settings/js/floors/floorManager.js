@@ -934,6 +934,19 @@ const floorManager = {
             rules: []
         };
 
+        // Add default color rule if needed
+        if (device.capability === 'onoff' || device.capability === 'dim') {
+            newDevice.rules.push({
+                id: generateUUID(),
+                name: 'On/Off - Color Switcher',
+                type: 'onOffColor',
+                config: {
+                    onColor: '#ffeb3b',  // Yellow
+                    offColor: '#ffffff'   // White
+                }
+            });
+        }
+
         // Add device to floor
         floor.devices.push(newDevice);
 

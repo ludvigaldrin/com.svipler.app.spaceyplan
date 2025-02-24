@@ -123,10 +123,6 @@ const onOffRenderer = {
                         if (onOffImageRule?.config) {
                             const showImage = onOffImageRule.config.showOn === response;
                             imageEl.style.display = showImage ? 'block' : 'none';
-                            
-                            Homey.api('POST', '/log', { 
-                                message: `[InitialState] Setting visibility for ruleId ${ruleId}: showOn=${onOffImageRule.config.showOn}, initialState=${response}, showImage=${showImage}` 
-                            });
                         }
                     }
                 }
@@ -201,9 +197,6 @@ const onOffRenderer = {
             const deviceId = deviceEl.getAttribute('data-homey-id');
             const currentState = deviceEl.getAttribute('data-state') === 'true';
             const newState = !currentState;
-
-            Homey.api('POST', '/log', { message: `handleClick - Device: ${deviceId}, Current state: ${currentState}, New state: ${newState}` });
-
             // Update visual state immediately
             deviceEl.setAttribute('data-state', newState);
             deviceEl.classList.toggle('on', newState);
@@ -252,10 +245,6 @@ const onOffRenderer = {
                     if (onOffImageRule?.config) {
                         const showImage = onOffImageRule.config.showOn === value;
                         imageEl.style.display = showImage ? 'block' : 'none';
-                        
-                        Homey.api('POST', '/log', { 
-                            message: `[Debug] Setting visibility for ruleId ${ruleId}: showOn=${onOffImageRule.config.showOn}, currentState=${value}, showImage=${showImage}` 
-                        });
                     }
                 }
             }
@@ -358,11 +347,6 @@ const onOffRenderer = {
             if (onOffImageRule?.config) {
                 const ruleId = onOffImageRule.id;
                 
-                // Debug the rule config
-                Homey.api('POST', '/log', { 
-                    message: `[Debug] Rule config for ${ruleId}: showOn=${onOffImageRule.config.showOn}` 
-                });
-                
                 // Check if we've already initialized this device
                 if (!deviceEl.hasAttribute('data-image-initialized')) {
                     // Remove ANY existing images first
@@ -392,10 +376,6 @@ const onOffRenderer = {
                         
                         imageEl.className = `state-image state-image-${ruleId}`;
                         imageWrapper.appendChild(imageEl);
-                        
-                        Homey.api('POST', '/log', { 
-                            message: `[Debug] Created new image element for ruleId ${ruleId}, initial state=${device.state}` 
-                        });
                         
                         imageEl.src = onOffImageRule.config.imageData;
                     }

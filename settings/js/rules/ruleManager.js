@@ -80,19 +80,21 @@ const ruleManager = {
 
     renderRuleConfig(ruleType, existingRule = null) {
         if (ruleType === 'allIcon') {
-            return `
+            const html = `
                 <div class="rule-config-group">
                     <div class="icon-search-container">
                         <h3>Search Icons (${this.iconData?.length || 0} icons)</h3>
                         <div class="search-input-group">
                             <input type="text" 
-                                   id="iconSearch" 
+                                   id="iconSearchInput" 
                                    class="homey-form-input" 
                                    placeholder="Type to search Material Icons...">
                         </div>
-                        <div id="searchResults" class="icon-search-results"></div>
+                        <div id="iconSearchResults" class="icon-search-results">
+                            <div class="initial-state">Type to search icons...</div>
+                        </div>
                     </div>
-
+                    
                     <div id="selectedIconDisplay" class="selected-icon-container">
                         <h3>Selected Icon</h3>
                         <div class="selected-icon-box">
@@ -110,6 +112,84 @@ const ruleManager = {
                     </div>
                 </div>
             `;
+
+            // After rendering HTML, attach search handler
+            setTimeout(() => {
+                const searchInput = document.getElementById('iconSearchInput');
+                const searchResults = document.getElementById('iconSearchResults');
+                
+                if (searchInput && searchResults) {
+                    // Remove any existing listeners
+                    const newSearchInput = searchInput.cloneNode(true);
+                    searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+                    
+                    let debounceTimeout;
+                    newSearchInput.addEventListener('input', (e) => {
+                        clearTimeout(debounceTimeout);
+                        debounceTimeout = setTimeout(async () => {
+                            const searchTerm = e.target.value.trim();
+                            
+                            // Clear existing content first
+                            searchResults.innerHTML = '';
+                            
+                            if (searchTerm.length < 2) {
+                                searchResults.innerHTML = '<div class="no-results">Type at least 2 characters...</div>';
+                               
+                                return;
+                            }
+
+                            const results = await this.searchMaterialIcons(searchTerm);
+
+
+                            if (results.length === 0) {
+                                searchResults.innerHTML = '<div class="no-results">No icons found</div>';
+                            } else {
+                                const html = results.map(iconName => `
+                                    <div class="icon-result" data-icon="${iconName}">
+                                        <span class="material-symbols-outlined">${iconName}</span>
+                                        <span class="icon-name">${iconName}</span>
+                                    </div>
+                                `).join('');
+                                
+                                searchResults.innerHTML = html;
+                                
+                                // Attach click handlers immediately after updating HTML
+                                const iconResults = searchResults.querySelectorAll('.icon-result');
+                                iconResults.forEach(el => {
+                                    el.addEventListener('click', () => {
+                                        const iconName = el.dataset.icon;
+                                        const selectedIconDisplay = document.getElementById('selectedIconDisplay');
+                                        
+                                        // Update selected icon display
+                                        selectedIconDisplay.innerHTML = `
+                                            <h3>Selected Icon</h3>
+                                            <div class="selected-icon-box">
+                                                <div class="selected-icon">
+                                                    <span class="material-symbols-outlined">${iconName}</span>
+                                                    <span class="icon-name">${iconName}</span>
+                                                </div>
+                                            </div>
+                                        `;
+                                        
+                                        // Store the selected icon
+                                        this.selectedIcon = iconName;
+                                        
+                                        // Enable save button
+                                        const saveButton = document.getElementById('saveRule');
+                                        if (saveButton) {
+                                            saveButton.disabled = false;
+                                        }
+
+                                    });
+                                });
+
+                            }
+                        }, 300);
+                    });
+                }
+            }, 0);
+
+            return html;
         } else if (ruleType === 'allColor') {
             return `
                 <div class="rule-config-group">
@@ -760,7 +840,6 @@ const ruleManager = {
     },
 
     async searchMaterialIcons(searchTerm) {
-
         if (!Array.isArray(this.iconData)) {
             console.warn('⚠️ Icon data not properly loaded');
             return [];
@@ -769,6 +848,7 @@ const ruleManager = {
         try {
             searchTerm = searchTerm.toLowerCase();
 
+
             // First try exact matches in name
             let results = this.iconData
                 .filter(icon => {
@@ -776,7 +856,6 @@ const ruleManager = {
                     return name.includes(searchTerm);
                 })
                 .map(icon => icon.name);
-
             // If no direct matches, try searching in tags
             if (results.length === 0) {
                 results = this.iconData
@@ -785,6 +864,7 @@ const ruleManager = {
                         return tags.some(tag => tag.includes(searchTerm));
                     })
                     .map(icon => icon.name);
+                
             }
 
             // Remove duplicates and limit results
@@ -802,10 +882,12 @@ const ruleManager = {
                 return aLower.localeCompare(bLower);
             });
 
-
             return results;
         } catch (error) {
             console.error('Search failed:', error);
+            Homey.api('POST', '/log', { 
+                message: `[Error] Search failed: ${error.message}` 
+            });
             return [];
         }
     },

@@ -6,7 +6,14 @@ const floorManager = {
 
     async initialize(Homey) {
         this.Homey = Homey;
-        await this.loadFloors();
+        
+        // Attach add floor button handler
+        const addFloorButton = document.getElementById('addFloor');
+        if (addFloorButton) {
+            addFloorButton.onclick = () => this.showAddFloorDialog();
+        }
+
+        this.loadFloors();
         this.ruleManager = ruleManager;
         this.ruleManager.init(this, Homey);
     },
@@ -210,117 +217,167 @@ const floorManager = {
     // Add Floor Dialog
     showAddFloorDialog() {
         const dialog = document.getElementById('floorDialog');
-        const titleElement = dialog.querySelector('#floorDialogTitle');
-        const saveButton = dialog.querySelector('#saveFloor');
-        const cancelButton = dialog.querySelector('#cancelFloor');
-        const closeButton = dialog.querySelector('.modal-close-button');
-        const imageInput = document.getElementById('floorImage');
-        const imagePreview = document.getElementById('imagePreview');
+        if (!dialog) {
+            console.error('Floor dialog not found');
+            return;
+        }
 
         // Reset form
-        this.resetFloorDialog();
+        const nameInput = dialog.querySelector('#floorName');
+        const imageInput = dialog.querySelector('#floorImage');
+        const saveButton = dialog.querySelector('#saveFloor');
+        const previewImage = dialog.querySelector('#imagePreview');
+        const closeButton = dialog.querySelector('.modal-close-button');
+        const cancelButton = dialog.querySelector('#cancelFloor');
 
-        // Add image preview handler
+        // Clear previous values
+        if (nameInput) nameInput.value = '';
+        if (imageInput) imageInput.value = '';
+        if (previewImage) previewImage.innerHTML = '';
+        if (saveButton) {
+            saveButton.disabled = true;
+            saveButton.textContent = 'Create Floor';
+            saveButton.onclick = () => this.saveNewFloor();
+        }
+
+        // Setup image preview
         if (imageInput) {
-            imageInput.addEventListener('change', (e) => {
+            imageInput.onchange = (e) => {
                 const file = e.target.files[0];
-                if (file && imagePreview) {
+                if (file && previewImage) {
                     const reader = new FileReader();
                     reader.onload = (e) => {
-                        imagePreview.innerHTML = `<img src="${e.target.result}" style="max-width: 100%; height: auto;">`;
+                        previewImage.innerHTML = `<img src="${e.target.result}" style="max-width: 100%; height: auto;">`;
+                        if (saveButton && nameInput.value) {
+                            saveButton.disabled = false;
+                        }
                     };
                     reader.readAsDataURL(file);
-                } else if (imagePreview) {
-                    imagePreview.innerHTML = '';
                 }
-            });
-        }
-
-        if (titleElement) titleElement.textContent = 'Add New Floor';
-        if (saveButton) {
-            saveButton.textContent = 'Add Floor';
-            saveButton.onclick = () => this.handleSaveFloor();
-        }
-
-        // Add cancel and close button handlers
-        if (cancelButton) {
-            cancelButton.onclick = () => {
-                dialog.style.display = 'none';
-                this.resetFloorDialog();
             };
         }
+
+        // Setup name input validation
+        if (nameInput) {
+            nameInput.oninput = () => {
+                if (saveButton) {
+                    saveButton.disabled = !(nameInput.value && imageInput.files.length > 0);
+                }
+            };
+        }
+
+        // Setup close handlers
         if (closeButton) {
             closeButton.onclick = () => {
                 dialog.style.display = 'none';
-                this.resetFloorDialog();
+            };
+        }
+        if (cancelButton) {
+            cancelButton.onclick = () => {
+                dialog.style.display = 'none';
             };
         }
 
+        // Show dialog
         dialog.style.display = 'flex';
     },
 
-    saveNewFloor() {
-        const nameInput = document.getElementById('floorName');
-        const imageInput = document.getElementById('floorImage');
-        const saveButton = document.getElementById('saveFloor');
-        const cancelButton = document.getElementById('cancelFloor');
+    async saveNewFloor() {
+        const dialog = document.getElementById('floorDialog');
+        const nameInput = dialog.querySelector('#floorName');
+        const imageInput = dialog.querySelector('#floorImage');
+        const saveButton = dialog.querySelector('#saveFloor');
+        const cancelButton = dialog.querySelector('#cancelFloor');
 
-        if (!nameInput.value || !imageInput.files[0]) {
+        if (!nameInput?.value || !imageInput?.files[0]) {
             this.Homey.alert('Please provide both a name and an image');
             return;
         }
 
-        saveButton.disabled = true;
-        cancelButton.disabled = true;
-        saveButton.innerHTML = '<div class="button-content"><div class="spinner"></div>Saving...</div>';
+        try {
+            // Disable buttons and show loading state
+            saveButton.disabled = true;
+            cancelButton.disabled = true;
+            saveButton.innerHTML = '<div class="button-content"><div class="spinner"></div>Saving...</div>';
 
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const img = new Image();
-            img.onload = async () => {
-                try {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    const MAX_WIDTH = 500;
-                    const MAX_HEIGHT = 800;
-                    let width = img.width;
-                    let height = img.height;
+            // Read the image file
+            const file = imageInput.files[0];
+            const reader = new FileReader();
 
-                    const scale = Math.min(1, MAX_WIDTH / width, MAX_HEIGHT / height);
-                    width = Math.floor(width * scale);
-                    height = Math.floor(height * scale);
+            reader.onload = async (e) => {
+                const img = new Image();
+                img.onload = async () => {
+                    try {
+                        // Create canvas for image processing
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const MAX_WIDTH = 1920;
+                        const MAX_HEIGHT = 1080;
 
-                    canvas.width = width;
-                    canvas.height = height;
-                    ctx.drawImage(img, 0, 0, width, height);
+                        // Calculate dimensions
+                        let { width, height } = img;
+                        const scaleWidth = MAX_WIDTH / width;
+                        const scaleHeight = MAX_HEIGHT / height;
+                        const scale = Math.min(1, scaleWidth, scaleHeight);
 
-                    const imageData = canvas.toDataURL('image/png');
-                    const newFloor = {
-                        id: Date.now().toString(),
-                        name: nameInput.value.trim(),
-                        image: imageData,
-                        devices: []
-                    };
+                        width = Math.floor(width * scale);
+                        height = Math.floor(height * scale);
 
-                    this.floors.push(newFloor);
-                    await this.saveFloors();
-                    this.renderFloorsList();
-                    document.getElementById('floorDialog').style.display = 'none';
-                    this.resetFloorDialog();
-                    
-                    this.Homey.alert('Floor plan created successfully!', 'success');
-                } catch (err) {
-                    console.error('Failed to save floor:', err);
-                    this.Homey.alert('Failed to save: ' + err.message);
-                } finally {
-                    saveButton.disabled = false;
-                    cancelButton.disabled = false;
-                    saveButton.innerHTML = 'Create Floor';
-                }
+                        // Set canvas size
+                        canvas.width = width;
+                        canvas.height = height;
+
+                        // Draw image with smoothing
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+                        ctx.clearRect(0, 0, width, height);
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        // Get processed image data
+                        const imageData = canvas.toDataURL('image/png');
+
+                        // Create new floor object
+                        const newFloor = {
+                            id: Date.now().toString(),
+                            name: nameInput.value.trim(),
+                            imageData: imageData,
+                            devices: []
+                        };
+
+                        // Add to floors array and save
+                        this.floors.push(newFloor);
+                        await this.saveFloors();
+                        
+                        // Update UI
+                        this.renderFloorsList();
+                        
+                        // Close and reset dialog
+                        dialog.style.display = 'none';
+                        this.resetFloorDialog();
+                        
+
+                    } catch (err) {
+                        console.error('Failed to process and save floor:', err);
+                        this.Homey.alert('Failed to save floor: ' + err.message);
+                    } finally {
+                        // Reset button states
+                        saveButton.disabled = false;
+                        cancelButton.disabled = false;
+                        saveButton.innerHTML = 'Create Floor';
+                    }
+                };
+                img.src = e.target.result;
             };
-            img.src = e.target.result;
-        };
-        reader.readAsDataURL(imageInput.files[0]);
+
+            reader.readAsDataURL(file);
+
+        } catch (err) {
+            console.error('Failed to save floor:', err);
+            this.Homey.alert('Failed to save floor: ' + err.message);
+            saveButton.disabled = false;
+            cancelButton.disabled = false;
+            saveButton.innerHTML = 'Create Floor';
+        }
     },
 
     // Delete Floor
@@ -910,7 +967,7 @@ const floorManager = {
                     const rulesContent = rulesSection.querySelector('.floor-rules-content');
                     if (rulesContent) {
                         rulesContent.innerHTML = this.renderDeviceRules(device);
-                        this.attachRuleEventListeners(rulesContent);
+                        this.attachRuleEventListeners(rulesSection);
                     }
                 }
                 dialog.style.display = 'none';

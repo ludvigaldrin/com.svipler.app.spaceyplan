@@ -83,7 +83,7 @@ const ruleManager = {
             return `
                 <div class="rule-config-group">
                     <div class="icon-search-container">
-                        <h3>Search Icons</h3>
+                        <h3>Search Icons (${this.iconData?.length || 0} icons)</h3>
                         <div class="search-input-group">
                             <input type="text" 
                                    id="iconSearch" 
@@ -707,8 +707,6 @@ const ruleManager = {
     },
 
     attachRuleEventListeners() {
-
-        
         const ruleDialog = document.getElementById('ruleDialog');
         if (!ruleDialog) {
             console.error('Rule dialog not found');
@@ -739,7 +737,6 @@ const ruleManager = {
                     const icons = await this.searchMaterialIcons(searchTerm);
                     
                     if (icons.length === 0) {
-
                         resultsDiv.innerHTML = '<div class="no-results">No matching icons found</div>';
                         return;
                     }
@@ -794,39 +791,72 @@ const ruleManager = {
     },
 
     async searchMaterialIcons(searchTerm) {
-        
-        if (!this.iconData) {
-            console.warn('⚠️ Icon data not loaded');
+       
+        if (!Array.isArray(this.iconData)) {
+            console.warn('⚠️ Icon data not properly loaded');
             return [];
         }
 
-        const results = this.iconData
-            .filter(icon => 
-                icon.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (icon.tags && icon.tags.some(tag => 
-                    tag.toLowerCase().includes(searchTerm.toLowerCase())
-                ))
-            )
-            .map(icon => icon.name)
-            .slice(0, 3);
-        return results;
+        try {
+            searchTerm = searchTerm.toLowerCase();
+            
+            // First try exact matches in name
+            let results = this.iconData
+                .filter(icon => {
+                    const name = (icon.name || '').toLowerCase();
+                    return name.includes(searchTerm);
+                })
+                .map(icon => icon.name);
+
+            // If no direct matches, try searching in tags
+            if (results.length === 0) {
+                results = this.iconData
+                    .filter(icon => {
+                        const tags = (icon.tags || []).map(tag => tag.toLowerCase());
+                        return tags.some(tag => tag.includes(searchTerm));
+                    })
+                    .map(icon => icon.name);
+            }
+
+            // Remove duplicates and limit results
+            results = [...new Set(results)].slice(0, 5);
+
+            // Sort results to prioritize matches at start of word
+            results.sort((a, b) => {
+                const aLower = a.toLowerCase();
+                const bLower = b.toLowerCase();
+                const aStartsWith = aLower.startsWith(searchTerm);
+                const bStartsWith = bLower.startsWith(searchTerm);
+                
+                if (aStartsWith && !bStartsWith) return -1;
+                if (!aStartsWith && bStartsWith) return 1;
+                return aLower.localeCompare(bLower);
+            });
+
+
+            return results;
+        } catch (error) {
+            console.error('Search failed:', error);
+            return [];
+        }
     },
 
     async initialize() {
-        // Fetch icons data on initialization
+        // Load icons from local file
         try {
-            const response = await fetch(`https://fonts.google.com/metadata/icons?key=material_symbols&incomplete=1`);
+
+            const response = await fetch('./assets/google-icons.json');
             if (!response.ok) {
-                throw new Error('Failed to fetch icons');
+                throw new Error('Failed to load icons');
             }
 
-            const text = await response.text();
-            const cleanJson = text.replace(/^\)\]\}'\n/, '');
-            const data = JSON.parse(cleanJson);
-            this.iconData = data.icons;
+            const data = await response.json();
+            // Extract icons array from the data structure
+            this.iconData = data.icons || [];
 
         } catch (error) {
             console.error('Error loading Material Icons:', error);
+            this.Homey.alert('Failed to load icons');
             this.iconData = [];
         }
     },

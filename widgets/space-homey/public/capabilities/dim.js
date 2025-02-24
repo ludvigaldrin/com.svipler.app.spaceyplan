@@ -732,10 +732,6 @@ const dimRenderer = {
                         value: value
                     });
 
-                    // Debug log
-                    Homey.api('POST', '/log', {
-                        message: `Dim slider value set to: ${value} for device: ${homeyId}`
-                    });
                 } catch (error) {
                     Homey.api('POST', '/log', { message: `Error setting dim value: ${error.message}` });
                 }
@@ -795,7 +791,7 @@ const dimRenderer = {
         window.Homey.removeAllListeners('realtime/device');
 
         window.Homey.on('realtime/device', (data) => {
-            
+
             if (data && (data.capability === 'onoff' || data.capability === 'dim')) {
                 const deviceElements = document.querySelectorAll(`[data-device-id="${data.id}-dim"]`);
                 deviceElements.forEach(deviceEl => {

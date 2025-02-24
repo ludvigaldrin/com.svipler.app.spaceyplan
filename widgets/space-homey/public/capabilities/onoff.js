@@ -342,6 +342,25 @@ const onOffRenderer = {
                 iconWrapper.style.boxShadow = 'none';
             }
 
+            // Check for allIcon rule first
+            const allIconRule = device.rules?.find(r => r.type === 'allIcon');
+            if (allIconRule?.config?.selectedIcon) {
+                // Clear existing icon wrapper content
+                if (iconWrapper) {
+                    iconWrapper.innerHTML = '';
+                    
+                    // Add material icon
+                    const iconSpan = document.createElement('span');
+                    iconSpan.className = 'material-symbols-outlined';
+                    iconSpan.textContent = allIconRule.config.selectedIcon;
+                    iconWrapper.appendChild(iconSpan);
+                    
+                    // Make sure icon wrapper is visible
+                    iconWrapper.style.display = 'flex';
+                    
+                }
+            }
+
             // Check for onOffImageRule rule first
             const onOffImageRule = device.rules?.find(r => r.type === 'onOffImage');
             if (onOffImageRule?.config) {

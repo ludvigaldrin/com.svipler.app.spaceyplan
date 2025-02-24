@@ -4,6 +4,14 @@ const ruleManager = {
     currentDeviceId: null,
     currentRuleId: null,
     iconData: null, // Store icon data
+    isEditing: false,
+    
+    RULE_TYPES: {
+        allIcon: { name: 'All - Icon Select', allowMultiple: false },
+        allColor: { name: 'All - Color Select', allowMultiple: false },
+        onOffColor: { name: 'On/Off - Color Switcher', allowMultiple: false },
+        imageView: { name: 'On/Off - Image Switcher', allowMultiple: true }
+    },
 
     init(floorManager, Homey) {
         this.floorManager = floorManager;
@@ -66,14 +74,8 @@ const ruleManager = {
         reader.readAsDataURL(file);
     },
 
-    getRuleName(ruleType) {
-        const types = {
-            'onOffColor': 'On/Off - Color Switcher',
-            'allColor': 'All - Static Color',
-            'imageView': 'On/Off - Image Switcher',
-            'allIcon': 'All - Icon Select'
-        };
-        return types[ruleType] || 'Unknown Rule Type';
+    getRuleName(type) {
+        return this.RULE_TYPES[type]?.name || 'New Rule';
     },
 
     renderRuleConfig(ruleType, existingRule = null) {
@@ -329,16 +331,41 @@ const ruleManager = {
             return;
         }
 
+        // Reset edit state
+        this.isEditing = false;
+        this.currentRuleId = null;
+        this.currentDeviceId = deviceId;
+
         // Reset and prepare dialog for new rule
         const titleElement = dialog.querySelector('#ruleDialogTitle');
         const saveButton = dialog.querySelector('#saveRule');
         const typeSelect = dialog.querySelector('#ruleType');
         const configSection = dialog.querySelector('#ruleConfig');
+        const closeButton = dialog.querySelector('.modal-close-button');
+        const cancelButton = dialog.querySelector('#cancelRule');
+
+        // Clear previous content
+        configSection.innerHTML = '';
+        typeSelect.value = '';
+        typeSelect.disabled = false;
 
         if (titleElement) titleElement.textContent = 'Add New Rule';
         if (saveButton) {
             saveButton.textContent = 'Add Rule';
             saveButton.disabled = true;
+            saveButton.onclick = () => this.saveRule(typeSelect.value);
+        }
+
+        // Setup close handlers
+        if (closeButton) {
+            closeButton.onclick = () => {
+                dialog.style.display = 'none';
+            };
+        }
+        if (cancelButton) {
+            cancelButton.onclick = () => {
+                dialog.style.display = 'none';
+            };
         }
 
         // Get existing rule types for this device
@@ -348,15 +375,19 @@ const ruleManager = {
         const device = floor.devices.find(d => d.id === deviceId);
         if (!device) return;
 
-        const hasAllIconRule = device.rules.some(r => r.type === 'allIcon');
+        // Filter available rule types based on existing rules
+        const existingRuleTypes = device.rules.map(r => r.type);
+        const availableTypes = Object.entries(this.RULE_TYPES)
+            .filter(([type, config]) => 
+                config.allowMultiple || !existingRuleTypes.includes(type)
+            );
 
         // Populate rule type dropdown
         typeSelect.innerHTML = `
             <option value="">Choose a rule type...</option>
-            ${!hasAllIconRule ? '<option value="allIcon">All - Icon Select</option>' : ''}
-            <option value="allColor">All - Static Color</option>
-            <option value="onOffColor">On/Off - Color Switcher</option>
-            <option value="imageView">On/Off - Image Switcher</option>
+            ${availableTypes.map(([type, config]) => 
+                `<option value="${type}">${config.name}</option>`
+            ).join('')}
         `;
 
         // Add change listener for rule type
@@ -370,102 +401,78 @@ const ruleManager = {
 
             configSection.innerHTML = this.renderRuleConfig(ruleType);
             
-            // Attach event listeners after rendering the config
             if (ruleType === 'allIcon') {
                 this.attachRuleEventListeners();
             }
             
-            saveButton.disabled = ruleType === 'allIcon'; // Disabled until icon is selected
+            saveButton.disabled = ruleType === 'allIcon';
         };
 
         dialog.style.display = 'flex';
     },
 
     editRule(deviceId, ruleId) {
-        const floor = this.floorManager.floors.find(f => f.id === this.floorManager.currentFloorId);
-        if (!floor) {
-            console.error('Current floor not found');
-            return;
-        }
-
-        const device = floor.devices.find(d => d.id === deviceId);
-        if (!device) {
-            console.error('Device not found');
-            return;
-        }
-
-        const rule = device.rules.find(r => r.id === ruleId);
-        if (!rule) {
-            console.error('Rule not found');
-            return;
-        }
-
         const dialog = document.getElementById('ruleDialog');
         if (!dialog) {
             console.error('Rule dialog not found');
             return;
         }
 
-        // Store current device and rule IDs
+        const floor = this.floorManager.floors.find(f => f.id === this.floorManager.currentFloorId);
+        if (!floor) return;
+
+        const device = floor.devices.find(d => d.id === deviceId);
+        if (!device) return;
+
+        const rule = device.rules.find(r => r.id === ruleId);
+        if (!rule) return;
+
+        // Store IDs and set edit mode
         this.currentDeviceId = deviceId;
         this.currentRuleId = ruleId;
+        this.isEditing = true;
 
-        // Update dialog title and button text
+        // Update dialog elements
         const titleElement = dialog.querySelector('#ruleDialogTitle');
         const saveButton = dialog.querySelector('#saveRule');
         const typeSelect = dialog.querySelector('#ruleType');
         const configSection = dialog.querySelector('#ruleConfig');
+        const closeButton = dialog.querySelector('.modal-close-button');
+        const cancelButton = dialog.querySelector('#cancelRule');
+
+        // Setup close handlers
+        if (closeButton) {
+            closeButton.onclick = () => {
+                dialog.style.display = 'none';
+            };
+        }
+        if (cancelButton) {
+            cancelButton.onclick = () => {
+                dialog.style.display = 'none';
+            };
+        }
 
         if (titleElement) titleElement.textContent = 'Edit Rule';
         if (saveButton) {
             saveButton.textContent = 'Save Changes';
             saveButton.disabled = false;
+            saveButton.onclick = () => this.saveRule(rule.type);
         }
 
-        // Show all rule types in edit mode
+        // Set rule type
         if (typeSelect) {
-            typeSelect.innerHTML = `
-                <option value="">Choose a rule type...</option>
-                <option value="allColor" ${rule.type === 'allColor' ? 'selected' : ''}>All - Static Color</option>
-                <option value="onOffColor" ${rule.type === 'onOffColor' ? 'selected' : ''}>On/Off - Color Switcher</option>
-                <option value="imageView" ${rule.type === 'imageView' ? 'selected' : ''}>On/Off - Image Switcher</option>
-            `;
+            typeSelect.innerHTML = `<option value="${rule.type}">${this.getRuleName(rule.type)}</option>`;
+            typeSelect.value = rule.type;
             typeSelect.disabled = true;
         }
 
         configSection.innerHTML = this.renderRuleConfig(rule.type, rule);
+        
+        if (rule.type === 'allIcon') {
+            this.attachRuleEventListeners();
+        }
 
         dialog.style.display = 'flex';
-
-        // Add save handler
-        const handleSave = async () => {
-            try {
-                const config = await this.getRuleConfig(rule.type);
-                rule.config = config;
-                await this.floorManager.saveFloors();
-                
-                const rulesSection = document.getElementById(`rules-${deviceId}`);
-                if (rulesSection) {
-                    const rulesContent = rulesSection.querySelector('.floor-rules-content');
-                    if (rulesContent) {
-                        rulesContent.innerHTML = this.renderRules(device);
-                        this.floorManager.attachRuleEventListeners(rulesContent);
-                    }
-                }
-                dialog.style.display = 'none';
-            } catch (err) {
-                console.error('Failed to save rule:', err);
-                this.Homey.alert('Failed to save rule');
-            }
-        };
-
-        const saveBtn = dialog.querySelector('#saveRule');
-        const cancelBtn = dialog.querySelector('#cancelRule');
-        const closeBtn = dialog.querySelector('.modal-close-button');
-        
-        if (saveBtn) saveBtn.onclick = handleSave;
-        if (cancelBtn) cancelBtn.onclick = () => dialog.style.display = 'none';
-        if (closeBtn) closeBtn.onclick = () => dialog.style.display = 'none';
     },
 
     onRuleTypeChange(type, existingRule = null) {
@@ -530,22 +537,42 @@ const ruleManager = {
     async saveRule(type) {
         try {
             const config = await this.getRuleConfig(type);
+
+            if (!config) {
+                console.error('Invalid rule configuration');
+                return;
+            }
+
             const floor = this.floorManager.floors.find(f => f.id === this.floorManager.currentFloorId);
             if (!floor) throw new Error('Floor not found');
 
             const device = floor.devices.find(d => d.id === this.currentDeviceId);
             if (!device) throw new Error('Device not found');
 
-            if (this.currentRuleId) {
+            if (this.isEditing) {
                 // Update existing rule
-                const rule = device.rules.find(r => r.id === this.currentRuleId);
-                if (!rule) throw new Error('Rule not found');
-                rule.config = config;
-            }
+                const ruleIndex = device.rules.findIndex(r => r.id === this.currentRuleId);
+                if (ruleIndex !== -1) {
+                    device.rules[ruleIndex] = {
+                        ...device.rules[ruleIndex],
+                        config: config
+                    };
+                }
+            } else {
+                // Create new rule
+                const newRule = {
+                    id: Date.now().toString(),
+                    type: type,
+                    name: this.getRuleName(type),
+                    config: config
+                };
 
+                device.rules.push(newRule);
+            }
+            
+            // Save and update UI
             await this.floorManager.saveFloors();
             
-            // Update UI
             const rulesSection = document.getElementById(`rules-${this.currentDeviceId}`);
             if (rulesSection) {
                 const rulesContent = rulesSection.querySelector('.floor-rules-content');
@@ -555,7 +582,20 @@ const ruleManager = {
                 }
             }
 
-            document.getElementById('ruleDialog').style.display = 'none';
+            // Reset and close dialog
+            this.isEditing = false;
+            this.currentRuleId = null;
+            const dialog = document.getElementById('ruleDialog');
+            if (dialog) {
+                const configSection = dialog.querySelector('#ruleConfig');
+                const typeSelect = dialog.querySelector('#ruleType');
+                if (configSection) configSection.innerHTML = '';
+                if (typeSelect) {
+                    typeSelect.value = '';
+                    typeSelect.disabled = false;
+                }
+                dialog.style.display = 'none';
+            }
         } catch (err) {
             console.error('Failed to save rule:', err);
             this.Homey.alert('Failed to save rule');
@@ -571,8 +611,6 @@ const ruleManager = {
             }
 
             const selectedIcon = selectedIconElement.textContent;
-            console.log('Saving icon configuration:', selectedIcon);
-
             return {
                 selectedIcon
             };
@@ -669,11 +707,11 @@ const ruleManager = {
     },
 
     attachRuleEventListeners() {
-        console.log('🔍 Initializing rule event listeners');
+
         
         const ruleDialog = document.getElementById('ruleDialog');
         if (!ruleDialog) {
-            console.error('❌ Rule dialog not found');
+            console.error('Rule dialog not found');
             return;
         }
 
@@ -683,36 +721,29 @@ const ruleManager = {
         const saveButton = ruleDialog.querySelector('#saveRule');
 
         if (searchInput && resultsDiv) {
-            console.log('✅ Found all required elements for icon search');
             let debounceTimeout;
             
             const handleSearch = async () => {
                 const searchTerm = searchInput.value.trim();
-                console.log('🔍 Search triggered with term:', searchTerm);
                 
                 // Clear results if search is empty
                 if (!searchTerm) {
-                    console.log('ℹ️ Empty search term, showing initial state');
                     resultsDiv.innerHTML = '<div class="no-results">Type to search icons...</div>';
                     return;
                 }
 
                 // Show loading state
-                console.log('⏳ Showing loading state');
                 resultsDiv.innerHTML = '<div class="loading-state">Searching icons...</div>';
 
                 try {
-                    console.log('🔍 Calling searchMaterialIcons with term:', searchTerm);
                     const icons = await this.searchMaterialIcons(searchTerm);
-                    console.log('✅ Search completed, found icons:', icons);
                     
                     if (icons.length === 0) {
-                        console.log('ℹ️ No icons found');
+
                         resultsDiv.innerHTML = '<div class="no-results">No matching icons found</div>';
                         return;
                     }
 
-                    console.log('🎨 Rendering icon results');
                     resultsDiv.innerHTML = icons.map(icon => `
                         <div class="icon-result" data-icon="${icon}">
                             <span class="material-symbols-outlined">${icon}</span>
@@ -724,7 +755,7 @@ const ruleManager = {
                     resultsDiv.querySelectorAll('.icon-result').forEach(el => {
                         el.addEventListener('click', () => {
                             const selectedIcon = el.dataset.icon;
-                            console.log('👆 Icon selected:', selectedIcon);
+      
                             selectedIconDisplay.innerHTML = `
                                 <div class="selected-icon">
                                     <span class="material-symbols-outlined">${selectedIcon}</span>
@@ -733,33 +764,29 @@ const ruleManager = {
                             
                             if (saveButton) {
                                 saveButton.disabled = false;
-                                console.log('✅ Save button enabled');
                             }
                             resultsDiv.innerHTML = '';
                             searchInput.value = '';
                         });
                     });
                 } catch (error) {
-                    console.error('❌ Search failed:', error);
+                    console.error('Search failed:', error);
                     resultsDiv.innerHTML = '<div class="error-state">Failed to search icons</div>';
                 }
             };
 
             // Trigger search on input with 250ms debounce
             searchInput.addEventListener('input', () => {
-                console.log('⌨️ Input detected, debouncing search');
                 clearTimeout(debounceTimeout);
                 debounceTimeout = setTimeout(() => {
-                    console.log('⏱️ Debounce timeout reached, executing search');
                     handleSearch();
                 }, 250);
             });
 
             // Initial state
-            console.log('🎨 Setting initial state');
             resultsDiv.innerHTML = '<div class="no-results">Type to search icons...</div>';
         } else {
-            console.error('❌ Required elements not found:', {
+            console.error('Required elements not found:', {
                 searchInput: !!searchInput,
                 resultsDiv: !!resultsDiv
             });
@@ -767,14 +794,12 @@ const ruleManager = {
     },
 
     async searchMaterialIcons(searchTerm) {
-        console.log('🔍 searchMaterialIcons called with term:', searchTerm);
         
         if (!this.iconData) {
             console.warn('⚠️ Icon data not loaded');
             return [];
         }
 
-        console.log('📚 Searching through cached icon data');
         const results = this.iconData
             .filter(icon => 
                 icon.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -784,8 +809,6 @@ const ruleManager = {
             )
             .map(icon => icon.name)
             .slice(0, 3);
-
-        console.log('✅ Search complete, found results:', results);
         return results;
     },
 
@@ -806,9 +829,6 @@ const ruleManager = {
             console.error('Error loading Material Icons:', error);
             this.iconData = [];
         }
-
-        // Attach event listeners
-        this.attachRuleEventListeners();
     },
 
     // Update the default rule configuration for new devices

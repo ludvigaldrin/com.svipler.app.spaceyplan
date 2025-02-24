@@ -151,6 +151,10 @@
     cursor: move;
     transition: all 0.2s ease;
     z-index: 100;
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .floor-plan-device img {
@@ -208,4 +212,11 @@
 .floor-device-rules {
     border-top: 1px solid #eee;
     background: #f9f9f9;
+}
+
+.floor-plan-device.highlight-device {
+    transform: translate(-50%, -50%) scale(1.2);
+    box-shadow: 0 0 0 4px rgba(0, 160, 220, 0.5);
+    z-index: 1000;
+    transition: all 0.2s ease;
 }

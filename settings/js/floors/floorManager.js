@@ -5,7 +5,6 @@ const floorManager = {
     ruleManager: null,
 
     async initialize(Homey) {
-        console.log('Initializing FloorManager with Homey:', Homey);
         if (!Homey) {
             throw new Error('Homey instance is required');
         }
@@ -89,14 +88,12 @@ const floorManager = {
     },
 
     async loadFloors() {
-        console.log('Loading floors with Homey:', this.Homey);
         try {
             if (!this.Homey) {
                 throw new Error('Homey not initialized');
             }
             const storedFloors = await this.Homey.get('floors');
             this.floors = storedFloors || [];
-            console.log('Loaded floors:', this.floors);
             this.renderFloorsList();
         } catch (err) {
             console.error('Failed to load floors:', err);
@@ -106,12 +103,10 @@ const floorManager = {
     },
 
     renderFloorsList() {
-        console.log('Rendering floors list:', this.floors);
         const floorsList = document.getElementById('floorsList');
         const emptyState = document.getElementById('emptyState');
 
         if (!this.floors || this.floors.length === 0) {
-            console.log('No floors to display');
             if (emptyState) emptyState.style.display = 'block';
             if (floorsList) floorsList.innerHTML = '';
             return;
@@ -161,7 +156,6 @@ const floorManager = {
     },
 
     attachFloorEventListeners() {
-        console.log('Attaching floor event listeners');
         const floorsList = document.getElementById('floorsList');
         if (!floorsList) return;
 
@@ -183,7 +177,6 @@ const floorManager = {
     },
 
     editFloor(floorId) {
-        console.log('Editing floor:', floorId);
         this.currentFloorId = floorId;
         const floor = this.floors.find(f => f.id === floorId);
         if (!floor) return;
@@ -214,7 +207,6 @@ const floorManager = {
     },
 
     backToFloorsList() {
-        console.log('Returning to floors list');
         // Hide edit view and show list view
         document.getElementById('floorEditView').style.display = 'none';
         document.getElementById('floorsListView').style.display = 'block';
@@ -227,13 +219,11 @@ const floorManager = {
     },
 
     async saveFloors() {
-        console.log('Saving floors with Homey:', this.Homey);
         try {
             if (!this.Homey) {
                 throw new Error('Homey not initialized');
             }
             await this.Homey.set('floors', this.floors);
-            console.log('Floors saved successfully');
         } catch (err) {
             console.error('Error saving floors:', err);
             throw err;
@@ -242,7 +232,6 @@ const floorManager = {
 
     // Add Floor Dialog
     showAddFloorDialog() {
-        console.log('Showing add floor dialog');
         const dialog = document.getElementById('floorDialog');
         const titleElement = dialog.querySelector('#floorDialogTitle');
         const saveButton = dialog.querySelector('#saveFloor');
@@ -359,7 +348,6 @@ const floorManager = {
 
     // Delete Floor
     showDeleteFloorDialog(floorId) {
-        console.log('Showing delete floor dialog for floor:', floorId);
         const dialog = document.getElementById('deleteConfirmDialog');
         if (!dialog) {
             console.error('Delete confirmation dialog not found');
@@ -400,7 +388,6 @@ const floorManager = {
     },
 
     renderDevicesList(devices) {
-        console.log('Rendering devices list:', devices);
         const list = document.getElementById('devicesList');
         if (!list) return;
 
@@ -465,7 +452,6 @@ const floorManager = {
     },
 
     renderDeviceRules(device) {
-        console.log('Delegating rule rendering to RuleManager');
         const rulesContent = this.ruleManager.renderRules(device);
         return `
             <div class="floor-device-rules">
@@ -476,12 +462,10 @@ const floorManager = {
     },
 
     attachRuleEventListeners(element) {
-        console.log('Attaching rule event listeners');
         element.querySelectorAll('.edit-rule').forEach(button => {
             button.addEventListener('click', () => {
                 const deviceId = button.dataset.deviceId;
                 const ruleId = button.dataset.ruleId;
-                console.log('Edit rule clicked, delegating to RuleManager');
                 this.ruleManager.editRule(deviceId, ruleId);
             });
         });
@@ -490,7 +474,6 @@ const floorManager = {
             button.addEventListener('click', () => {
                 const deviceId = button.dataset.deviceId;
                 const ruleId = button.dataset.ruleId;
-                console.log('Delete rule clicked, delegating to RuleManager');
                 this.ruleManager.deleteRule(deviceId, ruleId);
             });
         });
@@ -535,7 +518,16 @@ const floorManager = {
             let currentY;
 
             const dragStart = (e) => {
-                e.preventDefault();
+                if (e.type === 'touchstart') {
+                    e.preventDefault();  // Prevent default touch behavior
+                    e.stopPropagation(); // Stop event from bubbling up
+                    
+                    // Use first touch point
+                    const touch = e.touches[0];
+                    e.clientX = touch.clientX;
+                    e.clientY = touch.clientY;
+                }
+
                 isDragging = true;
                 deviceElement.classList.add('dragging');
 
@@ -543,8 +535,8 @@ const floorManager = {
                 const wrapperRect = wrapper.getBoundingClientRect();
                 
                 // Calculate offset relative to wrapper
-                const offsetX = e.clientX - rect.left;
-                const offsetY = e.clientY - rect.top;
+                const offsetX = (e.type === 'touchstart' ? e.touches[0].clientX : e.clientX) - rect.left;
+                const offsetY = (e.type === 'touchstart' ? e.touches[0].clientY : e.clientY) - rect.top;
                 
                 deviceElement.dataset.offsetX = offsetX;
                 deviceElement.dataset.offsetY = offsetY;
@@ -552,7 +544,16 @@ const floorManager = {
 
             const drag = (e) => {
                 if (!isDragging) return;
-                e.preventDefault();
+                
+                if (e.type === 'touchmove') {
+                    e.preventDefault();  // Prevent scrolling
+                    e.stopPropagation();
+                    
+                    // Use first touch point
+                    const touch = e.touches[0];
+                    e.clientX = touch.clientX;
+                    e.clientY = touch.clientY;
+                }
 
                 const wrapperRect = wrapper.getBoundingClientRect();
                 const offsetX = parseFloat(deviceElement.dataset.offsetX);
@@ -822,7 +823,6 @@ const floorManager = {
     },
 
     addRule(deviceId) {
-        console.log('Delegating add rule to RuleManager');
         this.ruleManager.addRule(deviceId);
     },
 

@@ -1,9 +1,7 @@
 let floors = [];
 
 // Initialize when Homey is ready
-function onHomeyReady(Homey) {
-    console.log('onHomeyReady called with Homey:', Homey);
-    
+function onHomeyReady(Homey) {    
     // First set Homey instance
     floorManager.Homey = Homey;
     deviceManager.Homey = Homey;
@@ -18,9 +16,7 @@ function onHomeyReady(Homey) {
     // Initialize
     async function init() {
         try {
-            console.log('Starting initialization with Homey:', Homey);
             await floorManager.initialize(Homey);  // Pass Homey here
-            console.log('Initialization complete');
             Homey.ready();
         } catch (err) {
             console.error('Initialization error:', err);

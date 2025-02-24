@@ -420,19 +420,45 @@ const floorManager = {
             return `
                 <div class="floor-device-wrapper">
                     <div class="floor-device-item">
+                        <button class="expand-button" data-device-id="${device.id}">
+                            <svg width="20" height="20" viewBox="0 0 24 24">
+                                <path fill="#666" d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/>
+                            </svg>
+                        </button>
                         <div class="floor-device-info" data-device-id="${device.id}">
                             <span style="cursor: pointer;">${device.name} (${capabilityText})</span>
                         </div>
-                        <button class="icon-button delete-button" data-device-id="${device.id}">
+                        <button class="delete-button" data-device-id="${device.id}">
                             <svg width="20" height="20" viewBox="0 0 24 24">
                                 <path fill="#ff4444" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                             </svg>
                         </button>
                     </div>
+                    <div class="device-rules" id="rules-${device.id}" style="display: none;">
+                        <div class="rules-content">
+                            ${this.renderDeviceRules(device)}
+                        </div>
+                    </div>
                 </div>`;
         }).join('');
 
-        // Add event listeners for delete buttons
+        // Add event listeners
+        list.querySelectorAll('.expand-button').forEach(button => {
+            button.addEventListener('click', () => {
+                const deviceId = button.dataset.deviceId;
+                const rulesSection = document.getElementById(`rules-${deviceId}`);
+                const isExpanded = rulesSection.style.display !== 'none';
+                
+                // Toggle arrow direction
+                const arrow = button.querySelector('svg');
+                arrow.style.transform = isExpanded ? '' : 'rotate(180deg)';
+                
+                // Toggle rules section
+                rulesSection.style.display = isExpanded ? 'none' : 'block';
+            });
+        });
+
+        // Existing event listeners for delete and highlight
         list.querySelectorAll('.delete-button').forEach(button => {
             button.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -442,11 +468,18 @@ const floorManager = {
             });
         });
 
-        // Add event listeners for device highlighting
         list.querySelectorAll('.floor-device-info').forEach(info => {
             info.addEventListener('click', () => {
                 const deviceId = info.dataset.deviceId;
                 this.highlightDevice(deviceId);
+            });
+        });
+
+        // Add rule button listeners
+        list.querySelectorAll('.add-rule-button').forEach(button => {
+            button.addEventListener('click', () => {
+                const deviceId = button.dataset.deviceId;
+                this.addRule(deviceId);
             });
         });
     },
@@ -475,6 +508,13 @@ const floorManager = {
                 const deviceId = button.dataset.deviceId;
                 const ruleId = button.dataset.ruleId;
                 this.ruleManager.deleteRule(deviceId, ruleId);
+            });
+        });
+
+        element.querySelectorAll('.add-rule-row').forEach(row => {
+            row.addEventListener('click', () => {
+                const deviceId = row.dataset.deviceId;
+                this.ruleManager.addRule(deviceId);
             });
         });
     },

@@ -94,33 +94,41 @@ const ruleManager = {
     },
 
     renderRules(device) {
-        console.log('Rendering rules for device:', device.id);
         if (!device.rules || device.rules.length === 0) {
             return `
-                <div class="empty-rules-state">
-                    <p>No rules configured</p>
+                <div class="add-rule-row" data-device-id="${device.id}">
+                    <span>Add new rule</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24">
+                        <path fill="#666" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                    </svg>
                 </div>`;
         }
 
-        return device.rules.map(rule => this.renderRuleItem(device.id, rule)).join('');
+        return `
+            ${device.rules.map(rule => this.renderRuleItem(device.id, rule)).join('')}
+            <div class="add-rule-row" data-device-id="${device.id}">
+                <span>Add new rule</span>
+                <svg width="16" height="16" viewBox="0 0 24 24">
+                    <path fill="#666" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+            </div>`;
     },
 
     renderRuleItem(deviceId, rule) {
         return `
             <div class="rule-item">
                 <div class="rule-info">
-                    <span class="rule-type">${this.getRuleTypeName(rule.type)}</span>
-                    <span class="rule-action">${this.getRuleActionDescription(rule)}</span>
+                    <span class="rule-name">${rule.name}</span>
                 </div>
                 <div class="rule-actions">
-                    <button class="icon-button edit-rule" data-device-id="${deviceId}" data-rule-id="${rule.id}">
-                        <svg width="24" height="24" viewBox="0 0 24 24">
-                            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                    <button class="icon-button edit-rule" data-device-id="${deviceId}" data-rule-id="${rule.id}" title="Edit">
+                        <svg width="20" height="20" viewBox="0 0 24 24">
+                            <path fill="#666" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                         </svg>
                     </button>
-                    <button class="icon-button delete-rule" data-device-id="${deviceId}" data-rule-id="${rule.id}">
-                        <svg width="24" height="24" viewBox="0 0 24 24">
-                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                    <button class="icon-button delete-rule" data-device-id="${deviceId}" data-rule-id="${rule.id}" title="Delete">
+                        <svg width="20" height="20" viewBox="0 0 24 24">
+                            <path fill="#666" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                         </svg>
                     </button>
                 </div>

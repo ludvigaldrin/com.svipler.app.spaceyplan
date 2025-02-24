@@ -5,22 +5,17 @@ const floorManager = {
     ruleManager: null,
 
     async initialize(Homey) {
-        if (!Homey) {
-            throw new Error('Homey instance is required');
-        }
         this.Homey = Homey;
-        
-        // Initialize RuleManager
-        this.ruleManager = ruleManager;
-        this.ruleManager.initialize(Homey, this);
-        
-        // Load floors
         await this.loadFloors();
-        
-        // Attach add floor button listener
-        const addFloorBtn = document.getElementById('addFloor');
-        if (addFloorBtn) {
-            addFloorBtn.addEventListener('click', () => this.showAddFloorDialog());
+        this.ruleManager = ruleManager;
+        this.ruleManager.init(this, Homey);
+    },
+
+    async loadFloors() {
+        const savedFloors = await this.Homey.get('floors');
+        if (savedFloors) {
+            this.floors = savedFloors;
+            this.renderFloorsList();
         }
     },
 
@@ -85,21 +80,6 @@ const floorManager = {
         if (nameInput) nameInput.value = '';
         if (imageInput) imageInput.value = '';
         if (imagePreview) imagePreview.innerHTML = '';
-    },
-
-    async loadFloors() {
-        try {
-            if (!this.Homey) {
-                throw new Error('Homey not initialized');
-            }
-            const storedFloors = await this.Homey.get('floors');
-            this.floors = storedFloors || [];
-            this.renderFloorsList();
-        } catch (err) {
-            console.error('Failed to load floors:', err);
-            this.floors = [];
-            throw err;
-        }
     },
 
     renderFloorsList() {

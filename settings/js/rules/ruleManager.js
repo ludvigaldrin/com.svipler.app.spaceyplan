@@ -4,83 +4,117 @@ const ruleManager = {
     currentDeviceId: null,
     currentRuleId: null,
 
-    initialize(Homey, floorManager) {
-        console.log('Initializing RuleManager');
-        this.Homey = Homey;
+    init(floorManager, Homey) {
         this.floorManager = floorManager;
+        this.Homey = Homey;
+        this.attachImageUploadHandlers();
+    },
+
+    attachImageUploadHandlers() {
+        document.addEventListener('change', (e) => {
+            if (e.target.id === 'ruleImage') {
+                this.handleRuleImageUpload(e);
+            }
+        });
+    },
+
+    handleRuleImageUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                // Use same max dimensions as floor images
+                const MAX_WIDTH = 1920;
+                const MAX_HEIGHT = 1080;
+
+                let width = img.width;
+                let height = img.height;
+
+                if (width > MAX_WIDTH) {
+                    height = Math.round((height * MAX_WIDTH) / width);
+                    width = MAX_WIDTH;
+                }
+                if (height > MAX_HEIGHT) {
+                    width = Math.round((width * MAX_HEIGHT) / height);
+                    height = MAX_HEIGHT;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                ctx.clearRect(0, 0, width, height);
+                ctx.drawImage(img, 0, 0, width, height);
+
+                const imageData = canvas.toDataURL('image/png');
+
+                // Update preview
+                const preview = document.getElementById('ruleImagePreview');
+                preview.innerHTML = `
+                    <div style="max-width: 300px; max-height: 200px; overflow: hidden;">
+                        <img src="${imageData}" style="width: 100%; height: auto; object-fit: contain;">
+                    </div>`;
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
     },
 
     getRuleName(ruleType) {
-        switch (ruleType) {
-            case 'iconColor':
-                return 'On/Off - Color Switcher';
-            case 'allColor':
-                return 'All - Static Color';
-            case 'imageView':
-                return 'On/Off - Image Switcher';
-            default:
-                return 'New Rule';
-        }
+        const types = {
+            'iconColor': 'On/Off - Color Switcher',
+            'allColor': 'All - Static Color',
+            'imageView': 'On/Off - Image Switcher'
+        };
+        return types[ruleType] || 'Unknown Rule Type';
     },
 
-    renderRuleConfig(ruleType, rule = null) {
-        switch (ruleType) {
-            case 'iconColor':
-                return `
-                    <div class="color-picker-group">
-                        <div class="color-input-group">
-                            <label>On Color</label>
-                            <input type="color" id="onColor" value="${rule ? rule.config.onColor : '#00ff00'}">
+    renderRuleConfig(ruleType, existingRule = null) {
+        if (ruleType === 'allColor') {
+            return `
+                <div class="color-picker-group">
+                    <div class="color-input-group">
+                        <label>Color</label>
+                        <input type="color" id="staticColor" value="${existingRule?.config?.color || '#00ff00'}">
+                    </div>
+                </div>
+            `;
+        } else if (ruleType === 'iconColor') {
+            return `
+                <div class="color-picker-group">
+                    <div class="color-input-group">
+                        <label>On Color</label>
+                        <input type="color" id="onColor" value="${existingRule?.config?.onColor || '#ffeb3b'}">
+                    </div>
+                    <div class="color-input-group">
+                        <label>Off Color</label>
+                        <input type="color" id="offColor" value="${existingRule?.config?.offColor || '#ffffff'}">
+                    </div>
+                </div>
+            `;
+        } else if (ruleType === 'imageView') {
+            return `
+                <div class="image-rule-config">
+                    <div class="image-upload-group">
+                        <label>Image</label>
+                        <input type="file" id="ruleImage" accept="image/*" class="homey-form-input">
+                        <div id="ruleImagePreview" class="image-preview">
+                            ${existingRule?.config?.imageData ? `<img src="${existingRule.config.imageData}">` : ''}
                         </div>
-                        <div class="color-input-group">
-                            <label>Off Color</label>
-                            <input type="color" id="offColor" value="${rule ? rule.config.offColor : '#ff0000'}">
-                        </div>
-                    </div>`;
-            case 'allColor':
-                return `
-                    <div class="color-picker-group">
-                        <div class="color-input-group">
-                            <label>Color</label>
-                            <input type="color" id="staticColor" value="${rule ? rule.config.color : '#00ff00'}">
-                        </div>
-                    </div>`;
-            case 'imageView':
-                return `
-                    <div class="image-rule-config">
-                        <div class="image-upload-group">
-                            <label>On Image</label>
-                            <input type="file" id="onImage" accept="image/*" class="homey-form-input">
-                            <div class="image-preview">
-                                ${rule && rule.config.onImage ? `<img src="${rule.config.onImage}">` : ''}
-                            </div>
-                        </div>
-                        <div class="image-upload-group">
-                            <label>Off Image</label>
-                            <input type="file" id="offImage" accept="image/*" class="homey-form-input">
-                            <div class="image-preview">
-                                ${rule && rule.config.offImage ? `<img src="${rule.config.offImage}">` : ''}
-                            </div>
-                        </div>
-                        <div class="visibility-options">
-                            <div class="visibility-group">
-                                <label>On State</label>
-                                <select id="onStateVisibility" class="homey-form-input">
-                                    <option value="show" ${rule?.config?.onStateVisibility === 'show' ? 'selected' : ''}>Show</option>
-                                    <option value="hide" ${rule?.config?.onStateVisibility === 'hide' ? 'selected' : ''}>Hide</option>
-                                </select>
-                            </div>
-                            <div class="visibility-group">
-                                <label>Off State</label>
-                                <select id="offStateVisibility" class="homey-form-input">
-                                    <option value="show" ${rule?.config?.offStateVisibility === 'show' ? 'selected' : ''}>Show</option>
-                                    <option value="hide" ${rule?.config?.offStateVisibility === 'hide' ? 'selected' : ''}>Hide</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>`;
-            default:
-                return '';
+                    </div>
+                    <div class="visibility-options">
+                        <label>Show image when device is:</label>
+                        <select id="imageVisibility" class="homey-form-input">
+                            <option value="on" ${existingRule?.config?.showOn ? 'selected' : ''}>On</option>
+                            <option value="off" ${!existingRule?.config?.showOn ? 'selected' : ''}>Off</option>
+                        </select>
+                    </div>
+                </div>
+            `;
         }
     },
 
@@ -178,8 +212,20 @@ const ruleManager = {
             saveButton.textContent = 'Add Rule';
             saveButton.disabled = true;
         }
+
+        // Get existing rule types for this device
+        const floor = this.floorManager.floors.find(f => f.id === this.floorManager.currentFloorId);
+        const device = floor?.devices.find(d => d.id === deviceId);
+        const existingRuleTypes = device?.rules?.map(r => r.type) || [];
+
+        // Update rule type options - only filter color rules
         if (typeSelect) {
-            typeSelect.value = '';
+            typeSelect.innerHTML = `
+                <option value="">Choose a rule type...</option>
+                ${!existingRuleTypes.includes('allColor') ? '<option value="allColor">All - Static Color</option>' : ''}
+                ${!existingRuleTypes.includes('iconColor') ? '<option value="iconColor">On/Off - Color Switcher</option>' : ''}
+                <option value="imageView">On/Off - Image Switcher</option>
+            `;
             typeSelect.disabled = false;
             
             // Add change listener for rule type
@@ -191,39 +237,7 @@ const ruleManager = {
                     return;
                 }
 
-                // Show configuration based on rule type
                 configSection.innerHTML = this.renderRuleConfig(ruleType);
-                
-                // Add image upload handler if needed
-                if (ruleType === 'imageView') {
-                    const onImageInput = document.getElementById('onImage');
-                    const offImageInput = document.getElementById('offImage');
-                    
-                    if (onImageInput) {
-                        onImageInput.onchange = async (e) => {
-                            const file = e.target.files[0];
-                            if (file) {
-                                const preview = onImageInput.parentElement.querySelector('.image-preview img');
-                                if (preview) {
-                                    preview.src = await this.handleImageUpload(file);
-                                }
-                            }
-                        };
-                    }
-                    
-                    if (offImageInput) {
-                        offImageInput.onchange = async (e) => {
-                            const file = e.target.files[0];
-                            if (file) {
-                                const preview = offImageInput.parentElement.querySelector('.image-preview img');
-                                if (preview) {
-                                    preview.src = await this.handleImageUpload(file);
-                                }
-                            }
-                        };
-                    }
-                }
-                
                 saveButton.disabled = false;
             };
         }
@@ -262,6 +276,7 @@ const ruleManager = {
                     const rulesContent = rulesSection.querySelector('.floor-rules-content');
                     if (rulesContent) {
                         rulesContent.innerHTML = this.renderRules(device);
+                        this.floorManager.attachRuleEventListeners(rulesContent);
                     }
                 }
                 dialog.style.display = 'none';
@@ -282,16 +297,9 @@ const ruleManager = {
     },
 
     editRule(deviceId, ruleId) {
-        console.log('Editing rule:', { deviceId, ruleId });
-        const dialog = document.getElementById('ruleDialog');
-        if (!dialog) {
-            console.error('Rule dialog not found');
-            return;
-        }
-
         const floor = this.floorManager.floors.find(f => f.id === this.floorManager.currentFloorId);
         if (!floor) {
-            console.error('Floor not found');
+            console.error('Current floor not found');
             return;
         }
 
@@ -307,7 +315,15 @@ const ruleManager = {
             return;
         }
 
-        console.log('Found rule to edit:', rule);
+        const dialog = document.getElementById('ruleDialog');
+        if (!dialog) {
+            console.error('Rule dialog not found');
+            return;
+        }
+
+        // Store current device and rule IDs
+        this.currentDeviceId = deviceId;
+        this.currentRuleId = ruleId;
 
         // Update dialog title and button text
         const titleElement = dialog.querySelector('#ruleDialogTitle');
@@ -316,31 +332,33 @@ const ruleManager = {
         const configSection = dialog.querySelector('#ruleConfig');
 
         if (titleElement) titleElement.textContent = 'Edit Rule';
-        if (saveButton) saveButton.textContent = 'Save Changes';
-        
-        // Set the rule type and show its configuration
-        if (typeSelect) {
-            typeSelect.value = rule.type;
-            console.log('Setting rule type:', rule.type);
-            this.onRuleTypeChange(rule.type, rule);
+        if (saveButton) {
+            saveButton.textContent = 'Save Changes';
+            saveButton.disabled = false;
         }
 
-        dialog.style.display = 'flex';
-        
-        // Store current editing state
-        this.currentDeviceId = deviceId;
-        this.currentRuleId = ruleId;
+        // Show all rule types in edit mode
+        if (typeSelect) {
+            typeSelect.innerHTML = `
+                <option value="">Choose a rule type...</option>
+                <option value="allColor" ${rule.type === 'allColor' ? 'selected' : ''}>All - Static Color</option>
+                <option value="iconColor" ${rule.type === 'iconColor' ? 'selected' : ''}>On/Off - Color Switcher</option>
+                <option value="imageView" ${rule.type === 'imageView' ? 'selected' : ''}>On/Off - Image Switcher</option>
+            `;
+            typeSelect.disabled = true;
+        }
 
-        // Handle save
+        configSection.innerHTML = this.renderRuleConfig(rule.type, rule);
+
+        dialog.style.display = 'flex';
+
+        // Add save handler
         const handleSave = async () => {
             try {
-                console.log('Saving edited rule');
                 const config = await this.getRuleConfig(rule.type);
                 rule.config = config;
-                
                 await this.floorManager.saveFloors();
                 
-                // Update UI
                 const rulesSection = document.getElementById(`rules-${deviceId}`);
                 if (rulesSection) {
                     const rulesContent = rulesSection.querySelector('.floor-rules-content');
@@ -356,11 +374,13 @@ const ruleManager = {
             }
         };
 
-        // Attach event listeners
-        if (saveButton) {
-            console.log('Attaching save button listener');
-            saveButton.onclick = handleSave;
-        }
+        const saveBtn = dialog.querySelector('#saveRule');
+        const cancelBtn = dialog.querySelector('#cancelRule');
+        const closeBtn = dialog.querySelector('.modal-close-button');
+        
+        if (saveBtn) saveBtn.onclick = handleSave;
+        if (cancelBtn) cancelBtn.onclick = () => dialog.style.display = 'none';
+        if (closeBtn) closeBtn.onclick = () => dialog.style.display = 'none';
     },
 
     onRuleTypeChange(type, existingRule = null) {
@@ -459,24 +479,23 @@ const ruleManager = {
         }
     },
 
-    async getRuleConfig(type) {
-        switch (type) {
-            case 'onEnter':
-                return {
-                    action: document.getElementById('enterAction').value
-                };
-            case 'onLeave':
-                return {
-                    action: document.getElementById('leaveAction').value,
-                    delay: parseInt(document.getElementById('leaveDelay').value, 10) || 0
-                };
-            case 'onStay':
-                return {
-                    action: document.getElementById('stayAction').value,
-                    interval: parseInt(document.getElementById('stayInterval').value, 10) || 60
-                };
-            default:
-                throw new Error('Unknown rule type');
+    async getRuleConfig(ruleType) {
+        if (ruleType === 'allColor') {
+            return {
+                color: document.getElementById('staticColor').value
+            };
+        } else if (ruleType === 'iconColor') {
+            return {
+                onColor: document.getElementById('onColor').value,
+                offColor: document.getElementById('offColor').value
+            };
+        } else if (ruleType === 'imageView') {
+            const imagePreview = document.getElementById('ruleImagePreview').querySelector('img');
+            const visibilitySelect = document.getElementById('imageVisibility');
+            return {
+                imageData: imagePreview ? imagePreview.src : null,
+                showOn: visibilitySelect.value === 'on'
+            };
         }
     },
 

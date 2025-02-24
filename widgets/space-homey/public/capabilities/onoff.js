@@ -93,37 +93,42 @@ const onOffRenderer = {
     },
 
     async initializeState(deviceEl, deviceId, widgetId) {
-        try {           
+        try {
             const response = await Homey.api('GET', `/devices/${deviceId}/capabilities/onoff`);
-            
+
             if (response !== undefined) {
-                deviceEl.setAttribute('data-state', response);
-                deviceEl.classList.toggle('on', response);
-                
+                const onoff = response;
+                deviceEl.setAttribute('data-state', onoff);
+                deviceEl.classList.toggle('on', onoff);
+
+
+
                 const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
-                deviceData.state = response;
+                deviceData.state = onoff;
                 deviceEl.setAttribute('data-device', JSON.stringify(deviceData));
-                
+
                 // Handle initial image visibility
                 if (deviceEl.getAttribute('data-image-rule') === 'true') {
                     const ruleId = deviceEl.getAttribute('data-rule-id');
                     const imageEl = document.querySelector(`.state-image-${ruleId}`);
-                    
+
                     if (imageEl) {
                         const onOffImageRule = deviceData.rules?.find(r => r.id === ruleId);
                         if (onOffImageRule?.config) {
-                            const showImage = onOffImageRule.config.showOn === response;
+                            const showImage = onOffImageRule.config.showOn === onoff;
                             imageEl.style.display = showImage ? 'block' : 'none';
                         }
                     }
                 }
-                
+
                 this.applyInitialRules(deviceData, deviceEl);
             }
 
             await Homey.api('POST', `/subscribeToDevices`, {
                 widgetId: widgetId,
-                devices: [{ deviceId: deviceId, capability: 'onoff' }]
+                devices: [{ deviceId: deviceId, capability: 'onoff' },
+
+                ]
             });
 
         } catch (error) {
@@ -191,7 +196,7 @@ const onOffRenderer = {
             // Update visual state immediately
             deviceEl.setAttribute('data-state', newState);
             deviceEl.classList.toggle('on', newState);
-            this.handleDeviceUpdate(deviceEl, newState);
+            this.handleDeviceUpdate(deviceEl, newState, 'onoff');
 
             // Send to Homey
             await Homey.api('PUT', `/devices/${deviceId}/capabilities/onoff`, {
@@ -202,7 +207,7 @@ const onOffRenderer = {
         }
     },
 
-    handleDeviceUpdate(deviceEl, value) {
+    handleDeviceUpdate(deviceEl, value, capability) {
         try {
             if (!deviceEl) return;
 
@@ -216,7 +221,7 @@ const onOffRenderer = {
             deviceEl.setAttribute('data-device', JSON.stringify(deviceData));
 
             const iconWrapper = deviceEl.querySelector('.icon-wrapper');
-            
+
             // Reset cloud effect first
             deviceEl.style.backgroundColor = 'transparent';
             deviceEl.style.boxShadow = 'none';
@@ -229,10 +234,10 @@ const onOffRenderer = {
             if (deviceEl.getAttribute('data-image-rule') === 'true') {
                 const ruleId = deviceEl.getAttribute('data-rule-id');
                 const imageEl = document.querySelector(`.state-image-${ruleId}`);
-                
+
                 if (imageEl) {
                     const onOffImageRule = deviceData.rules?.find(r => r.id === ruleId);
-                    
+
                     if (onOffImageRule?.config) {
                         const showImage = onOffImageRule.config.showOn === value;
                         imageEl.style.display = showImage ? 'block' : 'none';
@@ -240,14 +245,13 @@ const onOffRenderer = {
                 }
             }
 
-            // Check for allColor rule first
             const allColorRule = deviceData.rules?.find(r => r.type === 'allColor');
             if (allColorRule?.config) {
                 if (allColorRule.config.showCloud) {
                     const color = allColorRule.config.cloudColor || allColorRule.config.mainColor;
                     deviceEl.style.backgroundColor = `${color}80`;
                     deviceEl.style.boxShadow = `0 0 12px 6px ${color}90`;
-                    
+
                     if (iconWrapper) {
                         iconWrapper.style.backgroundColor = `${color}F0`;
                         iconWrapper.style.boxShadow = `0 0 8px ${color}E0`;
@@ -278,17 +282,17 @@ const onOffRenderer = {
                 const showCloud = value ? onOffColorRule.config.showCloudOn : onOffColorRule.config.showCloudOff;
                 const showIcon = value ? onOffColorRule.config.showIconOn : onOffColorRule.config.showIconOff;
                 const iconColor = value ? onOffColorRule.config.iconColorOn : onOffColorRule.config.iconColorOff;
-                
+
                 if (showCloud && currentColor) {
                     deviceEl.style.backgroundColor = `${currentColor}80`;
                     deviceEl.style.boxShadow = `0 0 12px 6px ${currentColor}90`;
-                    
+
                     if (iconWrapper) {
                         iconWrapper.style.backgroundColor = `${currentColor}F0`;
                         iconWrapper.style.boxShadow = `0 0 8px ${currentColor}E0`;
                     }
                 }
-                
+
                 // Handle icon visibility and color
                 if (iconWrapper) {
                     iconWrapper.style.display = showIcon ? 'flex' : 'none';
@@ -314,6 +318,10 @@ const onOffRenderer = {
                 if (powerButton) {
                     powerButton.classList.toggle('on', value);
                 }
+
+
+
+
             }
         } catch (error) {
             Homey.api('POST', '/log', { message: `Error in handleDeviceUpdate: ${error.message}` });
@@ -339,16 +347,16 @@ const onOffRenderer = {
                 // Clear existing icon wrapper content
                 if (iconWrapper) {
                     iconWrapper.innerHTML = '';
-                    
+
                     // Add material icon
                     const iconSpan = document.createElement('span');
                     iconSpan.className = 'material-symbols-outlined';
                     iconSpan.textContent = allIconRule.config.selectedIcon;
                     iconWrapper.appendChild(iconSpan);
-                    
+
                     // Make sure icon wrapper is visible
                     iconWrapper.style.display = 'flex';
-                    
+
                 }
             }
 
@@ -356,22 +364,22 @@ const onOffRenderer = {
             const onOffImageRule = device.rules?.find(r => r.type === 'onOffImage');
             if (onOffImageRule?.config) {
                 const ruleId = onOffImageRule.id;
-                
+
                 // Check if we've already initialized this device
                 if (!deviceEl.hasAttribute('data-image-initialized')) {
                     // Remove ANY existing images first
                     const existingImages = document.querySelectorAll(`.state-image-${ruleId}`);
                     existingImages.forEach(img => img.remove());
-                    
+
                     deviceEl.setAttribute('data-image-rule', 'true');
                     deviceEl.setAttribute('data-image-initialized', 'true');
                     deviceEl.setAttribute('data-rule-id', ruleId);
-                    
+
                     const imageWrapper = document.getElementById('imageWrapper');
                     if (imageWrapper) {
                         const imageEl = document.createElement('img');
-                        
-                        // Always start hidden
+
+
                         imageEl.style.cssText = `
                             display: none;
                             position: absolute;
@@ -383,10 +391,10 @@ const onOffRenderer = {
                             pointer-events: none;
                             z-index: 200;
                         `;
-                        
+
                         imageEl.className = `state-image state-image-${ruleId}`;
                         imageWrapper.appendChild(imageEl);
-                        
+
                         imageEl.src = onOffImageRule.config.imageData;
                     }
                 }
@@ -395,7 +403,7 @@ const onOffRenderer = {
             // Check allColor first - if it exists, only apply allColor and ignore all others
             const allColorRule = device.rules?.find(r => r.type === 'allColor');
             if (allColorRule?.config) {
-                
+
                 deviceEl.setAttribute('data-color-rule', 'true');
                 deviceEl.setAttribute('data-all-color', allColorRule.config.cloudColor || allColorRule.config.mainColor);
 
@@ -405,7 +413,7 @@ const onOffRenderer = {
                     // Device background cloud
                     deviceEl.style.backgroundColor = `${color}80`;
                     deviceEl.style.boxShadow = `0 0 12px 6px ${color}90`;
-                    
+
                     // Icon wrapper cloud
                     if (iconWrapper) {
                         iconWrapper.style.backgroundColor = `${color}F0`;
@@ -447,7 +455,7 @@ const onOffRenderer = {
                 if (showCloud) {
                     deviceEl.style.backgroundColor = `${currentColor}80`;
                     deviceEl.style.boxShadow = `0 0 12px 6px ${currentColor}90`;
-                    
+
                     if (iconWrapper) {
                         iconWrapper.style.backgroundColor = `${currentColor}F0`;
                         iconWrapper.style.boxShadow = `0 0 8px ${currentColor}E0`;
@@ -481,6 +489,7 @@ const onOffRenderer = {
         const name = deviceEl.getAttribute('data-name');
         const deviceId = deviceEl.getAttribute('data-device-id');
         const currentState = deviceEl.getAttribute('data-state') === 'true';
+
 
         const overlay = document.createElement('div');
         overlay.className = 'device-modal-overlay';
@@ -640,22 +649,35 @@ const onOffRenderer = {
         });
     },
 
-    handleExternalUpdate(deviceEl, value) {
+
+
+
+
+
+
+
+
+    handleExternalUpdate(deviceEl, value, capability) {
         try {
 
-            // Update state attribute and class
+
+
+
+
             deviceEl.setAttribute('data-state', value);
             deviceEl.classList.toggle('on', value);
 
-            // Get device data
+
+
             const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
+
+
             deviceData.state = value;  // Update the stored state
             deviceEl.setAttribute('data-device', JSON.stringify(deviceData));
 
             // Update visual state using existing method
-            this.handleDeviceUpdate(deviceEl, value);
+            this.handleDeviceUpdate(deviceEl, value, 'onoff');
 
-            // Update modal if it's open (using clean device ID)
             const cleanDeviceId = deviceData.id.replace('-onoff', '');
             const modal = document.querySelector(`.device-modal[data-device-id="${cleanDeviceId}"]`);
             if (modal) {
@@ -685,18 +707,30 @@ const onOffRenderer = {
 
         // Remove any existing listeners first
         window.Homey.removeAllListeners('realtime/device');
-        
+
         window.Homey.on('realtime/device', (data) => {
-            
+
             if (data && data.capability === 'onoff') {
-                const deviceElements = document.querySelectorAll(`[data-device-id="${data.id}"]`);                
+                const deviceElements = document.querySelectorAll(`[data-device-id="${data.id}"]`);
                 deviceElements.forEach(deviceEl => {
-                    this.handleExternalUpdate(deviceEl, data.value);
+                    this.handleExternalUpdate(deviceEl, data.value, 'onoff');
                 });
             }
         });
+    },
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
     }
-};
+}
+
 
 window.capabilityRenderers = window.capabilityRenderers || {};
 window.capabilityRenderers.onoff = onOffRenderer;

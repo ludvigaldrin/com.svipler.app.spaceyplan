@@ -31,6 +31,7 @@ const dimRenderer = {
         deviceEl.setAttribute('data-capability', this.id);
         deviceEl.setAttribute('data-state', device.state || false);
         deviceEl.setAttribute('data-device', JSON.stringify(device));
+        deviceEl.setAttribute('data-dim', device.dim || 1);
 
         const iconWrapper = document.createElement('div');
         iconWrapper.className = 'icon-wrapper';
@@ -208,47 +209,131 @@ const dimRenderer = {
     },
 
     handleDeviceUpdate(deviceEl, value, capability) {
-        // Update colors if there's a color rule
-        if (deviceEl.getAttribute('data-color-rule') === 'true') {
-            const allColor = deviceEl.getAttribute('data-all-color');
-            if (allColor) {
-                // All-Color rule takes precedence
-                deviceEl.style.backgroundColor = `${allColor}59`;
-                deviceEl.style.boxShadow = `0 0 12px 3px ${allColor}73`;
-                const iconWrapper = deviceEl.querySelector('.icon-wrapper');
-                if (iconWrapper) {
-                    iconWrapper.style.backgroundColor = `${allColor}E6`;
-                    iconWrapper.style.boxShadow = `0 0 8px ${allColor}CC`;
-                }
+        try {
+            if (!deviceEl) return;
+
+            // Update state attribute and class
+            if (capability === 'dim') {
+                deviceEl.setAttribute('data-dim', value);
+                const isOn = value > 0;
+                deviceEl.setAttribute('data-state', isOn);
+                deviceEl.classList.toggle('on', isOn);
+                value = isOn; // For image rules, treat any dim > 0 as "on"
             } else {
-                // OnOff-Color rule
-                const onColor = deviceEl.getAttribute('data-on-color');
-                const offColor = deviceEl.getAttribute('data-off-color');
-                const currentColor = value ? onColor : offColor;
-                if (currentColor) {
-                    deviceEl.style.backgroundColor = `${currentColor}59`;
-                    deviceEl.style.boxShadow = `0 0 12px 3px ${currentColor}73`;
-                    const iconWrapper = deviceEl.querySelector('.icon-wrapper');
-                    if (iconWrapper) {
-                        iconWrapper.style.backgroundColor = `${currentColor}E6`;
-                        iconWrapper.style.boxShadow = `0 0 8px ${currentColor}CC`;
+                deviceEl.setAttribute('data-state', value);
+                deviceEl.classList.toggle('on', value);
+            }
+
+            // Get device data and update state
+            const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
+            deviceData.state = value;
+            deviceEl.setAttribute('data-device', JSON.stringify(deviceData));
+
+            const iconWrapper = deviceEl.querySelector('.icon-wrapper');
+
+            // Reset cloud effect first
+            deviceEl.style.backgroundColor = 'transparent';
+            deviceEl.style.boxShadow = 'none';
+            if (iconWrapper) {
+                iconWrapper.style.backgroundColor = 'transparent';
+                iconWrapper.style.boxShadow = 'none';
+            }
+
+            // Handle image rule
+            if (deviceEl.getAttribute('data-image-rule') === 'true') {
+                const ruleId = deviceEl.getAttribute('data-rule-id');
+                const imageEl = document.querySelector(`.state-image-${ruleId}`);
+
+                if (imageEl) {
+                    const onOffImageRule = deviceData.rules?.find(r => r.id === ruleId);
+
+                    if (onOffImageRule?.config) {
+                        const showImage = onOffImageRule.config.showOn === value;
+                        imageEl.style.display = showImage ? 'block' : 'none';
                     }
                 }
             }
-        }
 
-        // Update modal if it exists
-        const modalId = deviceEl.getAttribute('data-device-id');
-        const modal = document.querySelector(`.device-modal[data-device-id="${modalId}"]`);
-        if (modal) {
-            const powerButton = modal.querySelector('.power-button');
-            if (powerButton) {
-                powerButton.classList.toggle('on', value);
+            const allColorRule = deviceData.rules?.find(r => r.type === 'allColor');
+            if (allColorRule?.config) {
+                if (allColorRule.config.showCloud) {
+                    const color = allColorRule.config.cloudColor || allColorRule.config.mainColor;
+                    deviceEl.style.backgroundColor = `${color}80`;
+                    deviceEl.style.boxShadow = `0 0 12px 6px ${color}90`;
+
+                    if (iconWrapper) {
+                        iconWrapper.style.backgroundColor = `${color}F0`;
+                        iconWrapper.style.boxShadow = `0 0 8px ${color}E0`;
+                    }
+                }
+
+                // Handle icon visibility and color
+                if (iconWrapper) {
+                    iconWrapper.style.display = allColorRule.config.showIcon ? 'flex' : 'none';
+                    if (allColorRule.config.showIcon) {
+                        const iconElement = iconWrapper.querySelector('img, .material-symbols-outlined');
+                        if (iconElement && allColorRule.config.iconColor) {
+                            if (iconElement.tagName.toLowerCase() === 'img') {
+                                iconElement.style.filter = `brightness(0) saturate(100%) drop-shadow(0 0 4px ${allColorRule.config.iconColor})`;
+                            } else {
+                                iconElement.style.color = allColorRule.config.iconColor;
+                                iconElement.style.filter = `drop-shadow(0 0 4px ${allColorRule.config.iconColor})`;
+                            }
+                        }
+                    }
+                }
             }
-            const dimSlider = modal.querySelector('.dim-slider');
-            if (dimSlider && capability === 'dim') {
-                dimSlider.value = value;
+
+            // Only process onOffColor if no allColor rule exists
+            const onOffColorRule = deviceData.rules?.find(r => r.type === 'onOffColor');
+            if (onOffColorRule?.config) {
+                const currentColor = value ? onOffColorRule.config.cloudColorOn : onOffColorRule.config.cloudColorOff;
+                const showCloud = value ? onOffColorRule.config.showCloudOn : onOffColorRule.config.showCloudOff;
+                const showIcon = value ? onOffColorRule.config.showIconOn : onOffColorRule.config.showIconOff;
+                const iconColor = value ? onOffColorRule.config.iconColorOn : onOffColorRule.config.iconColorOff;
+
+                if (showCloud && currentColor) {
+                    deviceEl.style.backgroundColor = `${currentColor}80`;
+                    deviceEl.style.boxShadow = `0 0 12px 6px ${currentColor}90`;
+
+                    if (iconWrapper) {
+                        iconWrapper.style.backgroundColor = `${currentColor}F0`;
+                        iconWrapper.style.boxShadow = `0 0 8px ${currentColor}E0`;
+                    }
+                }
+
+                // Handle icon visibility and color
+                if (iconWrapper) {
+                    iconWrapper.style.display = showIcon ? 'flex' : 'none';
+                    if (showIcon) {
+                        const iconElement = iconWrapper.querySelector('img, .material-symbols-outlined');
+                        if (iconElement && iconColor) {
+                            if (iconElement.tagName.toLowerCase() === 'img') {
+                                iconElement.style.filter = `brightness(0) saturate(100%) drop-shadow(0 0 4px ${iconColor})`;
+                            } else {
+                                iconElement.style.color = iconColor;
+                                iconElement.style.filter = `drop-shadow(0 0 4px ${iconColor})`;
+                            }
+                        }
+                    }
+                }
             }
+
+            // Update modal if it exists
+            const modalId = deviceEl.getAttribute('data-device-id');
+            const modal = document.querySelector(`.device-modal[data-device-id="${modalId}"]`);
+            if (modal) {
+                const powerButton = modal.querySelector('.power-button');
+                if (powerButton) {
+                    powerButton.classList.toggle('on', value);
+                }
+                const dimSlider = modal.querySelector('.dim-slider');
+                if (dimSlider && capability === 'dim') {
+                    dimSlider.value = value;
+                }
+            }
+        } catch (error) {
+            Homey.api('POST', '/log', { message: `Error in handleDeviceUpdate: ${error.message}` });
         }
     },
 
@@ -303,7 +388,7 @@ const dimRenderer = {
                     if (imageWrapper) {
                         const imageEl = document.createElement('img');
 
-                        // Always start hidden
+
                         imageEl.style.cssText = `
                             display: none;
                             position: absolute;
@@ -323,7 +408,6 @@ const dimRenderer = {
                     }
                 }
             }
-
 
             // Check allColor first - if it exists, only apply allColor and ignore all others
             const allColorRule = device.rules?.find(r => r.type === 'allColor');
@@ -647,10 +731,10 @@ const dimRenderer = {
                     await Homey.api('PUT', `/devices/${homeyId}/capabilities/dim`, {
                         value: value
                     });
-                    
+
                     // Debug log
-                    Homey.api('POST', '/log', { 
-                        message: `Dim slider value set to: ${value} for device: ${homeyId}` 
+                    Homey.api('POST', '/log', {
+                        message: `Dim slider value set to: ${value} for device: ${homeyId}`
                     });
                 } catch (error) {
                     Homey.api('POST', '/log', { message: `Error setting dim value: ${error.message}` });
@@ -670,7 +754,6 @@ const dimRenderer = {
                 deviceEl.classList.toggle('on', value);
             }
 
-            // Update device data
             const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
             if (capability === 'dim') {
                 deviceData.dim = value;
@@ -681,6 +764,22 @@ const dimRenderer = {
             // Update visual state using existing method
             this.handleDeviceUpdate(deviceEl, value, capability);
 
+            const cleanDeviceId = deviceData.id.replace('-dim', '');
+            const modal = document.querySelector(`.device-modal[data-device-id="${cleanDeviceId}"]`);
+            if (modal) {
+                const powerButton = modal.querySelector('.power-button');
+                if (powerButton) {
+                    powerButton.classList.toggle('on', value);
+                }
+                // Update modal's color display
+                const deviceStateEl = modal.querySelector('.device-state');
+                if (deviceStateEl) {
+                    deviceStateEl.textContent = value ? 'ON' : 'OFF';
+                    deviceStateEl.className = `device-state ${value ? 'on' : 'off'}`;
+                }
+            } else {
+                Homey.api('POST', '/log', { message: `No modal found for device: ${cleanDeviceId}` });
+            }
         } catch (error) {
             Homey.api('POST', '/log', { message: `Error in handleExternalUpdate: ${error.message}` });
         }
@@ -694,8 +793,9 @@ const dimRenderer = {
 
         // Remove any existing listeners first
         window.Homey.removeAllListeners('realtime/device');
-        
+
         window.Homey.on('realtime/device', (data) => {
+            
             if (data && (data.capability === 'onoff' || data.capability === 'dim')) {
                 const deviceElements = document.querySelectorAll(`[data-device-id="${data.id}-dim"]`);
                 deviceElements.forEach(deviceEl => {

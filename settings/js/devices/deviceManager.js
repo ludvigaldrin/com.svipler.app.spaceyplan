@@ -100,11 +100,14 @@ const deviceManager = {
             // Skip devices with no supported capabilities
             if (supported.length === 0) return '';
 
+            // Get icon source - we don't have base64 yet at this stage
+            const iconSrc = device.iconObj ? device.iconObj.url : '';
+
             return `
                 <div class="device-item">
                     <div class="device-header">
                         <div class="device-icon">
-                            <img src="${device.iconObj ? device.iconObj.url : ''}" alt="${device.name}">
+                            <img src="${iconSrc}" alt="${device.name}">
                         </div>
                         <div class="device-name">${device.name}</div>
                     </div>
@@ -173,15 +176,42 @@ const deviceManager = {
             throw new Error('Current floor not found');
         }
 
+        // Create new device object with base structure
         const newDevice = {
             id: capability === 'dim' ? `${device.id}-dim` : capability === 'onoff' ? `${device.id}-onoff` : device.id,
             homeyId: device.id,
             name: device.name,
             capability: capability,
-            iconObj: device.iconObj,
             position: { x: 5, y: 5 },  // Center of the floor plan (was 10, 10)
             rules: []
         };
+
+        // Process icon if available
+        if (device.iconObj && device.iconObj.url) {
+            try {
+                // Show loading state
+                const addButton = document.querySelector(`.add-capability-btn[data-device-id="${device.id}"][data-capability="${capability}"]`);
+                if (addButton) {
+                    addButton.textContent = 'Processing icon...';
+                }
+                
+                // Convert icon to base64
+                const iconBase64 = await this.fetchImageAsBase64(device.iconObj.url);
+                
+                // Store both original iconObj and the base64 data
+                newDevice.iconObj = {
+                    ...device.iconObj,
+                    base64: iconBase64
+                };
+            } catch (err) {
+                console.error('Failed to process icon:', err);
+                // Fall back to original iconObj if conversion fails
+                newDevice.iconObj = device.iconObj;
+            }
+        } else {
+            // No icon available
+            newDevice.iconObj = device.iconObj;
+        }
 
         // Add default color rule for onoff and dim capabilities
         if (capability === 'onoff' || capability === 'dim') {
@@ -287,6 +317,36 @@ const deviceManager = {
                 });
             }
         });
+    },
+
+    // Helper function to fetch an image and convert it to base64
+    async fetchImageAsBase64(url) {
+        try {
+            // Make sure URL is absolute
+            if (url.startsWith('/')) {
+                url = window.location.origin + url;
+            }
+            
+            // Fetch the image
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch image: ${response.status}`);
+            }
+            
+            // Get the blob
+            const blob = await response.blob();
+            
+            // Convert to base64
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        } catch (err) {
+            console.error('Error converting image to base64:', err);
+            throw err;
+        }
     }
 };
 

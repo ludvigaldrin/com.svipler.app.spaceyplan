@@ -90,8 +90,7 @@ const ruleManager = {
                                    class="homey-form-input" 
                                    placeholder="Type to search Material Icons...">
                         </div>
-                        <div id="iconSearchResults" class="icon-search-results">
-                            <div class="initial-state">Type to search icons...</div>
+                        <div id="iconSearchResults" class="icon-search-results" style="display: none;">
                         </div>
                     </div>
                     
@@ -133,16 +132,15 @@ const ruleManager = {
                             searchResults.innerHTML = '';
                             
                             if (searchTerm.length < 2) {
-                                searchResults.innerHTML = '<div class="no-results">Type at least 2 characters...</div>';
-                               
+                                searchResults.style.display = 'none';
                                 return;
                             }
 
                             const results = await this.searchMaterialIcons(searchTerm);
 
-
                             if (results.length === 0) {
                                 searchResults.innerHTML = '<div class="no-results">No icons found</div>';
+                                searchResults.style.display = 'block';
                             } else {
                                 const html = results.map(iconName => `
                                     <div class="icon-result" data-icon="${iconName}">
@@ -152,6 +150,7 @@ const ruleManager = {
                                 `).join('');
                                 
                                 searchResults.innerHTML = html;
+                                searchResults.style.display = 'block';
                                 
                                 // Attach click handlers immediately after updating HTML
                                 const iconResults = searchResults.querySelectorAll('.icon-result');
@@ -180,9 +179,12 @@ const ruleManager = {
                                             saveButton.disabled = false;
                                         }
 
+                                        // Hide search results after selection
+                                        searchResults.style.display = 'none';
+                                        searchResults.innerHTML = '';
+                                        searchInput.value = '';
                                     });
                                 });
-
                             }
                         }, 300);
                     });
@@ -867,8 +869,8 @@ const ruleManager = {
                 
             }
 
-            // Remove duplicates and limit results
-            results = [...new Set(results)].slice(0, 5);
+            // Remove duplicates and limit results to 3
+            results = [...new Set(results)].slice(0, 3);
 
             // Sort results to prioritize matches at start of word
             results.sort((a, b) => {

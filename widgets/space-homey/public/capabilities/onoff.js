@@ -28,16 +28,35 @@ const onOffRenderer = {
         clickableOverlay.className = 'clickable-overlay';
         clickableOverlay.style.cssText = `
             position: absolute;
-            width: 40px;
-            height: 40px;
+            width: 60px;
+            height: 60px;
             border-radius: 50%;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             z-index: 299;
             cursor: pointer;
+            background-color: rgba(255, 255, 255, 0.01);
         `;
         deviceEl.appendChild(clickableOverlay);
+
+        // Add device icon styles if not already present
+        if (!document.getElementById('deviceIconStyles')) {
+            const styles = document.createElement('style');
+            styles.id = 'deviceIconStyles';
+            styles.textContent = `
+                .device-icon {
+                    max-width: 16px;
+                    max-height: 16px;
+                    width: auto;
+                    height: auto;
+                }
+                .icon-wrapper .material-symbols-outlined {
+                    font-size: 20px; /* 20% larger than default icon */
+                }
+            `;
+            document.head.appendChild(styles);
+        }
 
         deviceEl.setAttribute('data-x', position.x);
         deviceEl.setAttribute('data-y', position.y);
@@ -52,9 +71,14 @@ const onOffRenderer = {
         iconWrapper.className = 'icon-wrapper';
 
         // Add icon if available
-        if (device.iconObj?.url) {
+        if (device.iconObj) {
             const img = document.createElement('img');
-            img.src = device.iconObj.url;
+            // Use base64 data if available, otherwise fall back to URL
+            if (device.iconObj.base64) {
+                img.src = device.iconObj.base64;
+            } else if (device.iconObj.url) {
+                img.src = device.iconObj.url;
+            }
             img.className = 'device-icon';
             iconWrapper.appendChild(img);
         }
@@ -165,8 +189,15 @@ const onOffRenderer = {
             touchStartTime = Date.now();
             touchMoved = false;
 
+            // Add visual feedback
+            deviceEl.style.transform = this.addScaleTransform(deviceEl, 1.2);
+            deviceEl.style.opacity = '0.8';
+
             longPressTimer = setTimeout(() => {
                 if (!touchMoved) {
+                    // Reset visual feedback before showing modal
+                    deviceEl.style.transform = this.removeScaleTransform(deviceEl);
+                    deviceEl.style.opacity = '1';
                     this.showDeviceModal(deviceEl);
                 }
             }, 500);
@@ -186,6 +217,10 @@ const onOffRenderer = {
         const handleTouchEnd = (e) => {
             e.preventDefault();
             e.stopPropagation();
+
+            // Reset visual feedback
+            deviceEl.style.transform = this.removeScaleTransform(deviceEl);
+            deviceEl.style.opacity = '1';
 
             if (longPressTimer) {
                 clearTimeout(longPressTimer);
@@ -390,7 +425,9 @@ const onOffRenderer = {
 
                     // Make sure icon wrapper is visible
                     iconWrapper.style.display = 'flex';
-
+                    
+                    // Apply consistent sizing
+                    iconSpan.style.fontSize = '20px'; // 20% larger than default icon
                 }
             }
 
@@ -649,6 +686,10 @@ const onOffRenderer = {
                     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231C1C1E' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18.36 6.64a9 9 0 1 1-12.73 0'/%3E%3Cline x1='12' y1='2' x2='12' y2='12'/%3E%3C/svg%3E") no-repeat center center;
                     background-size: contain;
                 }
+
+                .material-symbols-outlined {
+                    font-size: 32px; /* Consistent sizing for modal icons */
+                }
             `;
             document.head.appendChild(styles);
         }
@@ -762,6 +803,26 @@ const onOffRenderer = {
             clearTimeout(timeout);
             timeout = setTimeout(later, wait);
         };
+    },
+
+    // Helper function to add scale transform without affecting position
+    addScaleTransform(element, scale) {
+        const currentTransform = element.style.transform;
+        // Check if there's already a scale transform
+        if (currentTransform.includes('scale(')) {
+            // Replace existing scale
+            return currentTransform.replace(/scale\([^)]+\)/, `scale(${scale})`);
+        } else {
+            // Add new scale
+            return `${currentTransform} scale(${scale})`;
+        }
+    },
+
+    // Helper function to remove scale transform without affecting position
+    removeScaleTransform(element) {
+        const currentTransform = element.style.transform;
+        // Remove scale transform if it exists
+        return currentTransform.replace(/\s*scale\([^)]+\)/, '');
     }
 }
 

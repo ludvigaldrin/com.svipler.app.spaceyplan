@@ -6,13 +6,19 @@ const floorManager = {
 
     async initialize(Homey) {
         this.Homey = Homey;
+        this.floors = [];
+        this.currentFloorId = null;
+        
+        // Bind event handlers once to preserve references
+        this.boundHandleDragMove = this.handleDragMove.bind(this);
+        this.boundHandleDragEnd = this.handleDragEnd.bind(this);
         
         // Attach add floor button handler
         const addFloorButton = document.getElementById('addFloor');
         if (addFloorButton) {
             addFloorButton.onclick = () => this.showAddFloorDialog();
         }
-
+        
         this.loadFloors();
         this.ruleManager = ruleManager;
         this.ruleManager.init(this, Homey);
@@ -602,6 +608,14 @@ const floorManager = {
                 capabilityText = device.sensorType === 'alarm_motion' ? 'Motion' : 'Contact';
             }
 
+            // Get icon source - use base64 if available
+            let iconSrc = 'default-icon.png';
+            if (device.iconObj?.base64) {
+                iconSrc = device.iconObj.base64;
+            } else if (device.iconObj?.url) {
+                iconSrc = device.iconObj.url;
+            }
+
             return `
                 <div class="floor-device-wrapper">
                     <div class="floor-device-item">
@@ -611,6 +625,9 @@ const floorManager = {
                             </svg>
                         </button>
                         <div class="floor-device-info" data-device-id="${device.id}">
+                            <div class="device-icon-small">
+                                <img src="${iconSrc}" alt="${device.name}">
+                            </div>
                             <span style="cursor: pointer;">${device.name} (${capabilityText})</span>
                         </div>
                         <button class="delete-button" data-device-id="${device.id}">
@@ -755,14 +772,17 @@ const floorManager = {
             deviceEl.style.left = '0';
             deviceEl.style.top = '0';
 
-            // Create icon wrapper for consistent styling
-            const iconWrapper = document.createElement('div');
-            iconWrapper.className = 'icon-wrapper';
-            const img = document.createElement('img');
-            img.src = device.iconObj?.url || 'default-icon.png';
-            img.alt = device.name;
-            iconWrapper.appendChild(img);
-            deviceEl.appendChild(iconWrapper);
+            // Use base64 data if available, otherwise fall back to URL
+            let iconSrc = 'default-icon.png';
+            if (device.iconObj?.base64) {
+                iconSrc = device.iconObj.base64;
+            } else if (device.iconObj?.url) {
+                iconSrc = device.iconObj.url;
+            }
+            
+            deviceEl.innerHTML = `
+                <img src="${iconSrc}" alt="${device.name}">
+            `;
 
             // Add event listeners
             deviceEl.addEventListener('touchstart', this.handleDragStart.bind(this), { passive: false });
@@ -1179,8 +1199,16 @@ const floorManager = {
 
             deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
             
+            // Use base64 data if available, otherwise fall back to URL
+            let iconSrc = 'default-icon.png';
+            if (device.iconObj?.base64) {
+                iconSrc = device.iconObj.base64;
+            } else if (device.iconObj?.url) {
+                iconSrc = device.iconObj.url;
+            }
+            
             deviceEl.innerHTML = `
-                <img src="${device.iconObj?.url || 'default-icon.png'}" alt="${device.name}">
+                <img src="${iconSrc}" alt="${device.name}">
             `;
 
             // Add drag handlers
@@ -1235,13 +1263,13 @@ const floorManager = {
             y: event.clientY - (deviceRect.top + deviceRect.height / 2)
         };
 
-        // Add move and end event listeners
+        // Add move and end event listeners using the bound handlers
         if (e.type === 'mousedown') {
-            document.addEventListener('mousemove', this.handleDragMove.bind(this));
-            document.addEventListener('mouseup', this.handleDragEnd.bind(this));
+            document.addEventListener('mousemove', this.boundHandleDragMove);
+            document.addEventListener('mouseup', this.boundHandleDragEnd);
         } else {
-            document.addEventListener('touchmove', this.handleDragMove.bind(this), { passive: true });
-            document.addEventListener('touchend', this.handleDragEnd.bind(this));
+            document.addEventListener('touchmove', this.boundHandleDragMove, { passive: true });
+            document.addEventListener('touchend', this.boundHandleDragEnd);
         }
     },
 
@@ -1300,26 +1328,36 @@ const floorManager = {
     },
 
     handleDragEnd(e) {
+
         if (!this.draggedDevice) return;
 
         const deviceEl = this.draggedDevice;
         deviceEl.classList.remove('dragging');
 
-        // Update device position in data only if we were actually dragging
-        if (this.isDragging && this.currentDragPosition) {
+
+        // Always update device position if we have a valid position
+        if (this.currentDragPosition) {
+
             const floor = this.floors.find(f => f.id === this.currentFloorId);
             if (floor && floor.devices) {
+
                 const deviceId = deviceEl.id.replace('device-', '');
                 const device = floor.devices.find(d => d.id === deviceId);
                 if (device) {
+                   
                     device.position = {
                         x: Math.max(0, Math.min(100, this.currentDragPosition.x)),
                         y: Math.max(0, Math.min(100, this.currentDragPosition.y))
                     };
-                    this.saveFloors();
+                    
+                    // Save the updated floor data
+                    this.saveFloors().catch(err => {
+                        console.error('Failed to save device position:', err);
+                        this.Homey.alert('Failed to save device position: ' + err.message);
+                    });
                 }
             }
-        }
+        } 
 
         // Clean up
         this.draggedDevice = null;
@@ -1328,11 +1366,11 @@ const floorManager = {
         this.initialTouchPos = null;
         this.isDragging = false;
 
-        // Remove event listeners
-        document.removeEventListener('mousemove', this.handleDragMove);
-        document.removeEventListener('mouseup', this.handleDragEnd);
-        document.removeEventListener('touchmove', this.handleDragMove);
-        document.removeEventListener('touchend', this.handleDragEnd);
+        // Remove event listeners using the bound handlers
+        document.removeEventListener('mousemove', this.boundHandleDragMove);
+        document.removeEventListener('mouseup', this.boundHandleDragEnd);
+        document.removeEventListener('touchmove', this.boundHandleDragMove);
+        document.removeEventListener('touchend', this.boundHandleDragEnd);
     }
 };
 

@@ -28,14 +28,15 @@ const dimRenderer = {
         clickableOverlay.className = 'clickable-overlay';
         clickableOverlay.style.cssText = `
             position: absolute;
-            width: 40px;
-            height: 40px;
+            width: 60px;
+            height: 60px;
             border-radius: 50%;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             z-index: 299;
             cursor: pointer;
+            background-color: rgba(255, 255, 255, 0.01);
         `;
         deviceEl.appendChild(clickableOverlay);
 
@@ -53,14 +54,37 @@ const dimRenderer = {
         iconWrapper.className = 'icon-wrapper';
 
         // Add icon if available
-        if (device.iconObj?.url) {
+        if (device.iconObj) {
             const img = document.createElement('img');
-            img.src = device.iconObj.url;
+            // Use base64 data if available, otherwise fall back to URL
+            if (device.iconObj.base64) {
+                img.src = device.iconObj.base64;
+            } else if (device.iconObj.url) {
+                img.src = device.iconObj.url;
+            }
             img.className = 'device-icon';
             iconWrapper.appendChild(img);
         }
 
         deviceEl.appendChild(iconWrapper);
+
+        // Add device icon styles if not already present
+        if (!document.getElementById('deviceIconStyles')) {
+            const styles = document.createElement('style');
+            styles.id = 'deviceIconStyles';
+            styles.textContent = `
+                .device-icon {
+                    max-width: 16px;
+                    max-height: 16px;
+                    width: auto;
+                    height: auto;
+                }
+                .icon-wrapper .material-symbols-outlined {
+                    font-size: 20px; /* 20% larger than default icon */
+                }
+            `;
+            document.head.appendChild(styles);
+        }
 
         const positionDevice = () => {
             return new Promise((resolve) => {
@@ -166,8 +190,15 @@ const dimRenderer = {
             touchStartTime = Date.now();
             touchMoved = false;
 
+            // Add visual feedback
+            deviceEl.style.transform = this.addScaleTransform(deviceEl, 1.2);
+            deviceEl.style.opacity = '0.8';
+
             longPressTimer = setTimeout(() => {
                 if (!touchMoved) {
+                    // Reset visual feedback before showing modal
+                    deviceEl.style.transform = this.removeScaleTransform(deviceEl);
+                    deviceEl.style.opacity = '1';
                     this.showDeviceModal(deviceEl);
                 }
             }, 500);
@@ -187,6 +218,10 @@ const dimRenderer = {
         const handleTouchEnd = (e) => {
             e.preventDefault();
             e.stopPropagation();
+
+            // Reset visual feedback
+            deviceEl.style.transform = this.removeScaleTransform(deviceEl);
+            deviceEl.style.opacity = '1';
 
             if (longPressTimer) {
                 clearTimeout(longPressTimer);
@@ -399,7 +434,9 @@ const dimRenderer = {
 
                     // Make sure icon wrapper is visible
                     iconWrapper.style.display = 'flex';
-
+                    
+                    // Apply consistent sizing
+                    iconSpan.style.fontSize = '20px'; // 20% larger than default icon
                 }
             }
 
@@ -670,6 +707,10 @@ const dimRenderer = {
                     background-size: contain;
                 }
 
+                .material-symbols-outlined {
+                    font-size: 32px; /* Consistent sizing for modal icons */
+                }
+
                 .dim-views > div {
                     display: none;
                 }
@@ -846,6 +887,26 @@ const dimRenderer = {
             clearTimeout(timeout);
             timeout = setTimeout(later, wait);
         };
+    },
+
+    // Helper function to add scale transform without affecting position
+    addScaleTransform(element, scale) {
+        const currentTransform = element.style.transform;
+        // Check if there's already a scale transform
+        if (currentTransform.includes('scale(')) {
+            // Replace existing scale
+            return currentTransform.replace(/scale\([^)]+\)/, `scale(${scale})`);
+        } else {
+            // Add new scale
+            return `${currentTransform} scale(${scale})`;
+        }
+    },
+
+    // Helper function to remove scale transform without affecting position
+    removeScaleTransform(element) {
+        const currentTransform = element.style.transform;
+        // Remove scale transform if it exists
+        return currentTransform.replace(/\s*scale\([^)]+\)/, '');
     }
 };
 

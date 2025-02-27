@@ -23,6 +23,22 @@ const onOffRenderer = {
             box-shadow: 0 0 12px 3px rgba(255, 255, 255, 0.45);
         `;
 
+        // Add a clickable overlay that extends slightly beyond the visible icon
+        const clickableOverlay = document.createElement('div');
+        clickableOverlay.className = 'clickable-overlay';
+        clickableOverlay.style.cssText = `
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 299;
+            cursor: pointer;
+        `;
+        deviceEl.appendChild(clickableOverlay);
+
         deviceEl.setAttribute('data-x', position.x);
         deviceEl.setAttribute('data-y', position.y);
         deviceEl.setAttribute('data-name', device.name);
@@ -141,7 +157,8 @@ const onOffRenderer = {
         let longPressTimer;
         let touchMoved = false;
 
-        deviceEl.addEventListener('touchstart', (e) => {
+        // Function to handle touch start for both the device element and overlay
+        const handleTouchStart = (e) => {
             e.preventDefault();
             e.stopPropagation();
 
@@ -153,18 +170,20 @@ const onOffRenderer = {
                     this.showDeviceModal(deviceEl);
                 }
             }, 500);
-        }, { passive: false });
+        };
 
-        deviceEl.addEventListener('touchmove', (e) => {
+        // Function to handle touch move for both the device element and overlay
+        const handleTouchMove = (e) => {
             e.stopPropagation();
             touchMoved = true;
             if (longPressTimer) {
                 clearTimeout(longPressTimer);
                 longPressTimer = null;
             }
-        });
+        };
 
-        deviceEl.addEventListener('touchend', (e) => {
+        // Function to handle touch end for both the device element and overlay
+        const handleTouchEnd = (e) => {
             e.preventDefault();
             e.stopPropagation();
 
@@ -180,12 +199,27 @@ const onOffRenderer = {
             }
 
             touchMoved = false;
-        }, { passive: false });
+        };
 
-        // Keep click for desktop/testing
-        deviceEl.addEventListener('click', () => {
+        // Function to handle click for both the device element and overlay
+        const handleClick = () => {
             this.handleClick(deviceEl);
-        });
+        };
+
+        // Add event listeners to the device element
+        deviceEl.addEventListener('touchstart', handleTouchStart, { passive: false });
+        deviceEl.addEventListener('touchmove', handleTouchMove);
+        deviceEl.addEventListener('touchend', handleTouchEnd, { passive: false });
+        deviceEl.addEventListener('click', handleClick);
+
+        // Add event listeners to the clickable overlay
+        const overlay = deviceEl.querySelector('.clickable-overlay');
+        if (overlay) {
+            overlay.addEventListener('touchstart', handleTouchStart, { passive: false });
+            overlay.addEventListener('touchmove', handleTouchMove);
+            overlay.addEventListener('touchend', handleTouchEnd, { passive: false });
+            overlay.addEventListener('click', handleClick);
+        }
     },
 
     async handleClick(deviceEl) {

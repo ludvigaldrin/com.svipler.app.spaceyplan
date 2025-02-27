@@ -167,12 +167,44 @@ const floorManager = {
 
         // Hide list view and show edit view
         document.getElementById('floorsListView').style.display = 'none';
-        document.getElementById('floorEditView').style.display = 'block';
+        const editView = document.getElementById('floorEditView');
+        editView.style.display = 'block';
+
+        // Enable scrolling on mobile
+        editView.style.overflowY = 'auto';
+        editView.style.height = '100%';
+        editView.style.maxHeight = '100vh';
+        editView.style.position = 'absolute';
+        editView.style.left = '0';
+        editView.style.right = '0';
+        editView.style.top = '0';
+        editView.style.bottom = '0';
+        editView.style.webkitOverflowScrolling = 'touch';
+
+        // Make devices list scrollable
+        const devicesList = document.getElementById('devicesList');
+        if (devicesList) {
+            devicesList.style.overflowY = 'auto';
+            devicesList.style.maxHeight = '40vh';
+        }
 
         // Update UI
         document.getElementById('editViewTitle').textContent = `Edit ${floor.name}`;
         document.getElementById('editFloorName').value = floor.name;
         document.getElementById('floorMapImage').src = floor.imageData;
+
+        // Add event listener for floor name changes
+        const nameInput = document.getElementById('editFloorName');
+        if (nameInput) {
+            // Remove any existing event listeners
+            const newNameInput = nameInput.cloneNode(true);
+            nameInput.parentNode.replaceChild(newNameInput, nameInput);
+            
+            // Add input event listener
+            newNameInput.addEventListener('change', () => {
+                this.updateFloorName(floorId, newNameInput.value);
+            });
+        }
 
         // Render devices list
         this.renderDevicesList(floor.devices || []);
@@ -190,9 +222,51 @@ const floorManager = {
         }
     },
 
+    // Add new method to update floor name
+    async updateFloorName(floorId, newName) {
+        if (!newName || newName.trim() === '') {
+            this.Homey.alert('Floor name cannot be empty');
+            return;
+        }
+
+        const floor = this.floors.find(f => f.id === floorId);
+        if (!floor) return;
+
+        // Update floor name
+        floor.name = newName.trim();
+        
+        // Update title
+        const titleElement = document.getElementById('editViewTitle');
+        if (titleElement) {
+            titleElement.textContent = `Edit ${floor.name}`;
+        }
+
+        try {
+            // Save changes
+            await this.saveFloors();
+        } catch (err) {
+            console.error('Failed to update floor name:', err);
+            this.Homey.alert('Failed to update floor name: ' + err.message);
+        }
+    },
+
     backToFloorsList() {
-        // Hide edit view and show list view
-        document.getElementById('floorEditView').style.display = 'none';
+        // Reset edit view styles
+        const editView = document.getElementById('floorEditView');
+        if (editView) {
+            editView.style.display = 'none';
+            // Reset the styles we added for mobile scrolling
+            editView.style.position = '';
+            editView.style.height = '';
+            editView.style.maxHeight = '';
+            editView.style.left = '';
+            editView.style.right = '';
+            editView.style.top = '';
+            editView.style.bottom = '';
+            editView.style.overflowY = '';
+        }
+        
+        // Show list view
         document.getElementById('floorsListView').style.display = 'block';
         
         // Reset current floor ID
@@ -207,7 +281,32 @@ const floorManager = {
             if (!this.Homey) {
                 throw new Error('Homey not initialized');
             }
-            await this.Homey.set('floors', this.floors);
+            
+            // Validate floors data before saving
+            if (!this.floors) {
+                console.error('Floors array is undefined');
+                throw new Error('Invalid floors data');
+            }
+            
+            // Make sure we're passing a valid array
+            const floorsToSave = Array.isArray(this.floors) ? this.floors : [];
+            
+            // Ensure each floor has required properties
+            const validFloors = floorsToSave.map(floor => {
+                // Create a clean floor object with all required properties
+                return {
+                    id: floor.id || Date.now().toString(),
+                    name: floor.name || 'Unnamed Floor',
+                    imageData: floor.imageData || '',
+                    devices: Array.isArray(floor.devices) ? floor.devices : []
+                };
+            });
+            
+            // Update the floors array with validated data
+            this.floors = validFloors;
+            
+            // Save to Homey
+            await this.Homey.set('floors', validFloors);
         } catch (err) {
             console.error('Error saving floors:', err);
             throw err;
@@ -311,9 +410,11 @@ const floorManager = {
                         // Create canvas for image processing
                         const canvas = document.createElement('canvas');
                         const ctx = canvas.getContext('2d');
-                        const MAX_WIDTH = 1920;
-                        const MAX_HEIGHT = 1080;
-
+                        
+                        // Reduce dimensions for compression
+                        const MAX_WIDTH = 500;
+                        const MAX_HEIGHT = 800;
+                        
                         // Calculate dimensions
                         let { width, height } = img;
                         const scaleWidth = MAX_WIDTH / width;
@@ -333,14 +434,41 @@ const floorManager = {
                         ctx.clearRect(0, 0, width, height);
                         ctx.drawImage(img, 0, 0, width, height);
 
-                        // Get processed image data
-                        const imageData = canvas.toDataURL('image/png');
+                        // Determine if the image has transparency
+                        let hasTransparency = false;
+                        
+                        // Check file type first
+                        const fileType = file.type.toLowerCase();
+                        if (fileType === 'image/png' || fileType === 'image/webp' || fileType === 'image/gif') {
+                            // These formats support transparency, so we'll check for it
+                            // Get image data to check for transparency
+                            const imageData = ctx.getImageData(0, 0, width, height);
+                            const data = imageData.data;
+                            
+                            // Check if any pixel has alpha < 255 (not fully opaque)
+                            for (let i = 3; i < data.length; i += 4) {
+                                if (data[i] < 255) {
+                                    hasTransparency = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Use appropriate format based on transparency
+                        let processedImageData;
+                        if (hasTransparency) {
+                            // Use PNG for images with transparency
+                            processedImageData = canvas.toDataURL('image/png', 0.7);
+                        } else {
+                            // Use JPEG for images without transparency (better compression)
+                            processedImageData = canvas.toDataURL('image/jpeg', 0.8);
+                        }
 
                         // Create new floor object
                         const newFloor = {
                             id: Date.now().toString(),
                             name: nameInput.value.trim(),
-                            imageData: imageData,
+                            imageData: processedImageData,
                             devices: []
                         };
 
@@ -398,24 +526,47 @@ const floorManager = {
         // Show dialog
         dialog.style.display = 'flex';
 
-        // Handle delete
-        const handleDelete = async () => {
-            try {
-                this.floors = this.floors.filter(f => f.id !== floorId);
-                await this.saveFloors();
-                this.renderFloorsList();
-                dialog.style.display = 'none';
-            } catch (err) {
-                console.error('Failed to delete floor:', err);
-                this.Homey.alert('Failed to delete floor');
-            }
-        };
-
-        // Event listeners
+        // Get buttons
         const confirmBtn = document.getElementById('confirmDelete');
         const cancelBtn = document.getElementById('cancelDelete');
         const closeBtn = dialog.querySelector('.modal-close-button');
         
+        // Store original confirm button text
+        const originalBtnText = confirmBtn.innerHTML;
+
+        // Handle delete
+        const handleDelete = async () => {
+            try {
+                // Show loading state
+                confirmBtn.disabled = true;
+                cancelBtn.disabled = true;
+                if (closeBtn) closeBtn.disabled = true;
+                
+                // Add spinner and loading text
+                confirmBtn.innerHTML = '<div class="button-content"><div class="spinner"></div>Deleting...</div>';
+                
+                // Delete the floor
+                this.floors = this.floors.filter(f => f.id !== floorId);
+                await this.saveFloors();
+                
+                // Update UI
+                this.renderFloorsList();
+                
+                // Close dialog
+                dialog.style.display = 'none';
+            } catch (err) {
+                console.error('Failed to delete floor:', err);
+                this.Homey.alert('Failed to delete floor: ' + err.message);
+            } finally {
+                // Reset button states
+                confirmBtn.disabled = false;
+                cancelBtn.disabled = false;
+                if (closeBtn) closeBtn.disabled = false;
+                confirmBtn.innerHTML = originalBtnText;
+            }
+        };
+
+        // Event listeners
         if (confirmBtn) confirmBtn.onclick = handleDelete;
         if (cancelBtn) cancelBtn.onclick = () => dialog.style.display = 'none';
         if (closeBtn) closeBtn.onclick = () => dialog.style.display = 'none';
@@ -638,30 +789,50 @@ const floorManager = {
         // Show dialog
         dialog.style.display = 'flex';
 
+        // Get buttons
+        const confirmBtn = document.getElementById('confirmDelete');
+        const cancelBtn = document.getElementById('cancelDelete');
+        const closeBtn = dialog.querySelector('.modal-close-button');
+        
+        // Store original confirm button text
+        const originalBtnText = confirmBtn.innerHTML;
+
         const handleDelete = async () => {
             const floor = this.floors.find(f => f.id === this.currentFloorId);
             if (!floor) return;
 
-            // Remove device from floor
-            floor.devices = floor.devices.filter(d => d.id !== deviceId);
-
             try {
+                // Show loading state
+                confirmBtn.disabled = true;
+                cancelBtn.disabled = true;
+                if (closeBtn) closeBtn.disabled = true;
+                
+                // Add spinner and loading text
+                confirmBtn.innerHTML = '<div class="button-content"><div class="spinner"></div>Removing...</div>';
+
+                // Remove device from floor
+                floor.devices = floor.devices.filter(d => d.id !== deviceId);
+
                 await this.saveFloors();
                 this.renderDevicesList(floor.devices);
                 this.renderFloorPlanDevices(floor);
                 dialog.style.display = 'none';
             } catch (err) {
                 console.error('Failed to remove device:', err);
-                this.Homey.alert('Failed to remove device');
+                this.Homey.alert('Failed to remove device: ' + err.message);
+            } finally {
+                // Reset button states
+                confirmBtn.disabled = false;
+                cancelBtn.disabled = false;
+                if (closeBtn) closeBtn.disabled = false;
+                confirmBtn.innerHTML = originalBtnText;
             }
         };
 
         // Event listeners
-        const confirmBtn = document.getElementById('confirmDelete');
-        const cancelBtn = document.getElementById('cancelDelete');
-        
         if (confirmBtn) confirmBtn.onclick = handleDelete;
         if (cancelBtn) cancelBtn.onclick = () => dialog.style.display = 'none';
+        if (closeBtn) closeBtn.onclick = () => dialog.style.display = 'none';
     },
 
     highlightDevice(deviceId) {
@@ -712,7 +883,7 @@ const floorManager = {
                         const canvas = document.createElement('canvas');
                         const ctx = canvas.getContext('2d');
 
-                        // More conservative width, maintain max height
+                        // Compression through size reduction
                         const MAX_WIDTH = 500;
                         const MAX_HEIGHT = 800;
                         let width = img.width;
@@ -740,13 +911,40 @@ const floorManager = {
                         // Draw resized image
                         ctx.drawImage(img, 0, 0, width, height);
 
-                        // Get image data as PNG to preserve transparency
-                        const imageData = canvas.toDataURL('image/png');
+                        // Determine if the image has transparency
+                        let hasTransparency = false;
+                        
+                        // Check file type first
+                        const fileType = file.type.toLowerCase();
+                        if (fileType === 'image/png' || fileType === 'image/webp' || fileType === 'image/gif') {
+                            // These formats support transparency, so we'll check for it
+                            // Get image data to check for transparency
+                            const imageData = ctx.getImageData(0, 0, width, height);
+                            const data = imageData.data;
+                            
+                            // Check if any pixel has alpha < 255 (not fully opaque)
+                            for (let i = 3; i < data.length; i += 4) {
+                                if (data[i] < 255) {
+                                    hasTransparency = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Use appropriate format based on transparency
+                        let processedImageData;
+                        if (hasTransparency) {
+                            // Use PNG for images with transparency
+                            processedImageData = canvas.toDataURL('image/png', 0.7);
+                        } else {
+                            // Use JPEG for images without transparency (better compression)
+                            processedImageData = canvas.toDataURL('image/jpeg', 0.8);
+                        }
 
                         const newFloor = {
                             id: Date.now().toString(),
                             name: nameInput.value.trim(),
-                            imageData: imageData,
+                            imageData: processedImageData,
                             devices: []
                         };
 
@@ -790,6 +988,14 @@ const floorManager = {
         if (modalTitle) modalTitle.textContent = 'Delete Rule';
         if (modalDescription) modalDescription.textContent = 'Are you sure you want to delete this rule? This action cannot be undone.';
 
+        // Get buttons
+        const confirmBtn = document.getElementById('confirmDelete');
+        const cancelBtn = document.getElementById('cancelDelete');
+        const closeBtn = dialog.querySelector('.modal-close-button');
+        
+        // Store original confirm button text
+        const originalBtnText = confirmBtn.innerHTML;
+
         // Show dialog
         dialog.style.display = 'flex';
 
@@ -800,10 +1006,18 @@ const floorManager = {
             const device = floor.devices.find(d => d.id === deviceId);
             if (!device) return;
 
-            // Remove rule from device
-            device.rules = device.rules.filter(r => r.id !== ruleId);
-
             try {
+                // Show loading state
+                confirmBtn.disabled = true;
+                cancelBtn.disabled = true;
+                if (closeBtn) closeBtn.disabled = true;
+                
+                // Add spinner and loading text
+                confirmBtn.innerHTML = '<div class="button-content"><div class="spinner"></div>Deleting...</div>';
+
+                // Remove rule from device
+                device.rules = device.rules.filter(r => r.id !== ruleId);
+
                 await this.saveFloors();
                 // Update just the rules section
                 const rulesSection = document.getElementById(`rules-${deviceId}`);
@@ -815,15 +1029,17 @@ const floorManager = {
                 dialog.style.display = 'none';
             } catch (err) {
                 console.error('Failed to delete rule:', err);
-                this.Homey.alert('Failed to delete rule');
+                this.Homey.alert('Failed to delete rule: ' + err.message);
+            } finally {
+                // Reset button states
+                confirmBtn.disabled = false;
+                cancelBtn.disabled = false;
+                if (closeBtn) closeBtn.disabled = false;
+                confirmBtn.innerHTML = originalBtnText;
             }
         };
 
         // Event listeners
-        const confirmBtn = document.getElementById('confirmDelete');
-        const cancelBtn = document.getElementById('cancelDelete');
-        const closeBtn = dialog.querySelector('.modal-close-button');
-        
         if (confirmBtn) confirmBtn.onclick = handleDelete;
         if (cancelBtn) cancelBtn.onclick = () => dialog.style.display = 'none';
         if (closeBtn) closeBtn.onclick = () => dialog.style.display = 'none';
@@ -989,13 +1205,24 @@ const floorManager = {
     },
 
     handleDragStart(e) {
-        e.preventDefault();
+        // Don't prevent default for touch events to allow scrolling
+        if (!e.touches) {
+            e.preventDefault();
+        }
+        
         const deviceEl = e.target.closest('.floor-plan-device');
         if (!deviceEl) return;
 
+        // Store initial touch position to determine if this is a drag or scroll
+        this.initialTouchPos = e.touches ? { 
+            x: e.touches[0].clientX, 
+            y: e.touches[0].clientY 
+        } : null;
+        
+        this.dragStartTime = Date.now();
+        this.isDragging = false;
         this.draggedDevice = deviceEl;
-        deviceEl.classList.add('dragging');
-
+        
         // Get initial touch/mouse position
         const event = e.touches ? e.touches[0] : e;
         const wrapper = document.getElementById('imageWrapper');
@@ -1013,16 +1240,44 @@ const floorManager = {
             document.addEventListener('mousemove', this.handleDragMove.bind(this));
             document.addEventListener('mouseup', this.handleDragEnd.bind(this));
         } else {
-            document.addEventListener('touchmove', this.handleDragMove.bind(this), { passive: false });
+            document.addEventListener('touchmove', this.handleDragMove.bind(this), { passive: true });
             document.addEventListener('touchend', this.handleDragEnd.bind(this));
         }
     },
 
     handleDragMove(e) {
-        e.preventDefault();
         if (!this.draggedDevice) return;
-
+        
         const event = e.touches ? e.touches[0] : e;
+        
+        // For touch events, determine if this is a drag or scroll
+        if (this.initialTouchPos && !this.isDragging) {
+            const deltaX = Math.abs(event.clientX - this.initialTouchPos.x);
+            const deltaY = Math.abs(event.clientY - this.initialTouchPos.y);
+            const timeDelta = Date.now() - this.dragStartTime;
+            
+            // If movement is mostly vertical and quick, it's likely a scroll attempt
+            if (deltaY > deltaX * 1.5 && timeDelta < 300) {
+                this.handleDragEnd(e);
+                return;
+            }
+            
+            // If we've moved enough horizontally, consider it a drag
+            if (deltaX > 10) {
+                this.isDragging = true;
+                // Now we can safely prevent default to avoid page scrolling during drag
+                e.preventDefault();
+            }
+        } else if (!e.touches) {
+            // For mouse events, always prevent default
+            e.preventDefault();
+        }
+        
+        // If we're not dragging yet, don't move the element
+        if (this.initialTouchPos && !this.isDragging) {
+            return;
+        }
+
         const wrapper = document.getElementById('imageWrapper');
         const wrapperRect = wrapper.getBoundingClientRect();
 
@@ -1050,8 +1305,8 @@ const floorManager = {
         const deviceEl = this.draggedDevice;
         deviceEl.classList.remove('dragging');
 
-        // Update device position in data
-        if (this.currentDragPosition) {
+        // Update device position in data only if we were actually dragging
+        if (this.isDragging && this.currentDragPosition) {
             const floor = this.floors.find(f => f.id === this.currentFloorId);
             if (floor && floor.devices) {
                 const deviceId = deviceEl.id.replace('device-', '');
@@ -1070,6 +1325,8 @@ const floorManager = {
         this.draggedDevice = null;
         this.dragOffset = null;
         this.currentDragPosition = null;
+        this.initialTouchPos = null;
+        this.isDragging = false;
 
         // Remove event listeners
         document.removeEventListener('mousemove', this.handleDragMove);

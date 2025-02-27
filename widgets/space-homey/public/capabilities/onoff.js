@@ -20,7 +20,7 @@ const onOffRenderer = {
             transition: all 0.3s ease;
             opacity: 0;
             background: rgba(255, 255, 255, 0.35);
-            box-shadow: 0 0 12px 3px rgba(255, 255, 255, 0.45);
+            box-shadow: 0 0 8px 1px rgba(255, 255, 255, 0.45);
         `;
 
         // Add a clickable overlay that extends slightly beyond the visible icon
@@ -46,13 +46,13 @@ const onOffRenderer = {
             styles.id = 'deviceIconStyles';
             styles.textContent = `
                 .device-icon {
-                    max-width: 16px;
-                    max-height: 16px;
+                    max-width: 14.4px;
+                    max-height: 14.4px;
                     width: auto;
                     height: auto;
                 }
                 .icon-wrapper .material-symbols-outlined {
-                    font-size: 20px; /* 20% larger than default icon */
+                    font-size: 18px; /* 10% smaller than before */
                 }
             `;
             document.head.appendChild(styles);
@@ -319,11 +319,11 @@ const onOffRenderer = {
                 if (allColorRule.config.showCloud) {
                     const color = allColorRule.config.cloudColor || allColorRule.config.mainColor;
                     deviceEl.style.backgroundColor = `${color}80`;
-                    deviceEl.style.boxShadow = `0 0 12px 6px ${color}90`;
+                    deviceEl.style.boxShadow = `0 0 8px 4px ${color}90`;
 
                     if (iconWrapper) {
                         iconWrapper.style.backgroundColor = `${color}F0`;
-                        iconWrapper.style.boxShadow = `0 0 8px ${color}E0`;
+                        iconWrapper.style.boxShadow = `0 0 5px ${color}E0`;
                     }
                 }
 
@@ -354,11 +354,11 @@ const onOffRenderer = {
 
                 if (showCloud && currentColor) {
                     deviceEl.style.backgroundColor = `${currentColor}80`;
-                    deviceEl.style.boxShadow = `0 0 12px 6px ${currentColor}90`;
+                    deviceEl.style.boxShadow = `0 0 8px 4px ${currentColor}90`;
 
                     if (iconWrapper) {
                         iconWrapper.style.backgroundColor = `${currentColor}F0`;
-                        iconWrapper.style.boxShadow = `0 0 8px ${currentColor}E0`;
+                        iconWrapper.style.boxShadow = `0 0 5px ${currentColor}E0`;
                     }
                 }
 
@@ -427,7 +427,7 @@ const onOffRenderer = {
                     iconWrapper.style.display = 'flex';
                     
                     // Apply consistent sizing
-                    iconSpan.style.fontSize = '20px'; // 20% larger than default icon
+                    iconSpan.style.fontSize = '18px'; // 10% smaller than before
                 }
             }
 
@@ -483,12 +483,12 @@ const onOffRenderer = {
                     const color = allColorRule.config.cloudColor || allColorRule.config.mainColor;
                     // Device background cloud
                     deviceEl.style.backgroundColor = `${color}80`;
-                    deviceEl.style.boxShadow = `0 0 12px 6px ${color}90`;
+                    deviceEl.style.boxShadow = `0 0 8px 4px ${color}90`;
 
                     // Icon wrapper cloud
                     if (iconWrapper) {
                         iconWrapper.style.backgroundColor = `${color}F0`;
-                        iconWrapper.style.boxShadow = `0 0 8px ${color}E0`;
+                        iconWrapper.style.boxShadow = `0 0 5px ${color}E0`;
                     }
                 }
 
@@ -525,11 +525,11 @@ const onOffRenderer = {
 
                 if (showCloud) {
                     deviceEl.style.backgroundColor = `${currentColor}80`;
-                    deviceEl.style.boxShadow = `0 0 12px 6px ${currentColor}90`;
+                    deviceEl.style.boxShadow = `0 0 8px 4px ${currentColor}90`;
 
                     if (iconWrapper) {
                         iconWrapper.style.backgroundColor = `${currentColor}F0`;
-                        iconWrapper.style.boxShadow = `0 0 8px ${currentColor}E0`;
+                        iconWrapper.style.boxShadow = `0 0 5px ${currentColor}E0`;
                     }
                 }
 

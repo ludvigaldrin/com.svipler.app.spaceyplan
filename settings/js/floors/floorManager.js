@@ -5,6 +5,7 @@ const floorManager = {
     ruleManager: null,
 
     async initialize(Homey) {
+        console.log('[INIT] Initializing floor manager');
         this.Homey = Homey;
         this.floors = [];
         this.currentFloorId = null;
@@ -12,16 +13,21 @@ const floorManager = {
         // Bind event handlers once to preserve references
         this.boundHandleDragMove = this.handleDragMove.bind(this);
         this.boundHandleDragEnd = this.handleDragEnd.bind(this);
+        console.log('[INIT] Bound drag event handlers');
         
         // Attach add floor button handler
         const addFloorButton = document.getElementById('addFloor');
         if (addFloorButton) {
             addFloorButton.onclick = () => this.showAddFloorDialog();
+            console.log('[INIT] Attached add floor button handler');
         }
         
-        this.loadFloors();
+        await this.loadFloors();
+        console.log('[INIT] Loaded floors:', this.floors.length);
+        
         this.ruleManager = ruleManager;
         this.ruleManager.init(this, Homey);
+        console.log('[INIT] Initialized rule manager');
     },
 
     async loadFloors() {
@@ -167,9 +173,14 @@ const floorManager = {
     },
 
     editFloor(floorId) {
+        console.log('[EDIT FLOOR] Setting current floor ID:', floorId);
         this.currentFloorId = floorId;
         const floor = this.floors.find(f => f.id === floorId);
-        if (!floor) return;
+        if (!floor) {
+            console.error('[EDIT FLOOR] Floor not found:', floorId);
+            return;
+        }
+        console.log('[EDIT FLOOR] Found floor:', floor.name);
 
         // Hide list view and show edit view
         document.getElementById('floorsListView').style.display = 'none';
@@ -304,7 +315,10 @@ const floorManager = {
                     id: floor.id || Date.now().toString(),
                     name: floor.name || 'Unnamed Floor',
                     imageData: floor.imageData || '',
-                    devices: Array.isArray(floor.devices) ? floor.devices : []
+                    devices: Array.isArray(floor.devices) ? floor.devices : [],
+                    // Include the image aspect ratio if available
+                    imageAspectRatio: floor.imageAspectRatio || null,
+                    image: floor.image || null
                 };
             });
             
@@ -475,7 +489,9 @@ const floorManager = {
                             id: Date.now().toString(),
                             name: nameInput.value.trim(),
                             imageData: processedImageData,
-                            devices: []
+                            devices: [],
+                            // Store the original aspect ratio
+                            imageAspectRatio: img.naturalWidth / img.naturalHeight
                         };
 
                         // Add to floors array and save
@@ -724,9 +740,20 @@ const floorManager = {
     },
 
     renderFloorPlanDevices(floor) {
+        console.log('[RENDER DEVICES] Rendering devices for floor:', floor.id, floor.name);
+        
         const container = document.getElementById('floorPlanDevices');
         const image = document.getElementById('floorMapImage');
         const wrapper = document.getElementById('imageWrapper');
+
+        if (!container || !image || !wrapper) {
+            console.error('[RENDER DEVICES] Missing required elements:', {
+                container: !!container,
+                image: !!image,
+                wrapper: !!wrapper
+            });
+            return;
+        }
 
         container.innerHTML = '';
 
@@ -748,29 +775,76 @@ const floorManager = {
             display: flex;
             justify-content: center;
             align-items: center;
+            overflow: hidden;
         `;
 
         // Wait for image to load
         if (!image.complete) {
+            console.log('[RENDER DEVICES] Image not loaded yet, waiting for onload event');
             image.onload = () => this.renderFloorPlanDevices(floor);
             return;
         }
 
         const wrapperRect = wrapper.getBoundingClientRect();
+        console.log('[RENDER DEVICES] Wrapper dimensions:', {
+            width: wrapperRect.width,
+            height: wrapperRect.height
+        });
+        
+        // Store the image aspect ratio for future use
+        const imageAspectRatio = image.naturalWidth / image.naturalHeight;
+        floor.imageAspectRatio = imageAspectRatio;
+        console.log('[RENDER DEVICES] Image aspect ratio:', imageAspectRatio);
+        
+        // Get the actual displayed dimensions of the image
+        const imageRect = image.getBoundingClientRect();
+        console.log('[RENDER DEVICES] Image dimensions:', {
+            width: imageRect.width,
+            height: imageRect.height
+        });
 
+        console.log('[RENDER DEVICES] Rendering', floor.devices.length, 'devices');
+        
         floor.devices.forEach(device => {
+            console.log('[RENDER DEVICES] Rendering device:', device.id, device.name, 'at position:', device.position);
+            
             const deviceEl = document.createElement('div');
             deviceEl.className = 'floor-plan-device';
             deviceEl.id = `device-${device.id}`;
             deviceEl.setAttribute('data-name', device.name);
 
-            // Position relative to wrapper
-            const displayX = (device.position.x / 100) * wrapperRect.width;
-            const displayY = (device.position.y / 100) * wrapperRect.height;
+            // Calculate the actual position based on the percentage and the displayed image dimensions
+            let displayX, displayY;
             
-            deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
+            // If the image is constrained by height (taller than wide relative to container)
+            if (imageRect.width < wrapperRect.width) {
+                // Image is centered horizontally, so adjust X coordinate
+                const horizontalOffset = (wrapperRect.width - imageRect.width) / 2;
+                displayX = horizontalOffset + (device.position.x / 100) * imageRect.width;
+                displayY = (device.position.y / 100) * imageRect.height;
+                console.log('[RENDER DEVICES] Image constrained by height, horizontal offset:', horizontalOffset);
+            } 
+            // If the image is constrained by width (wider than tall relative to container)
+            else if (imageRect.height < wrapperRect.height) {
+                // Image is centered vertically, so adjust Y coordinate
+                const verticalOffset = (wrapperRect.height - imageRect.height) / 2;
+                displayX = (device.position.x / 100) * imageRect.width;
+                displayY = verticalOffset + (device.position.y / 100) * imageRect.height;
+                console.log('[RENDER DEVICES] Image constrained by width, vertical offset:', verticalOffset);
+            }
+            // If the image fills the container (rare case)
+            else {
+                displayX = (device.position.x / 100) * imageRect.width;
+                displayY = (device.position.y / 100) * imageRect.height;
+                console.log('[RENDER DEVICES] Image fills container');
+            }
+            
+            console.log('[RENDER DEVICES] Final display position:', { displayX, displayY });
+            
+            // Use transform instead of left/top for more precise positioning
             deviceEl.style.left = '0';
             deviceEl.style.top = '0';
+            deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
 
             // Use base64 data if available, otherwise fall back to URL
             let iconSrc = 'default-icon.png';
@@ -784,7 +858,7 @@ const floorManager = {
                 <img src="${iconSrc}" alt="${device.name}">
             `;
 
-            // Add event listeners
+            // Add drag handlers
             deviceEl.addEventListener('touchstart', this.handleDragStart.bind(this), { passive: false });
             deviceEl.addEventListener('mousedown', this.handleDragStart.bind(this));
 
@@ -965,7 +1039,9 @@ const floorManager = {
                             id: Date.now().toString(),
                             name: nameInput.value.trim(),
                             imageData: processedImageData,
-                            devices: []
+                            devices: [],
+                            // Store the original aspect ratio
+                            imageAspectRatio: img.naturalWidth / img.naturalHeight
                         };
 
                         this.floors.push(newFloor);
@@ -1240,31 +1316,42 @@ const floorManager = {
         
         const deviceEl = e.target.closest('.floor-plan-device');
         if (!deviceEl) return;
+        
+        // Get the current floor based on currentFloorId
+        const currentFloor = this.floors.find(f => f.id === this.currentFloorId);
+        
+        // Get the floor map image and store its dimensions
+        const floorMapImage = document.getElementById('floorMapImage');
+        if (floorMapImage && currentFloor) {
+            // Store the image aspect ratio if not already stored
+            if (!currentFloor.imageAspectRatio) {
+                currentFloor.imageAspectRatio = floorMapImage.naturalWidth / floorMapImage.naturalHeight;
+            }
+        }
 
-        // Store initial touch position to determine if this is a drag or scroll
-        this.initialTouchPos = e.touches ? { 
-            x: e.touches[0].clientX, 
-            y: e.touches[0].clientY 
-        } : null;
+        this.draggedDevice = deviceEl;
+        deviceEl.classList.add('dragging');
+        
+        const event = e.touches ? e.touches[0] : e;
+        const rect = deviceEl.getBoundingClientRect();
+        
+        // Calculate offset from the top-left corner of the element
+        this.dragOffset = {
+            x: event.clientX - rect.left,
+            y: event.clientY - rect.top
+        };
+        
+        // For touch events, store initial position to determine if it's a drag or scroll
+        this.initialTouchPos = {
+            x: event.clientX,
+            y: event.clientY
+        };
         
         this.dragStartTime = Date.now();
         this.isDragging = false;
-        this.draggedDevice = deviceEl;
         
-        // Get initial touch/mouse position
-        const event = e.touches ? e.touches[0] : e;
-        const wrapper = document.getElementById('imageWrapper');
-        const wrapperRect = wrapper.getBoundingClientRect();
-        const deviceRect = deviceEl.getBoundingClientRect();
-
-        // Calculate offset from device center to click/touch point
-        this.dragOffset = {
-            x: event.clientX - (deviceRect.left + deviceRect.width / 2),
-            y: event.clientY - (deviceRect.top + deviceRect.height / 2)
-        };
-
-        // Add move and end event listeners using the bound handlers
-        if (e.type === 'mousedown') {
+        // Add document-level event listeners
+        if (!e.touches) {
             document.addEventListener('mousemove', this.boundHandleDragMove);
             document.addEventListener('mouseup', this.boundHandleDragEnd);
         } else {
@@ -1308,18 +1395,79 @@ const floorManager = {
 
         const wrapper = document.getElementById('imageWrapper');
         const wrapperRect = wrapper.getBoundingClientRect();
+        
+        // Get the floor map image
+        const floorMapImage = document.getElementById('floorMapImage');
+        
+        // Get the current floor data which includes the aspect ratio
+        const currentFloor = this.floors.find(f => f.id === this.currentFloorId);
+        const imageAspectRatio = currentFloor?.imageAspectRatio || (floorMapImage.naturalWidth / floorMapImage.naturalHeight);
+        
+        // Get the actual displayed dimensions of the image
+        const imageRect = floorMapImage.getBoundingClientRect();
 
         // Calculate new position relative to wrapper
         let x = event.clientX - wrapperRect.left - this.dragOffset.x;
         let y = event.clientY - wrapperRect.top - this.dragOffset.y;
+        
+        // Calculate position relative to the actual image, not the wrapper
+        let posX, posY;
+        
+        // If the image is constrained by height (taller than wide relative to container)
+        if (imageRect.width < wrapperRect.width) {
+            // Adjust for horizontal centering
+            const horizontalOffset = (wrapperRect.width - imageRect.width) / 2;
+            x = x - horizontalOffset;
+            // Ensure x is within the image bounds
+            x = Math.max(0, Math.min(x, imageRect.width));
+            // Calculate percentage based on image dimensions
+            posX = (x / imageRect.width) * 100;
+            posY = (y / imageRect.height) * 100;
+        } 
+        // If the image is constrained by width (wider than tall relative to container)
+        else if (imageRect.height < wrapperRect.height) {
+            // Adjust for vertical centering
+            const verticalOffset = (wrapperRect.height - imageRect.height) / 2;
+            y = y - verticalOffset;
+            // Ensure y is within the image bounds
+            y = Math.max(0, Math.min(y, imageRect.height));
+            // Calculate percentage based on image dimensions
+            posX = (x / imageRect.width) * 100;
+            posY = (y / imageRect.height) * 100;
+        }
+        // If the image fills the container (rare case)
+        else {
+            // Calculate percentage based on image dimensions
+            posX = (x / imageRect.width) * 100;
+            posY = (y / imageRect.height) * 100;
+        }
+        
+        // Ensure percentages are within bounds
+        posX = Math.max(0, Math.min(posX, 100));
+        posY = Math.max(0, Math.min(posY, 100));
 
-        // Convert to percentages
-        const posX = (x / wrapperRect.width) * 100;
-        const posY = (y / wrapperRect.height) * 100;
-
-        // Update device position
-        const displayX = (posX / 100) * wrapperRect.width;
-        const displayY = (posY / 100) * wrapperRect.height;
+        // Calculate display position for visual feedback
+        let displayX, displayY;
+        
+        // If the image is constrained by height (taller than wide relative to container)
+        if (imageRect.width < wrapperRect.width) {
+            // Image is centered horizontally, so adjust X coordinate
+            const horizontalOffset = (wrapperRect.width - imageRect.width) / 2;
+            displayX = horizontalOffset + (posX / 100) * imageRect.width;
+            displayY = (posY / 100) * imageRect.height;
+        } 
+        // If the image is constrained by width (wider than tall relative to container)
+        else if (imageRect.height < wrapperRect.height) {
+            // Image is centered vertically, so adjust Y coordinate
+            const verticalOffset = (wrapperRect.height - imageRect.height) / 2;
+            displayX = (posX / 100) * imageRect.width;
+            displayY = verticalOffset + (posY / 100) * imageRect.height;
+        }
+        // If the image fills the container (rare case)
+        else {
+            displayX = (posX / 100) * imageRect.width;
+            displayY = (posY / 100) * imageRect.height;
+        }
         
         this.draggedDevice.style.transform = `translate(${displayX}px, ${displayY}px)`;
 
@@ -1328,33 +1476,55 @@ const floorManager = {
     },
 
     handleDragEnd(e) {
-
-        if (!this.draggedDevice) return;
+        console.log('[DRAG END] Drag end called');
+        
+        if (!this.draggedDevice) {
+            console.log('[DRAG END] No dragged device found');
+            return;
+        }
 
         const deviceEl = this.draggedDevice;
         deviceEl.classList.remove('dragging');
-
+        
+        console.log('[DRAG END] Device element:', deviceEl.id);
 
         // Always update device position if we have a valid position
         if (this.currentDragPosition) {
-
+            console.log('[DRAG END] Current position:', this.currentDragPosition);
+            
             const floor = this.floors.find(f => f.id === this.currentFloorId);
             if (floor && floor.devices) {
+                console.log('[DRAG END] Found floor:', floor.id);
+                
+                // Ensure the floor has the image aspect ratio stored
+                if (!floor.imageAspectRatio) {
+                    const floorMapImage = document.getElementById('floorMapImage');
+                    if (floorMapImage) {
+                        floor.imageAspectRatio = floorMapImage.naturalWidth / floorMapImage.naturalHeight;
+                        console.log('[DRAG END] Updated floor aspect ratio:', floor.imageAspectRatio);
+                    }
+                }
 
                 const deviceId = deviceEl.id.replace('device-', '');
                 const device = floor.devices.find(d => d.id === deviceId);
                 if (device) {
-                   
+                    console.log('[DRAG END] Found device:', deviceId);
+                    
                     device.position = {
                         x: Math.max(0, Math.min(100, this.currentDragPosition.x)),
                         y: Math.max(0, Math.min(100, this.currentDragPosition.y))
                     };
                     
+                    console.log('[DRAG END] Updated position:', device.position);
+                    
                     // Save the updated floor data
-                    this.saveFloors().catch(err => {
-                        console.error('Failed to save device position:', err);
-                        this.Homey.alert('Failed to save device position: ' + err.message);
-                    });
+                    console.log('[DRAG END] Saving floors...');
+                    this.saveFloors()
+                        .then(() => console.log('[DRAG END] Floors saved successfully'))
+                        .catch(err => {
+                            console.error('[DRAG END] Failed to save device position:', err);
+                            this.Homey.alert('Failed to save device position: ' + err.message);
+                        });
                 }
             }
         } 
@@ -1365,12 +1535,14 @@ const floorManager = {
         this.currentDragPosition = null;
         this.initialTouchPos = null;
         this.isDragging = false;
+        console.log('[DRAG END] Drag state reset');
 
         // Remove event listeners using the bound handlers
         document.removeEventListener('mousemove', this.boundHandleDragMove);
         document.removeEventListener('mouseup', this.boundHandleDragEnd);
         document.removeEventListener('touchmove', this.boundHandleDragMove);
         document.removeEventListener('touchend', this.boundHandleDragEnd);
+        console.log('[DRAG END] Event listeners removed');
     }
 };
 

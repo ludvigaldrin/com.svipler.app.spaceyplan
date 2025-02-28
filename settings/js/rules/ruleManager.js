@@ -887,9 +887,6 @@ const ruleManager = {
             return results;
         } catch (error) {
             console.error('Search failed:', error);
-            Homey.api('POST', '/log', { 
-                message: `[Error] Search failed: ${error.message}` 
-            });
             return [];
         }
     },

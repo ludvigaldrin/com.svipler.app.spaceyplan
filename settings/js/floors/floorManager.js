@@ -5,7 +5,6 @@ const floorManager = {
     ruleManager: null,
 
     async initialize(Homey) {
-        console.log('[INIT] Initializing floor manager');
         this.Homey = Homey;
         this.floors = [];
         this.currentFloorId = null;
@@ -13,21 +12,17 @@ const floorManager = {
         // Bind event handlers once to preserve references
         this.boundHandleDragMove = this.handleDragMove.bind(this);
         this.boundHandleDragEnd = this.handleDragEnd.bind(this);
-        console.log('[INIT] Bound drag event handlers');
         
         // Attach add floor button handler
         const addFloorButton = document.getElementById('addFloor');
         if (addFloorButton) {
             addFloorButton.onclick = () => this.showAddFloorDialog();
-            console.log('[INIT] Attached add floor button handler');
         }
         
         await this.loadFloors();
-        console.log('[INIT] Loaded floors:', this.floors.length);
         
         this.ruleManager = ruleManager;
         this.ruleManager.init(this, Homey);
-        console.log('[INIT] Initialized rule manager');
     },
 
     async loadFloors() {
@@ -173,14 +168,12 @@ const floorManager = {
     },
 
     editFloor(floorId) {
-        console.log('[EDIT FLOOR] Setting current floor ID:', floorId);
         this.currentFloorId = floorId;
         const floor = this.floors.find(f => f.id === floorId);
         if (!floor) {
             console.error('[EDIT FLOOR] Floor not found:', floorId);
             return;
         }
-        console.log('[EDIT FLOOR] Found floor:', floor.name);
 
         // Hide list view and show edit view
         document.getElementById('floorsListView').style.display = 'none';
@@ -311,7 +304,7 @@ const floorManager = {
             // Ensure each floor has required properties
             const validFloors = floorsToSave.map(floor => {
                 // Create a clean floor object with all required properties
-                return {
+                const newFloor = {
                     id: floor.id || Date.now().toString(),
                     name: floor.name || 'Unnamed Floor',
                     imageData: floor.imageData || '',
@@ -319,7 +312,8 @@ const floorManager = {
                     // Include the image aspect ratio if available
                     imageAspectRatio: floor.imageAspectRatio || null,
                     image: floor.image || null
-                };
+                }
+                return newFloor;
             });
             
             // Update the floors array with validated data
@@ -740,7 +734,6 @@ const floorManager = {
     },
 
     renderFloorPlanDevices(floor) {
-        console.log('[RENDER DEVICES] Rendering devices for floor:', floor.id, floor.name);
         
         const container = document.getElementById('floorPlanDevices');
         const image = document.getElementById('floorMapImage');
@@ -780,33 +773,21 @@ const floorManager = {
 
         // Wait for image to load
         if (!image.complete) {
-            console.log('[RENDER DEVICES] Image not loaded yet, waiting for onload event');
             image.onload = () => this.renderFloorPlanDevices(floor);
             return;
         }
 
         const wrapperRect = wrapper.getBoundingClientRect();
-        console.log('[RENDER DEVICES] Wrapper dimensions:', {
-            width: wrapperRect.width,
-            height: wrapperRect.height
-        });
         
         // Store the image aspect ratio for future use
         const imageAspectRatio = image.naturalWidth / image.naturalHeight;
         floor.imageAspectRatio = imageAspectRatio;
-        console.log('[RENDER DEVICES] Image aspect ratio:', imageAspectRatio);
         
         // Get the actual displayed dimensions of the image
         const imageRect = image.getBoundingClientRect();
-        console.log('[RENDER DEVICES] Image dimensions:', {
-            width: imageRect.width,
-            height: imageRect.height
-        });
 
-        console.log('[RENDER DEVICES] Rendering', floor.devices.length, 'devices');
         
         floor.devices.forEach(device => {
-            console.log('[RENDER DEVICES] Rendering device:', device.id, device.name, 'at position:', device.position);
             
             const deviceEl = document.createElement('div');
             deviceEl.className = 'floor-plan-device';
@@ -822,7 +803,6 @@ const floorManager = {
                 const horizontalOffset = (wrapperRect.width - imageRect.width) / 2;
                 displayX = horizontalOffset + (device.position.x / 100) * imageRect.width;
                 displayY = (device.position.y / 100) * imageRect.height;
-                console.log('[RENDER DEVICES] Image constrained by height, horizontal offset:', horizontalOffset);
             } 
             // If the image is constrained by width (wider than tall relative to container)
             else if (imageRect.height < wrapperRect.height) {
@@ -830,17 +810,13 @@ const floorManager = {
                 const verticalOffset = (wrapperRect.height - imageRect.height) / 2;
                 displayX = (device.position.x / 100) * imageRect.width;
                 displayY = verticalOffset + (device.position.y / 100) * imageRect.height;
-                console.log('[RENDER DEVICES] Image constrained by width, vertical offset:', verticalOffset);
             }
             // If the image fills the container (rare case)
             else {
                 displayX = (device.position.x / 100) * imageRect.width;
                 displayY = (device.position.y / 100) * imageRect.height;
-                console.log('[RENDER DEVICES] Image fills container');
             }
-            
-            console.log('[RENDER DEVICES] Final display position:', { displayX, displayY });
-            
+
             // Use transform instead of left/top for more precise positioning
             deviceEl.style.left = '0';
             deviceEl.style.top = '0';
@@ -1476,51 +1452,38 @@ const floorManager = {
     },
 
     handleDragEnd(e) {
-        console.log('[DRAG END] Drag end called');
         
         if (!this.draggedDevice) {
-            console.log('[DRAG END] No dragged device found');
             return;
         }
 
         const deviceEl = this.draggedDevice;
         deviceEl.classList.remove('dragging');
-        
-        console.log('[DRAG END] Device element:', deviceEl.id);
 
         // Always update device position if we have a valid position
         if (this.currentDragPosition) {
-            console.log('[DRAG END] Current position:', this.currentDragPosition);
             
             const floor = this.floors.find(f => f.id === this.currentFloorId);
             if (floor && floor.devices) {
-                console.log('[DRAG END] Found floor:', floor.id);
                 
                 // Ensure the floor has the image aspect ratio stored
                 if (!floor.imageAspectRatio) {
                     const floorMapImage = document.getElementById('floorMapImage');
-                    if (floorMapImage) {
+                    if (floorMapImage && floorMapImage.complete && floorMapImage.naturalWidth > 0) {
                         floor.imageAspectRatio = floorMapImage.naturalWidth / floorMapImage.naturalHeight;
-                        console.log('[DRAG END] Updated floor aspect ratio:', floor.imageAspectRatio);
                     }
                 }
 
                 const deviceId = deviceEl.id.replace('device-', '');
                 const device = floor.devices.find(d => d.id === deviceId);
                 if (device) {
-                    console.log('[DRAG END] Found device:', deviceId);
-                    
+
                     device.position = {
                         x: Math.max(0, Math.min(100, this.currentDragPosition.x)),
                         y: Math.max(0, Math.min(100, this.currentDragPosition.y))
                     };
-                    
-                    console.log('[DRAG END] Updated position:', device.position);
-                    
-                    // Save the updated floor data
-                    console.log('[DRAG END] Saving floors...');
+
                     this.saveFloors()
-                        .then(() => console.log('[DRAG END] Floors saved successfully'))
                         .catch(err => {
                             console.error('[DRAG END] Failed to save device position:', err);
                             this.Homey.alert('Failed to save device position: ' + err.message);
@@ -1535,14 +1498,12 @@ const floorManager = {
         this.currentDragPosition = null;
         this.initialTouchPos = null;
         this.isDragging = false;
-        console.log('[DRAG END] Drag state reset');
 
         // Remove event listeners using the bound handlers
         document.removeEventListener('mousemove', this.boundHandleDragMove);
         document.removeEventListener('mouseup', this.boundHandleDragEnd);
         document.removeEventListener('touchmove', this.boundHandleDragMove);
         document.removeEventListener('touchend', this.boundHandleDragEnd);
-        console.log('[DRAG END] Event listeners removed');
     }
 };
 

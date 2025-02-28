@@ -95,9 +95,42 @@ const onOffRenderer = {
                     if (!floorMapImage.complete || floorMapImage.naturalWidth === 0) return;
 
                     const wrapperRect = wrapper.getBoundingClientRect();
-                    const displayX = (position.x / 100) * wrapperRect.width;
-                    const displayY = (position.y / 100) * wrapperRect.height;
-
+                    const currentImageAspectRatio = floorMapImage.naturalWidth / floorMapImage.naturalHeight;
+                    const storedAspectRatio = device.floorAspectRatio || parseFloat(deviceEl.getAttribute('data-floor-aspect-ratio'));
+                    
+                    let displayX, displayY;
+                    
+                    if (storedAspectRatio) {
+                        // Calculate the actual displayed image dimensions
+                        let imageWidth, imageHeight;
+                        
+                        // If the image is constrained by height (taller than wide relative to container)
+                        if (wrapperRect.width / wrapperRect.height > currentImageAspectRatio) {
+                            imageHeight = wrapperRect.height;
+                            imageWidth = imageHeight * currentImageAspectRatio;
+                        } else {
+                            // Image is constrained by width
+                            imageWidth = wrapperRect.width;
+                            imageHeight = imageWidth / currentImageAspectRatio;
+                        }
+                        
+                        // Calculate the position based on the original aspect ratio
+                        displayX = (position.x / 100) * imageWidth;
+                        displayY = (position.y / 100) * imageHeight;
+                        
+                        // If the image doesn't fill the wrapper, add offsets to center it
+                        if (imageWidth < wrapperRect.width) {
+                            displayX += (wrapperRect.width - imageWidth) / 2;
+                        }
+                        if (imageHeight < wrapperRect.height) {
+                            displayY += (wrapperRect.height - imageHeight) / 2;
+                        }
+                    } else {
+                        // Fallback to the original calculation if no aspect ratio is stored
+                        displayX = (position.x / 100) * wrapperRect.width;
+                        displayY = (position.y / 100) * wrapperRect.height;
+                    }
+                    
                     deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
                     deviceEl.style.opacity = '1';
                     resolve();
@@ -122,7 +155,6 @@ const onOffRenderer = {
 
         // Execute positioning
         positionDevice().catch(error => {
-            console.error('Error positioning device:', error);
             Homey.api('POST', '/log', { message: `Error positioning device: ${error.message}` });
         });
 
@@ -140,8 +172,6 @@ const onOffRenderer = {
                 const onoff = response;
                 deviceEl.setAttribute('data-state', onoff);
                 deviceEl.classList.toggle('on', onoff);
-
-
 
                 const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
                 deviceData.state = onoff;
@@ -167,7 +197,6 @@ const onOffRenderer = {
             await Homey.api('POST', `/subscribeToDevices`, {
                 widgetId: widgetId,
                 devices: [{ deviceId: deviceId, capability: 'onoff' },
-
                 ]
             });
 
@@ -177,6 +206,12 @@ const onOffRenderer = {
     },
 
     initializeInteractions(deviceEl) {
+        // Check if deviceEl is a valid DOM element
+        if (!deviceEl || !deviceEl.addEventListener) {
+            Homey.api('POST', '/log', { message: 'Invalid device element provided to initializeInteractions' });
+            return;
+        }
+
         let touchStartTime;
         let longPressTimer;
         let touchMoved = false;
@@ -387,10 +422,6 @@ const onOffRenderer = {
                 if (powerButton) {
                     powerButton.classList.toggle('on', value);
                 }
-
-
-
-
             }
         } catch (error) {
             Homey.api('POST', '/log', { message: `Error in handleDeviceUpdate: ${error.message}` });
@@ -449,7 +480,6 @@ const onOffRenderer = {
                     const imageWrapper = document.getElementById('imageWrapper');
                     if (imageWrapper) {
                         const imageEl = document.createElement('img');
-
 
                         imageEl.style.cssText = `
                             display: none;
@@ -560,7 +590,6 @@ const onOffRenderer = {
         const name = deviceEl.getAttribute('data-name');
         const deviceId = deviceEl.getAttribute('data-device-id');
         const currentState = deviceEl.getAttribute('data-state') === 'true';
-
 
         const overlay = document.createElement('div');
         overlay.className = 'device-modal-overlay';
@@ -713,7 +742,7 @@ const onOffRenderer = {
                 await this.handleClick(deviceEl);
             } catch (error) {
                 powerButton.classList.toggle('on');
-                console.error('Error toggling state:', error);
+                Homey.api('POST', '/log', { message: `Error toggling state: ${error.message}` });
             }
         });
 
@@ -724,28 +753,12 @@ const onOffRenderer = {
         });
     },
 
-
-
-
-
-
-
-
-
     handleExternalUpdate(deviceEl, value, capability) {
         try {
-
-
-
-
-
             deviceEl.setAttribute('data-state', value);
             deviceEl.classList.toggle('on', value);
 
-
-
             const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
-
 
             deviceData.state = value;  // Update the stored state
             deviceEl.setAttribute('data-device', JSON.stringify(deviceData));
@@ -784,7 +797,6 @@ const onOffRenderer = {
         window.Homey.removeAllListeners('realtime/device');
 
         window.Homey.on('realtime/device', (data) => {
-
             if (data && data.capability === 'onoff') {
                 const deviceElements = document.querySelectorAll(`[data-device-id="${data.id}"]`);
                 deviceElements.forEach(deviceEl => {
@@ -825,7 +837,6 @@ const onOffRenderer = {
         return currentTransform.replace(/\s*scale\([^)]+\)/, '');
     }
 }
-
 
 window.capabilityRenderers = window.capabilityRenderers || {};
 window.capabilityRenderers.onoff = onOffRenderer;

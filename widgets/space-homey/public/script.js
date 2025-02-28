@@ -17,21 +17,19 @@ async function onHomeyReady(_Homey) {
         await init();
     } catch (error) {
         await Homey.api('POST', '/log', { message: `Init error: ${error.message}` });
-        showErrorMessage();
+        showErrorMessage(error.message);
     }
 }
 
 async function init() {
-
     // First Show Loading State
     showLoadingState();
 
-    // Now load the widgtet
+    // Now load the widget
     widgetId = await Homey.getWidgetInstanceId();
-    await Homey.api('POST', '/log', { message: 'Init with widget ID: ' + widgetId });
 
     if (!widgetId) { // No widget ID available
-        showErrorMessage();
+        showErrorMessage("No widget ID available");
         return;
     }
 
@@ -48,11 +46,19 @@ async function init() {
     const selectedFloor = selectedFloors[widgetId];
 
     if (selectedFloor && selectedFloor.floorId) {
+        // Find the floor data
         const floor = floors.find(f => f.id === selectedFloor.floorId);
-        await showSelectedFloor(floor);
+        if (floor) {
+            await showSelectedFloor(floor);
+        } else {
+            showFloorSelector(floors);
+        }
     } else {
-        await showFloorSelector(floors);
+        showFloorSelector(floors);
     }
+
+    // Set up resize handler
+    setupResizeHandler();
 }
 /** VIEWS */
 
@@ -122,10 +128,16 @@ async function showFloorSelector(floors) {
 }
 
 async function showSelectedFloor(floor) {
-    
     // Initialize RendererManager with widgetId
     rendererManager = new CapabilityRendererManager();
     rendererManager.setWidgetId(widgetId);
+
+    // Store the floor's aspect ratio for device positioning
+    if (floor.imageAspectRatio) {
+        rendererManager.setFloorAspectRatio(floor.imageAspectRatio);
+    } else {
+        Homey.api('POST', '/log', { message: '[FLOOR] Warning: No aspect ratio stored for floor' });
+    }
 
     // Register renderers
     if (window.capabilityRenderers) {
@@ -147,20 +159,40 @@ async function showSelectedFloor(floor) {
         floorPlanContainer.style.cssText = `display: block;`;
     }
 
-    const floorMapImage = document.getElementById('floorMapImage');
-    if (floorMapImage && floor.image) {
+    // Create or update the image wrapper to maintain aspect ratio
+    let imageWrapper = document.getElementById('imageWrapper');
+    if (!imageWrapper) {
+        imageWrapper = document.createElement('div');
+        imageWrapper.id = 'imageWrapper';
+        imageWrapper.className = 'image-wrapper';
+        floorPlanContainer.appendChild(imageWrapper);
+    }
+
+    const floorMapImage = document.getElementById('floorMapImage') || document.createElement('img');
+    floorMapImage.id = 'floorMapImage';
+    floorMapImage.className = 'floor-map';
+
+    if (floor.image) {
         floorMapImage.src = floor.image;
     }
 
-    // Clear and render devices
-    const devicesContainer = document.getElementById('floorPlanDevices');
-    if (devicesContainer) {
+    if (!floorMapImage.parentNode) {
+        imageWrapper.appendChild(floorMapImage);
+    }
+
+    // Create or update the devices container
+    let devicesContainer = document.getElementById('floorPlanDevices');
+    if (!devicesContainer) {
+        devicesContainer = document.createElement('div');
+        devicesContainer.id = 'floorPlanDevices';
+        imageWrapper.appendChild(devicesContainer);
+    } else {
         devicesContainer.innerHTML = ''; // Clear existing devices
-        
-        // Render each device
-        for (const device of floor.devices) {
-            await rendererManager.renderDevice(device, devicesContainer);
-        }
+    }
+
+    // Render each device
+    for (const device of floor.devices) {
+        await rendererManager.renderDevice(device, devicesContainer);
     }
 
     // Add settings button after floor plan is shown
@@ -216,7 +248,8 @@ function showNoFloorsMessage() {
     }
 }
 
-function showErrorMessage() {
+function showErrorMessage(errorMessage) {
+    Homey.api('POST', '/log', { message: `Error: ${errorMessage}` });
     const container = document.getElementById('floorSelector');
     // Ensure blue background is shown
     if (container) {
@@ -243,30 +276,23 @@ function showErrorMessage() {
 
 /** HELPERS */
 function addSettingsButton() {
-    const container = document.querySelector('.widget-container');
-    if (!container) return;
+    // Remove any existing settings button first
+    const existingButton = document.querySelector('.settings-button');
+    if (existingButton) {
+        existingButton.remove();
+    }
 
-    const settingsButton = document.createElement('button');
-    settingsButton.className = 'settings-button';
-    settingsButton.innerHTML = `
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="3"></circle>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-        </svg>`;
-
-
-    // Add click handler
-    settingsButton.addEventListener('click', async () => {
-        showLoadingState();
-        try {
-            const floors = await Homey.api('GET', '/floors');
-            await showFloorSelector(floors);
-        } catch (error) {
-            Homey.api('POST', '/log', { message: 'Error showing floor selector: ' + error.message });
-        }
+    const button = document.createElement('button');
+    button.className = 'settings-button';
+    button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`;
+    button.addEventListener('click', () => {
+        Homey.openURL('/manager/settings/app/com.svipler.athom.spacehomey');
     });
 
-    container.appendChild(settingsButton);
+    const container = document.querySelector('.widget-container');
+    if (container) {
+        container.appendChild(button);
+    }
 }
 
 // Update device update handler with more logging
@@ -282,10 +308,88 @@ function handleDeviceUpdate(data) {
 
     deviceElements.forEach(deviceEl => {
         const elementCapability = deviceEl.getAttribute('data-capability');
-        
+
         const renderer = rendererManager.getRenderer(elementCapability);
         if (renderer && typeof renderer.handleDeviceUpdate === 'function') {
             renderer.handleDeviceUpdate(deviceEl, value, capability);
-        } 
+        }
+    });
+}
+
+function renderDevicesOnFloor(floor) {
+    if (!floor || !floor.devices || !floor.devices.length) {
+        Homey.api('POST', '/log', { message: 'No devices to render on floor' });
+        return;
+    }
+
+    // Clear existing devices
+    const existingDevices = document.querySelectorAll('.device-element');
+    existingDevices.forEach(device => device.remove());
+
+    // First pass: create all device elements
+    floor.devices.forEach(device => {
+        if (!device || !device.homeyId) {
+            Homey.api('POST', '/log', { message: 'Invalid device data: ' + JSON.stringify(device) });
+            return;
+        }
+
+        try {
+            const renderer = CapabilityRendererManager.getRendererForDevice(device);
+            if (renderer) {
+                renderer.createDeviceElement(device, floor.imageAspectRatio);
+            } else {
+                Homey.api('POST', '/log', { message: 'No renderer found for device: ' + device.name });
+            }
+        } catch (error) {
+            Homey.api('POST', '/log', { message: 'Error creating device element: ' + error.message });
+        }
+    });
+
+    // Second pass: initialize device states
+    floor.devices.forEach(device => {
+        if (!device || !device.homeyId) return;
+
+        try {
+            const renderer = CapabilityRendererManager.getRendererForDevice(device);
+            if (renderer) {
+                renderer.initializeState(device);
+            }
+        } catch (error) {
+            Homey.api('POST', '/log', { message: 'Error initializing device state: ' + error.message });
+        }
+    });
+}
+
+// Add a window resize handler to recalculate device positions
+function setupResizeHandler() {
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        // Debounce to avoid excessive recalculations
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            const deviceElements = document.querySelectorAll('.device-element');
+            const floorMapImage = document.querySelector('.floor-map');
+            const wrapper = document.querySelector('.image-wrapper');
+
+            if (!deviceElements.length || !floorMapImage || !wrapper) return;
+
+            deviceElements.forEach(deviceEl => {
+                try {
+                    const deviceId = deviceEl.getAttribute('data-device-id');
+                    if (!deviceId) return;
+
+                    const device = JSON.parse(deviceEl.getAttribute('data-device') || '{}');
+                    if (!device || !device.capability) return;
+
+                    const renderer = CapabilityRendererManager.getRendererForCapability(device.capability);
+                    if (!renderer) return;
+
+                    // Trigger repositioning
+                    renderer.positionDevice(deviceEl, device);
+                } catch (error) {
+                    Homey.api('POST', '/log', { message: 'Error repositioning device: ' + error.message });
+                }
+            });
+        }, 250); // Wait 250ms after resize ends
     });
 }

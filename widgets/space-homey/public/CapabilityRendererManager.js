@@ -2,10 +2,19 @@ class CapabilityRendererManager {
     constructor() {
         this.renderers = new Map();
         this.widgetId = null;
+        this.floorAspectRatio = null;
     }
 
     setWidgetId(widgetId) {
         this.widgetId = widgetId;
+    }
+
+    setFloorAspectRatio(aspectRatio) {
+        this.floorAspectRatio = aspectRatio;
+    }
+
+    getFloorAspectRatio() {
+        return this.floorAspectRatio;
     }
 
     registerRenderer(renderer) {
@@ -24,6 +33,11 @@ class CapabilityRendererManager {
             return;
         }
 
+        // Pass the floor aspect ratio to the renderer
+        if (this.floorAspectRatio) {
+            device.floorAspectRatio = this.floorAspectRatio;
+        }
+
         const deviceEl = renderer.createDeviceElement(device, device.position);
         
         // Set data attributes with the correct device ID format
@@ -32,36 +46,29 @@ class CapabilityRendererManager {
         deviceEl.setAttribute('data-capability', device.capability);
         deviceEl.setAttribute('data-name', device.name);
         deviceEl.setAttribute('data-sensor-type', device.sensorType);
+        
+        // Store the floor aspect ratio on the element for future reference
+        if (this.floorAspectRatio) {
+            deviceEl.setAttribute('data-floor-aspect-ratio', this.floorAspectRatio);
+        }
 
         // Initialize state with the correct device ID
         await renderer.initializeState(deviceEl, fullDeviceId, this.widgetId);
 
-        // Initialize interactions
-        if (typeof renderer.initializeInteractions === 'function') {
+        // Initialize interactions with the DOM element, not the device object
+        if (renderer && typeof renderer.initializeInteractions === 'function') {
             renderer.initializeInteractions(deviceEl);
-        } else {
-            Homey.api('POST', '/log', { message: `WARNING: No initializeInteractions method found for: ${device.capability}` });
         }
 
-        // Debug touch events
-        deviceEl.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            renderer.handleTouchStart.call(renderer, e, deviceEl, fullDeviceId, device.capability);
-        }, { passive: false });
-
-        deviceEl.addEventListener('touchmove', (e) => {
-            e.stopPropagation();
-            renderer.handleTouchMove.call(renderer, e, deviceEl);
-        });
-
-        deviceEl.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            renderer.handleTouchEnd.call(renderer, e, deviceEl, fullDeviceId, device.capability);
-        });
-
+        // Add the element to the container
         container.appendChild(deviceEl);
+        
+        return deviceEl;
+    }
+
+    initializeInteractions(device) {
+        // This method should not be used directly anymore
+        Homey.api('POST', '/log', { message: 'The standalone initializeInteractions method is deprecated' });
     }
 }
 

@@ -31,6 +31,7 @@ class SpaceHomeyApp extends Homey.App {
         id: floor.id,
         name: floor.name,
         image: floor.imageData,
+        imageAspectRatio: floor.imageAspectRatio,
         devices: floor.devices || []
       }));
 

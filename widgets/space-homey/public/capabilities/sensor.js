@@ -97,9 +97,42 @@ const sensorRenderer = {
                     if (!floorMapImage.complete || floorMapImage.naturalWidth === 0) return;
 
                     const wrapperRect = wrapper.getBoundingClientRect();
-                    const displayX = (position.x / 100) * wrapperRect.width;
-                    const displayY = (position.y / 100) * wrapperRect.height;
-
+                    const currentImageAspectRatio = floorMapImage.naturalWidth / floorMapImage.naturalHeight;
+                    const storedAspectRatio = device.floorAspectRatio || parseFloat(deviceEl.getAttribute('data-floor-aspect-ratio'));
+                    
+                    let displayX, displayY;
+                    
+                    if (storedAspectRatio) {
+                        // Calculate the actual displayed image dimensions
+                        let imageWidth, imageHeight;
+                        
+                        // If the image is constrained by height (taller than wide relative to container)
+                        if (wrapperRect.width / wrapperRect.height > currentImageAspectRatio) {
+                            imageHeight = wrapperRect.height;
+                            imageWidth = imageHeight * currentImageAspectRatio;
+                        } else {
+                            // Image is constrained by width
+                            imageWidth = wrapperRect.width;
+                            imageHeight = imageWidth / currentImageAspectRatio;
+                        }
+                        
+                        // Calculate the position based on the original aspect ratio
+                        displayX = (position.x / 100) * imageWidth;
+                        displayY = (position.y / 100) * imageHeight;
+                        
+                        // If the image doesn't fill the wrapper, add offsets to center it
+                        if (imageWidth < wrapperRect.width) {
+                            displayX += (wrapperRect.width - imageWidth) / 2;
+                        }
+                        if (imageHeight < wrapperRect.height) {
+                            displayY += (wrapperRect.height - imageHeight) / 2;
+                        }
+                    } else {
+                        // Fallback to the original calculation if no aspect ratio is stored
+                        displayX = (position.x / 100) * wrapperRect.width;
+                        displayY = (position.y / 100) * wrapperRect.height;
+                    }
+                    
                     deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
                     deviceEl.style.opacity = '1';
                     resolve();
@@ -123,9 +156,8 @@ const sensorRenderer = {
         };
 
         // Execute positioning
-        positionDevice().catch(error => {
-            console.error('Error positioning device:', error);
-            Homey.api('POST', '/log', { message: `Error positioning device: ${error.message}` });
+        positionDevice().catch(() => {
+            Homey.api('POST', '/log', { message: 'Error positioning device' });
         });
 
         // Apply initial rules
@@ -178,6 +210,12 @@ const sensorRenderer = {
     },
 
     initializeInteractions(deviceEl) {
+        // Check if deviceEl is a valid DOM element
+        if (!deviceEl || !deviceEl.addEventListener) {
+            Homey.api('POST', '/log', { message: 'Invalid device element provided to initializeInteractions' });
+            return;
+        }
+
         let touchStartTime;
         let longPressTimer;
         let touchMoved = false;

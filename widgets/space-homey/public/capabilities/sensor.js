@@ -285,12 +285,7 @@ const sensorRenderer = {
                 longPressTimer = null;
             }
 
-            const touchDuration = Date.now() - touchStartTime;
-
-            if (!touchMoved && touchDuration < 500) {
-                this.handleClick(deviceEl);
-            }
-
+            // No action on touch end for sensors - only long press shows modal
             touchMoved = false;
         };
 
@@ -300,7 +295,7 @@ const sensorRenderer = {
                 e.preventDefault();
                 e.stopPropagation();
             }
-            this.handleClick(deviceEl);
+            // No action on click for sensors - only long press shows modal
         };
 
         // Add event listeners to the device element
@@ -320,8 +315,7 @@ const sensorRenderer = {
     },
 
     async handleClick(deviceEl) {
-        // For sensors, clicking just shows the modal
-        this.showDeviceModal(deviceEl);
+        // For sensors, no action on click - only long press shows modal
     },
 
     handleDeviceUpdate(deviceEl, value, capability) {

@@ -23,13 +23,13 @@ const sensorRenderer = {
             box-shadow: 0 0 8px 1px rgba(255, 255, 255, 0.45);
         `;
 
-        // Add a clickable overlay that extends slightly beyond the visible icon
+        // Add a clickable overlay that extends beyond the visible icon for easier tapping
         const clickableOverlay = document.createElement('div');
         clickableOverlay.className = 'clickable-overlay';
         clickableOverlay.style.cssText = `
             position: absolute;
-            width: 60px;
-            height: 60px;
+            width: 70px;
+            height: 70px;
             border-radius: 50%;
             top: 50%;
             left: 50%;
@@ -219,6 +219,9 @@ const sensorRenderer = {
         let touchStartTime;
         let longPressTimer;
         let touchMoved = false;
+        let touchStartX = 0;
+        let touchStartY = 0;
+        const TOUCH_TOLERANCE = 15; // Pixels of movement allowed before considering it a drag
 
         // Function to handle touch start for both the device element and overlay
         const handleTouchStart = (e) => {
@@ -227,6 +230,12 @@ const sensorRenderer = {
 
             touchStartTime = Date.now();
             touchMoved = false;
+            
+            // Store initial touch position
+            if (e.touches && e.touches[0]) {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            }
 
             // Add visual feedback
             deviceEl.style.transform = this.addScaleTransform(deviceEl, 1.2);
@@ -245,10 +254,20 @@ const sensorRenderer = {
         // Function to handle touch move for both the device element and overlay
         const handleTouchMove = (e) => {
             e.stopPropagation();
-            touchMoved = true;
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
+            
+            // Check if movement exceeds tolerance
+            if (e.touches && e.touches[0]) {
+                const diffX = Math.abs(e.touches[0].clientX - touchStartX);
+                const diffY = Math.abs(e.touches[0].clientY - touchStartY);
+                
+                // Only consider it moved if it exceeds our tolerance
+                if (diffX > TOUCH_TOLERANCE || diffY > TOUCH_TOLERANCE) {
+                    touchMoved = true;
+                    if (longPressTimer) {
+                        clearTimeout(longPressTimer);
+                        longPressTimer = null;
+                    }
+                }
             }
         };
 
@@ -268,13 +287,27 @@ const sensorRenderer = {
 
             const touchDuration = Date.now() - touchStartTime;
 
+            if (!touchMoved && touchDuration < 500) {
+                this.handleClick(deviceEl);
+            }
+
             touchMoved = false;
+        };
+
+        // Function to handle click for both the device element and overlay
+        const handleClick = (e) => {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            this.handleClick(deviceEl);
         };
 
         // Add event listeners to the device element
         deviceEl.addEventListener('touchstart', handleTouchStart, { passive: false });
         deviceEl.addEventListener('touchmove', handleTouchMove);
         deviceEl.addEventListener('touchend', handleTouchEnd, { passive: false });
+        deviceEl.addEventListener('click', handleClick, { passive: false });
 
         // Add event listeners to the clickable overlay
         const overlay = deviceEl.querySelector('.clickable-overlay');
@@ -282,11 +315,13 @@ const sensorRenderer = {
             overlay.addEventListener('touchstart', handleTouchStart, { passive: false });
             overlay.addEventListener('touchmove', handleTouchMove);
             overlay.addEventListener('touchend', handleTouchEnd, { passive: false });
+            overlay.addEventListener('click', handleClick, { passive: false });
         }
     },
 
     async handleClick(deviceEl) {
-
+        // For sensors, clicking just shows the modal
+        this.showDeviceModal(deviceEl);
     },
 
     handleDeviceUpdate(deviceEl, value, capability) {

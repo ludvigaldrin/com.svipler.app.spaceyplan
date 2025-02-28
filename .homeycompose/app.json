@@ -1,6 +1,6 @@
 {
   "id": "com.svipler.athom.spacehomey",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "compatibility": ">=12.1.0",
   "sdk": 3,
   "platforms": [

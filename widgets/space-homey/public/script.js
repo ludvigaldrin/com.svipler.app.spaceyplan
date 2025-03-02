@@ -16,7 +16,7 @@ async function onHomeyReady(_Homey) {
     try {
         await init();
     } catch (error) {
-        await Homey.api('POST', '/log', { message: `Init error: ${error.message}` });
+        Homey.api('POST', '/error', { message: `Init error: ${JSON.stringify(error)}` });
         showErrorMessage(error.message);
     }
 }
@@ -136,7 +136,7 @@ async function showSelectedFloor(floor) {
     if (floor.imageAspectRatio) {
         rendererManager.setFloorAspectRatio(floor.imageAspectRatio);
     } else {
-        Homey.api('POST', '/log', { message: '[FLOOR] Warning: No aspect ratio stored for floor' });
+        Homey.api('POST', '/error', { message: '[FLOOR] Warning: No aspect ratio stored for floor' });
     }
 
     // Register renderers
@@ -249,7 +249,6 @@ function showNoFloorsMessage() {
 }
 
 function showErrorMessage(errorMessage) {
-    Homey.api('POST', '/log', { message: `Error: ${errorMessage}` });
     const container = document.getElementById('floorSelector');
     // Ensure blue background is shown
     if (container) {
@@ -300,7 +299,7 @@ function addSettingsButton() {
             // Show the floor selector
             showFloorSelector(floors);
         } catch (error) {
-            Homey.api('POST', '/log', { message: `Error showing floor selector: ${error.message}` });
+            Homey.api('POST', '/error', { message: `Error showing floor selector: ${JSON.stringify(error)}` });
             showErrorMessage("Failed to load floor selector");
         }
     });
@@ -334,7 +333,7 @@ function handleDeviceUpdate(data) {
 
 function renderDevicesOnFloor(floor) {
     if (!floor || !floor.devices || !floor.devices.length) {
-        Homey.api('POST', '/log', { message: 'No devices to render on floor' });
+        Homey.api('POST', '/error', { message: 'No devices to render on floor' });
         return;
     }
 
@@ -345,7 +344,7 @@ function renderDevicesOnFloor(floor) {
     // First pass: create all device elements
     floor.devices.forEach(device => {
         if (!device || !device.homeyId) {
-            Homey.api('POST', '/log', { message: 'Invalid device data: ' + JSON.stringify(device) });
+            Homey.api('POST', '/error', { message: 'Invalid device data: ' + JSON.stringify(device) });
             return;
         }
 
@@ -354,10 +353,10 @@ function renderDevicesOnFloor(floor) {
             if (renderer) {
                 renderer.createDeviceElement(device, floor.imageAspectRatio);
             } else {
-                Homey.api('POST', '/log', { message: 'No renderer found for device: ' + device.name });
+                Homey.api('POST', '/error', { message: 'No renderer found for device: ' + device.name });
             }
         } catch (error) {
-            Homey.api('POST', '/log', { message: 'Error creating device element: ' + error.message });
+            Homey.api('POST', '/error', { message: 'Error creating device element: ' + JSON.stringify(error) });
         }
     });
 
@@ -371,7 +370,7 @@ function renderDevicesOnFloor(floor) {
                 renderer.initializeState(device);
             }
         } catch (error) {
-            Homey.api('POST', '/log', { message: 'Error initializing device state: ' + error.message });
+            Homey.api('POST', '/error', { message: 'Error initializing device state: ' + JSON.stringify(error) });
         }
     });
 }
@@ -403,7 +402,7 @@ function setupResizeHandler() {
                     // Trigger repositioning
                     renderer.positionDevice(deviceEl, device);
                 } catch (error) {
-                    Homey.api('POST', '/log', { message: 'Error repositioning device: ' + error.message });
+                    Homey.api('POST', '/error', { message: 'Error repositioning device: ' + JSON.stringify(error) });
                 }
             });
         }, 250); // Wait 250ms after resize ends

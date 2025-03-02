@@ -35,6 +35,11 @@
       "path": "/log",
       "public": false
     },
+    "error": {
+      "method": "post",
+      "path": "/error",
+      "public": false
+    },
     "getDevices": {
       "method": "get",
       "path": "/devices",
@@ -86,6 +91,10 @@
         "log": {
           "method": "POST",
           "path": "/log"
+        },
+        "error": {
+          "method": "POST",
+          "path": "/error"
         },
         "getDeviceState": {
           "method": "GET",

@@ -399,10 +399,6 @@ const ruleManager = {
 
     addRule(deviceId) {
         const dialog = document.getElementById('ruleDialog');
-        if (!dialog) {
-            console.error('Rule dialog not found');
-            return;
-        }
 
         // Reset edit state
         this.isEditing = false;
@@ -486,10 +482,6 @@ const ruleManager = {
 
     editRule(deviceId, ruleId) {
         const dialog = document.getElementById('ruleDialog');
-        if (!dialog) {
-            console.error('Rule dialog not found');
-            return;
-        }
 
         const floor = this.floorManager.floors.find(f => f.id === this.floorManager.currentFloorId);
         if (!floor) return;
@@ -612,7 +604,7 @@ const ruleManager = {
             const config = await this.getRuleConfig(type);
 
             if (!config) {
-                console.error('Invalid rule configuration');
+                this.logError('[SAVE RULE] Invalid rule configuration');
                 return;
             }
 
@@ -670,7 +662,7 @@ const ruleManager = {
                 dialog.style.display = 'none';
             }
         } catch (err) {
-            console.error('Failed to save rule:', err);
+            this.logError('[SAVE RULE] Failed to save rule:', err);
             this.Homey.alert('Failed to save rule');
         }
     },
@@ -725,11 +717,6 @@ const ruleManager = {
 
     deleteRule(deviceId, ruleId) {
         const dialog = document.getElementById('deleteConfirmDialog');
-        if (!dialog) {
-            console.error('Delete confirmation dialog not found');
-            return;
-        }
-
         // Update dialog text for rule deletion
         const modalTitle = dialog.querySelector('#deleteDialogTitle');
         const modalDescription = dialog.querySelector('#deleteDialogDescription');
@@ -764,7 +751,7 @@ const ruleManager = {
                 }
                 dialog.style.display = 'none';
             } catch (err) {
-                console.error('Failed to delete rule:', err);
+                this.logError('[DELETE RULE] Failed to delete rule:', err);
                 this.Homey.alert('Failed to delete rule');
             }
         };
@@ -886,7 +873,7 @@ const ruleManager = {
 
             return results;
         } catch (error) {
-            console.error('Search failed:', error);
+            this.logError('[SEARCH MATERIAL ICONS] Search failed:', error);
             return [];
         }
     },
@@ -905,7 +892,7 @@ const ruleManager = {
             this.iconData = data.icons || [];
 
         } catch (error) {
-            console.error('Error loading Material Icons:', error);
+            this.logError('[INITIALIZE] Error loading Material Icons:', error);
             this.Homey.alert('Failed to load icons');
             this.iconData = [];
         }

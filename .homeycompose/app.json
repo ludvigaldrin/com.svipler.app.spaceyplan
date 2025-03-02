@@ -34,6 +34,11 @@
       "path": "/log",
       "public": false
     },
+    "error": {
+      "method": "post",
+      "path": "/error",
+      "public": false
+    },
     "getDevices": {
       "method": "get",
       "path": "/devices",

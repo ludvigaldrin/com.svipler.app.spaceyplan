@@ -43,6 +43,10 @@
       "method": "POST",
       "path": "/log"
     },
+    "error": {
+      "method": "POST",
+      "path": "/error"
+    },
     "getDeviceState": {
       "method": "GET",
       "path": "/devices/:deviceId/capabilities/:capabilityId"

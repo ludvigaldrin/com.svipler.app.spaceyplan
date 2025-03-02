@@ -156,7 +156,7 @@ const dimRenderer = {
 
         // Execute positioning
         positionDevice().catch(error => {
-            Homey.api('POST', '/log', { message: `Error positioning device: ${error.message}` });
+            Homey.api('POST', '/error', { message: `Error positioning device: ${JSON.stringify(error)}` });
         });
 
         // Apply initial rules
@@ -205,14 +205,14 @@ const dimRenderer = {
             });
 
         } catch (error) {
-            Homey.api('POST', '/log', { message: `Error in initializeState: ${error.message}` });
+            Homey.api('POST', '/error', { message: `Error in initializeState: ${JSON.stringify(error)}` });
         }
     },
 
     initializeInteractions(deviceEl) {
         // Check if deviceEl is a valid DOM element
         if (!deviceEl || !deviceEl.addEventListener) {
-            Homey.api('POST', '/log', { message: 'Invalid device element provided to initializeInteractions' });
+            Homey.api('POST', '/error', { message: 'Invalid device element provided to initializeInteractions' });
             return;
         }
 
@@ -334,7 +334,7 @@ const dimRenderer = {
                 value: newState
             });
         } catch (error) {
-            Homey.api('POST', '/log', { message: `Error in handleClick: ${error.message}` });
+            Homey.api('POST', '/error', { message: `Error in handleClick: ${JSON.stringify(error)}` });
         }
     },
 
@@ -463,7 +463,7 @@ const dimRenderer = {
                 }
             }
         } catch (error) {
-            Homey.api('POST', '/log', { message: `Error in handleDeviceUpdate: ${error.message}` });
+            Homey.api('POST', '/error', { message: `Error in handleDeviceUpdate: ${JSON.stringify(error)}` });
         }
     },
 
@@ -622,7 +622,7 @@ const dimRenderer = {
                 }
             }
         } catch (error) {
-            Homey.api('POST', '/log', { message: `Error in applyInitialRules: ${error.message}` });
+            Homey.api('POST', '/error', { message: `Error in applyInitialRules: ${JSON.stringify(error)}` });
         }
     },
 
@@ -847,7 +847,7 @@ const dimRenderer = {
                 await this.handleClick(deviceEl);
             } catch (error) {
                 powerButton.classList.toggle('on');
-                Homey.api('POST', '/log', { message: `Error toggling state: ${error.message}` });
+                Homey.api('POST', '/error', { message: `Error toggling state: ${JSON.stringify(error)}` });
             }
         });
 
@@ -869,7 +869,7 @@ const dimRenderer = {
                     });
 
                 } catch (error) {
-                    Homey.api('POST', '/log', { message: `Error setting dim value: ${error.message}` });
+                    Homey.api('POST', '/error', { message: `Error setting dim value: ${JSON.stringify(error)}` });
                 }
             }, 100));
         }
@@ -910,16 +910,16 @@ const dimRenderer = {
                     deviceStateEl.className = `device-state ${value ? 'on' : 'off'}`;
                 }
             } else {
-                Homey.api('POST', '/log', { message: `No modal found for device: ${cleanDeviceId}` });
+                Homey.api('POST', '/error', { message: `No modal found for device: ${cleanDeviceId}` });
             }
         } catch (error) {
-            Homey.api('POST', '/log', { message: `Error in handleExternalUpdate: ${error.message}` });
+            Homey.api('POST', '/error', { message: `Error in handleExternalUpdate: ${JSON.stringify(error)}` });
         }
     },
 
     setupExternalUpdates() {
         if (!window.Homey) {
-            Homey.api('POST', '/log', { message: 'No Homey object available' });
+            Homey.api('POST', '/error', { message: 'No Homey object available' });
             return;
         }
 

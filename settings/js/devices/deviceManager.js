@@ -15,7 +15,7 @@ const deviceManager = {
                 return nameA.localeCompare(nameB);
             });
         } catch (err) {
-            console.error('Failed to initialize device manager:', err);
+            this.logError('Failed to initialize device manager:', err);
         }
     },
 
@@ -58,7 +58,7 @@ const deviceManager = {
                     this.updateSearchResults(searchTerm, filteredDevices);
 
                 } catch (err) {
-                    console.error('Search error:', err);
+                    this.logError('Search error:', err);
                     searchResults.innerHTML = '<div class="error-state">Error searching devices: ' + err.message + '</div>';
                 }
             }, 300));
@@ -204,7 +204,7 @@ const deviceManager = {
                     base64: iconBase64
                 };
             } catch (err) {
-                console.error('Failed to process icon:', err);
+                this.logError('Failed to process icon:', err);
                 // Fall back to original iconObj if conversion fails
                 newDevice.iconObj = device.iconObj;
             }
@@ -276,7 +276,7 @@ const deviceManager = {
             // Close the dialog
             document.getElementById('deviceDialog').style.display = 'none';
         } catch (err) {
-            console.error('Failed to save device:', err);
+            this.logError('Failed to save device:', err);
             throw new Error('Failed to save device: ' + err.message);
         }
     },
@@ -290,7 +290,7 @@ const deviceManager = {
                     const device = filteredDevices.find(d => d.id === deviceId);
 
                     if (!device) {
-                        console.error('Device not found:', deviceId);
+                        this.logError('Device not found:', deviceId);
                         return;
                     }
 
@@ -307,7 +307,7 @@ const deviceManager = {
                         button.classList.add('added');
 
                     } catch (err) {
-                        console.error('Failed to add device:', err);
+                        this.logError('Failed to add device:', err);
                         this.Homey.alert(err.message || 'Failed to add device');
 
                         // Reset button state on error
@@ -344,7 +344,7 @@ const deviceManager = {
                 reader.readAsDataURL(blob);
             });
         } catch (err) {
-            console.error('Error converting image to base64:', err);
+            this.logError('Error converting image to base64:', err);
             throw err;
         }
     }

@@ -29,7 +29,7 @@ class CapabilityRendererManager {
     async renderDevice(device, container) {
         const renderer = this.getRenderer(device.capability);
         if (!renderer) {
-            Homey.api('POST', '/log', { message: `No renderer found for capability: ${device.capability}` });
+            Homey.api('POST', '/error', { message: `No renderer found for capability: ${device.capability}` });
             return;
         }
 
@@ -66,10 +66,6 @@ class CapabilityRendererManager {
         return deviceEl;
     }
 
-    initializeInteractions(device) {
-        // This method should not be used directly anymore
-        Homey.api('POST', '/log', { message: 'The standalone initializeInteractions method is deprecated' });
-    }
 }
 
 if (typeof module !== 'undefined' && module.exports) {

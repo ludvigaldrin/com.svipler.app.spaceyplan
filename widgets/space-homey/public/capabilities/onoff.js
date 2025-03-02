@@ -97,13 +97,13 @@ const onOffRenderer = {
                     const wrapperRect = wrapper.getBoundingClientRect();
                     const currentImageAspectRatio = floorMapImage.naturalWidth / floorMapImage.naturalHeight;
                     const storedAspectRatio = device.floorAspectRatio || parseFloat(deviceEl.getAttribute('data-floor-aspect-ratio'));
-                    
+
                     let displayX, displayY;
-                    
+
                     if (storedAspectRatio) {
                         // Calculate the actual displayed image dimensions
                         let imageWidth, imageHeight;
-                        
+
                         // If the image is constrained by height (taller than wide relative to container)
                         if (wrapperRect.width / wrapperRect.height > currentImageAspectRatio) {
                             imageHeight = wrapperRect.height;
@@ -113,11 +113,11 @@ const onOffRenderer = {
                             imageWidth = wrapperRect.width;
                             imageHeight = imageWidth / currentImageAspectRatio;
                         }
-                        
+
                         // Calculate the position based on the original aspect ratio
                         displayX = (position.x / 100) * imageWidth;
                         displayY = (position.y / 100) * imageHeight;
-                        
+
                         // If the image doesn't fill the wrapper, add offsets to center it
                         if (imageWidth < wrapperRect.width) {
                             displayX += (wrapperRect.width - imageWidth) / 2;
@@ -130,7 +130,7 @@ const onOffRenderer = {
                         displayX = (position.x / 100) * wrapperRect.width;
                         displayY = (position.y / 100) * wrapperRect.height;
                     }
-                    
+
                     deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
                     deviceEl.style.opacity = '1';
                     resolve();
@@ -155,7 +155,7 @@ const onOffRenderer = {
 
         // Execute positioning
         positionDevice().catch(error => {
-            Homey.api('POST', '/log', { message: `Error positioning device: ${error.message}` });
+            Homey.api('POST', '/error', { message: `Error positioning device: ${JSON.stringify(error)}` });
         });
 
         // Apply initial rules
@@ -201,14 +201,14 @@ const onOffRenderer = {
             });
 
         } catch (error) {
-            Homey.api('POST', '/log', { message: `Error in initializeState: ${error.message}` });
+            Homey.api('POST', '/error', { message: `Error in initializeState: ${JSON.stringify(error)}` });
         }
     },
 
     initializeInteractions(deviceEl) {
         // Check if deviceEl is a valid DOM element
         if (!deviceEl || !deviceEl.addEventListener) {
-            Homey.api('POST', '/log', { message: 'Invalid device element provided to initializeInteractions' });
+            Homey.api('POST', '/error', { message: 'Invalid device element provided to initializeInteractions' });
             return;
         }
 
@@ -226,7 +226,7 @@ const onOffRenderer = {
 
             touchStartTime = Date.now();
             touchMoved = false;
-            
+
             // Store initial touch position
             if (e.touches && e.touches[0]) {
                 touchStartX = e.touches[0].clientX;
@@ -250,12 +250,12 @@ const onOffRenderer = {
         // Function to handle touch move for both the device element and overlay
         const handleTouchMove = (e) => {
             e.stopPropagation();
-            
+
             // Check if movement exceeds tolerance
             if (e.touches && e.touches[0]) {
                 const diffX = Math.abs(e.touches[0].clientX - touchStartX);
                 const diffY = Math.abs(e.touches[0].clientY - touchStartY);
-                
+
                 // Only consider it moved if it exceeds our tolerance
                 if (diffX > TOUCH_TOLERANCE || diffY > TOUCH_TOLERANCE) {
                     touchMoved = true;
@@ -330,7 +330,7 @@ const onOffRenderer = {
                 value: newState
             });
         } catch (error) {
-            Homey.api('POST', '/log', { message: `Error in handleClick: ${error.message}` });
+            Homey.api('POST', '/error', { message: `Error in handleClick: ${JSON.stringify(error)}` });
         }
     },
 
@@ -447,7 +447,7 @@ const onOffRenderer = {
                 }
             }
         } catch (error) {
-            Homey.api('POST', '/log', { message: `Error in handleDeviceUpdate: ${error.message}` });
+            Homey.api('POST', '/error', { message: `Error in handleDeviceUpdate: ${JSON.stringify(error)}` });
         }
     },
 
@@ -479,7 +479,7 @@ const onOffRenderer = {
 
                     // Make sure icon wrapper is visible
                     iconWrapper.style.display = 'flex';
-                    
+
                     // Apply consistent sizing
                     iconSpan.style.fontSize = '18px'; // 10% smaller than before
                 }
@@ -605,7 +605,7 @@ const onOffRenderer = {
                 }
             }
         } catch (error) {
-            Homey.api('POST', '/log', { message: `Error in applyInitialRules: ${error.message}` });
+            Homey.api('POST', '/error', { message: `Error in applyInitialRules: ${JSON.stringify(error)}` });
         }
     },
 
@@ -765,7 +765,7 @@ const onOffRenderer = {
                 await this.handleClick(deviceEl);
             } catch (error) {
                 powerButton.classList.toggle('on');
-                Homey.api('POST', '/log', { message: `Error toggling state: ${error.message}` });
+                Homey.api('POST', '/error', { message: `Error toggling state: ${JSON.stringify(error)}` });
             }
         });
 
@@ -803,16 +803,16 @@ const onOffRenderer = {
                     deviceStateEl.className = `device-state ${value ? 'on' : 'off'}`;
                 }
             } else {
-                Homey.api('POST', '/log', { message: `No modal found for device: ${cleanDeviceId}` });
+                Homey.api('POST', '/error', { message: `No modal found for device: ${cleanDeviceId}` });
             }
         } catch (error) {
-            Homey.api('POST', '/log', { message: `Error in handleExternalUpdate: ${error.message}` });
+            Homey.api('POST', '/error', { message: `Error in handleExternalUpdate: ${JSON.stringify(error)}` });
         }
     },
 
     setupExternalUpdates() {
         if (!window.Homey) {
-            Homey.api('POST', '/log', { message: 'No Homey object available' });
+            Homey.api('POST', '/error', { message: 'No Homey object available' });
             return;
         }
 

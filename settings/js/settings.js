@@ -19,7 +19,7 @@ function onHomeyReady(Homey) {
             await floorManager.initialize(Homey);  // Pass Homey here
             Homey.ready();
         } catch (err) {
-            console.error('Initialization error:', err);
+            logError('Initialization error:', err);
             Homey.alert(err.message || 'Failed to initialize');
         }
     }
@@ -28,5 +28,27 @@ function onHomeyReady(Homey) {
     init();
 }
 
+function logError(message) {
+    // Convert objects to strings for better logging
+    const formattedMessage = typeof message === 'object' && message !== null
+        ? JSON.stringify(message)
+        : message;
+        
+    console.error(formattedMessage);
+    Homey.api('POST', '/error', { message: 'SETTINGS ERROR: ' + formattedMessage });
+}
+
+function log(message) {
+    // Convert objects to strings for better logging
+    const formattedMessage = typeof message === 'object' && message !== null
+        ? JSON.stringify(message)
+        : message;
+        
+    console.log(formattedMessage);
+    Homey.api('POST', '/log', { message: 'SETTINGS LOG: ' + formattedMessage });
+}
+
 // Export for global access
+window.logError = logError;
+window.log = log;
 window.onHomeyReady = onHomeyReady; 

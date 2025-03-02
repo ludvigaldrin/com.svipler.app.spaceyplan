@@ -78,6 +78,11 @@ module.exports = {
     return 'logged';
   },
 
+  async error({ homey, body }) {
+    homey.app.error('WIDGET ERROR:', body.message);
+    return 'logged';
+  },
+
   async getDeviceState({ homey, params }) {
     try {
       const { deviceId, capabilityId } = params;

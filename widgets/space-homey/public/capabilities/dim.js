@@ -98,13 +98,13 @@ const dimRenderer = {
                     const wrapperRect = wrapper.getBoundingClientRect();
                     const currentImageAspectRatio = floorMapImage.naturalWidth / floorMapImage.naturalHeight;
                     const storedAspectRatio = device.floorAspectRatio || parseFloat(deviceEl.getAttribute('data-floor-aspect-ratio'));
-                    
+
                     let displayX, displayY;
-                    
+
                     if (storedAspectRatio) {
                         // Calculate the actual displayed image dimensions
                         let imageWidth, imageHeight;
-                        
+
                         // If the image is constrained by height (taller than wide relative to container)
                         if (wrapperRect.width / wrapperRect.height > currentImageAspectRatio) {
                             imageHeight = wrapperRect.height;
@@ -114,11 +114,11 @@ const dimRenderer = {
                             imageWidth = wrapperRect.width;
                             imageHeight = imageWidth / currentImageAspectRatio;
                         }
-                        
+
                         // Calculate the position based on the original aspect ratio
                         displayX = (position.x / 100) * imageWidth;
                         displayY = (position.y / 100) * imageHeight;
-                        
+
                         // If the image doesn't fill the wrapper, add offsets to center it
                         if (imageWidth < wrapperRect.width) {
                             displayX += (wrapperRect.width - imageWidth) / 2;
@@ -131,7 +131,7 @@ const dimRenderer = {
                         displayX = (position.x / 100) * wrapperRect.width;
                         displayY = (position.y / 100) * wrapperRect.height;
                     }
-                    
+
                     deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
                     deviceEl.style.opacity = '1';
                     resolve();
@@ -230,7 +230,7 @@ const dimRenderer = {
 
             touchStartTime = Date.now();
             touchMoved = false;
-            
+
             // Store initial touch position
             if (e.touches && e.touches[0]) {
                 touchStartX = e.touches[0].clientX;
@@ -254,12 +254,12 @@ const dimRenderer = {
         // Function to handle touch move for both the device element and overlay
         const handleTouchMove = (e) => {
             e.stopPropagation();
-            
+
             // Check if movement exceeds tolerance
             if (e.touches && e.touches[0]) {
                 const diffX = Math.abs(e.touches[0].clientX - touchStartX);
                 const diffY = Math.abs(e.touches[0].clientY - touchStartY);
-                
+
                 // Only consider it moved if it exceeds our tolerance
                 if (diffX > TOUCH_TOLERANCE || diffY > TOUCH_TOLERANCE) {
                     touchMoved = true;
@@ -495,7 +495,7 @@ const dimRenderer = {
 
                     // Make sure icon wrapper is visible
                     iconWrapper.style.display = 'flex';
-                    
+
                     // Apply consistent sizing
                     iconSpan.style.fontSize = '18px'; // 10% smaller than before
                 }
@@ -629,6 +629,7 @@ const dimRenderer = {
     showDeviceModal(deviceEl) {
         const name = deviceEl.getAttribute('data-name');
         const deviceId = deviceEl.getAttribute('data-device-id');
+        const homeyId = deviceEl.getAttribute('data-homey-id'); // Get the Homey ID for better matching
         const currentState = deviceEl.getAttribute('data-state') === 'true';
         const currentDim = deviceEl.getAttribute('data-dim') || 0;
 
@@ -650,6 +651,7 @@ const dimRenderer = {
         const modal = document.createElement('div');
         modal.className = 'device-modal';
         modal.setAttribute('data-device-id', deviceId);
+        modal.setAttribute('data-homey-id', homeyId); // Store Homey ID for updates
         modal.innerHTML = `
             <div class="modal-header">
                 <h2>${name}</h2>
@@ -789,19 +791,53 @@ const dimRenderer = {
                     width: 100%;
                     margin: 10px 0;
                     -webkit-appearance: none;
-                    height: 20px;
+                    appearance: none; /* Standardized property */
+                    height: 40px;
                     background: #1C1C1E;
-                    border-radius: 10px;
+                    border-radius: 20px;
+                    outline: none; /* Remove default focus outline */
+                    -webkit-tap-highlight-color: transparent; /* Remove tap highlight on Android */
+                    touch-action: manipulation; /* Better than none - allows panning/zooming but optimizes for touch */
+                    user-select: none; /* Prevent text selection */
                 }
 
                 .dim-slider::-webkit-slider-thumb {
                     -webkit-appearance: none;
-                    width: 28px;
-                    height: 28px;
+                    appearance: none;
+                    width: 48px;
+                    height: 48px;
                     border-radius: 50%;
                     background: white;
                     cursor: pointer;
                     border: 2px solid #1C1C1E;
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.3); /* Add shadow for better visibility */
+                }
+
+                /* Improved Android-specific styles */
+                .dim-slider::-moz-range-thumb {
+                    width: 48px;
+                    height: 48px;
+                    border-radius: 50%;
+                    background: white;
+                    cursor: pointer;
+                    border: 2px solid #1C1C1E;
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                }
+                
+                /* Track styling for Firefox */
+                .dim-slider::-moz-range-track {
+                    height: 40px;
+                    background: #1C1C1E;
+                    border-radius: 20px;
+                }
+                
+                /* Disable default styling completely */
+                .dim-slider::-ms-track {
+                    width: 100%;
+                    cursor: pointer;
+                    background: transparent; 
+                    border-color: transparent;
+                    color: transparent;
                 }
             `;
             document.head.appendChild(styles);
@@ -860,18 +896,158 @@ const dimRenderer = {
         // Add dim slider handler
         const dimSlider = modal.querySelector('.dim-slider');
         if (dimSlider) {
-            dimSlider.addEventListener('input', this.debounce(async (e) => {
+            // Create a custom slider implementation that works better on mobile
+            const sliderContainer = document.createElement('div');
+            sliderContainer.className = 'custom-slider-container';
+            sliderContainer.style.cssText = `
+                position: relative;
+                width: 100%;
+                height: 40px;
+                background: #1C1C1E;
+                border-radius: 20px;
+                margin: 10px 0;
+                overflow: hidden;
+                touch-action: none;
+                user-select: none;
+            `;
+
+            // Create the track fill element
+            const trackFill = document.createElement('div');
+            trackFill.className = 'track-fill';
+            trackFill.style.cssText = `
+                position: absolute;
+                height: 100%;
+                width: ${currentDim * 100}%;
+                background: #4D90FE;
+                border-radius: 20px 0 0 20px;
+                transition: width 0.1s ease;
+            `;
+
+            // Create the thumb element
+            const thumb = document.createElement('div');
+            thumb.className = 'slider-thumb';
+            thumb.style.cssText = `
+                position: absolute;
+                width: 48px;
+                height: 48px;
+                background: white;
+                border-radius: 50%;
+                top: 50%;
+                left: ${currentDim * 100}%;
+                transform: translate(-50%, -50%);
+                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                border: 2px solid #1C1C1E;
+                z-index: 2;
+            `;
+
+            // Add elements to the slider container
+            sliderContainer.appendChild(trackFill);
+            sliderContainer.appendChild(thumb);
+
+            // Function to update slider UI
+            const updateSliderUI = (value) => {
+                // Update track fill width
+                trackFill.style.width = `${value * 100}%`;
+
+                // Update thumb position
+                thumb.style.left = `${value * 100}%`;
+            };
+
+            // Function to calculate value from position
+            const calculateValue = (clientX) => {
+                const rect = sliderContainer.getBoundingClientRect();
+                let value = (clientX - rect.left) / rect.width;
+
+                // Clamp value between 0 and 1
+                value = Math.max(0, Math.min(1, value));
+
+                return value;
+            };
+
+            // Custom touch/mouse handling for the slider
+            let isDragging = false;
+
+            // Touch events - improved for better sliding on Android
+            sliderContainer.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                isDragging = true;
+                document.body.style.overflow = 'hidden'; // Prevent page scrolling while sliding
+                const value = calculateValue(e.touches[0].clientX);
+                updateSliderUI(value);
+            }, { passive: false });
+
+            document.addEventListener('touchmove', (e) => {
+                if (!isDragging) return;
+                e.preventDefault();
+                const value = calculateValue(e.touches[0].clientX);
+                updateSliderUI(value);
+            }, { passive: false });
+
+            document.addEventListener('touchend', (e) => {
+                if (!isDragging) return;
+                isDragging = false;
+                document.body.style.overflow = ''; // Restore page scrolling
+                const value = calculateValue(e.changedTouches[0].clientX);
+                updateSliderUI(value);
+                sendValueToDevice(value);
+            });
+
+            document.addEventListener('touchcancel', (e) => {
+                if (!isDragging) return;
+                isDragging = false;
+                document.body.style.overflow = ''; // Restore page scrolling
+            });
+
+            // Mouse events for desktop testing
+            sliderContainer.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                isDragging = true;
+                const value = calculateValue(e.clientX);
+                updateSliderUI(value);
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                e.preventDefault();
+                const value = calculateValue(e.clientX);
+                updateSliderUI(value);
+            });
+
+            document.addEventListener('mouseup', (e) => {
+                if (!isDragging) return;
+                isDragging = false;
+                const value = calculateValue(e.clientX);
+                updateSliderUI(value);
+                sendValueToDevice(value);
+            });
+
+            // Function to send value to device with debounce
+            const sendValueToDevice = this.debounce(async (value) => {
                 try {
-                    const value = parseFloat(e.target.value);
                     const homeyId = deviceEl.getAttribute('data-homey-id');
+
+                    // Only send dim value, not onoff
                     await Homey.api('PUT', `/devices/${homeyId}/capabilities/dim`, {
                         value: value
                     });
 
+                    // Update the device element with the new dim value
+                    deviceEl.setAttribute('data-dim', value);
+
+                    // Only update visual state, don't toggle onoff
+                    this.handleDeviceUpdate(deviceEl, value, 'dim');
                 } catch (error) {
                     Homey.api('POST', '/error', { message: `Error setting dim value: ${JSON.stringify(error)}` });
                 }
-            }, 100));
+            }, 300);
+
+            // Store references to UI elements for external updates
+            modal.setAttribute('data-custom-slider', 'true');
+
+            // Replace the original slider with our custom implementation
+            const container = dimSlider.parentNode;
+            container.innerHTML = ''; // Clear the container
+            container.appendChild(sliderContainer);
         }
     },
 
@@ -896,22 +1072,33 @@ const dimRenderer = {
             // Update visual state using existing method
             this.handleDeviceUpdate(deviceEl, value, capability);
 
-            const cleanDeviceId = deviceData.id.replace('-dim', '');
-            const modal = document.querySelector(`.device-modal[data-device-id="${cleanDeviceId}"]`);
-            if (modal) {
+            // Update any open modals for this device
+            const homeyId = deviceEl.getAttribute('data-homey-id');
+            const modals = document.querySelectorAll(`.device-modal[data-homey-id="${homeyId}"]`);
+
+            modals.forEach(modal => {
+                // Update power button
                 const powerButton = modal.querySelector('.power-button');
                 if (powerButton) {
-                    powerButton.classList.toggle('on', value);
+                    const isOn = capability === 'dim' ? value > 0 : value;
+                    powerButton.classList.toggle('on', isOn);
                 }
-                // Update modal's color display
-                const deviceStateEl = modal.querySelector('.device-state');
-                if (deviceStateEl) {
-                    deviceStateEl.textContent = value ? 'ON' : 'OFF';
-                    deviceStateEl.className = `device-state ${value ? 'on' : 'off'}`;
+
+                // Update custom slider if it exists and this is a dim update
+                if (capability === 'dim' && modal.getAttribute('data-custom-slider') === 'true') {
+                    const trackFill = modal.querySelector('.track-fill');
+                    const thumb = modal.querySelector('.slider-thumb');
+
+                    if (trackFill && thumb) {
+                        // Update track fill width
+                        trackFill.style.width = `${value * 100}%`;
+
+                        // Update thumb position
+                        thumb.style.left = `${value * 100}%`;
+                    }
                 }
-            } else {
-                Homey.api('POST', '/error', { message: `No modal found for device: ${cleanDeviceId}` });
-            }
+            });
+
         } catch (error) {
             Homey.api('POST', '/error', { message: `Error in handleExternalUpdate: ${JSON.stringify(error)}` });
         }
@@ -924,17 +1111,21 @@ const dimRenderer = {
         }
 
         // Remove any existing listeners first
-        window.Homey.removeAllListeners('realtime/device');
+        if (window.Homey.removeAllListeners) {
+            window.Homey.removeAllListeners('realtime/device');
+        }
 
         window.Homey.on('realtime/device', (data) => {
-
             if (data && (data.capability === 'onoff' || data.capability === 'dim')) {
-                const deviceElements = document.querySelectorAll(`[data-device-id="${data.id}-dim"]`);
+                // Find all device elements that match this device ID
+                const deviceElements = document.querySelectorAll(`[data-homey-id="${data.id}"]`);
                 deviceElements.forEach(deviceEl => {
                     this.handleExternalUpdate(deviceEl, data.value, data.capability);
                 });
             }
         });
+
+
     },
 
     // Add the debounce function to the renderer

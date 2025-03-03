@@ -25,5 +25,8 @@
   },
   "0.0.10": {
     "en": "Added more logs"
+  },
+  "0.0.11": {
+    "en": "Fixed some bugs in Admin"
   }
 }

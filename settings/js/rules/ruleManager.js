@@ -36,38 +36,86 @@ const ruleManager = {
         reader.onload = (e) => {
             const img = new Image();
             img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
+                try {
+                    // Create canvas for resizing
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
 
-                // Use same max dimensions as floor images
-                const MAX_WIDTH = 1920;
-                const MAX_HEIGHT = 1080;
+                    // Use smaller dimensions for rule images
+                    const MAX_WIDTH = 500;
+                    const MAX_HEIGHT = 800;
+                    let width = img.width;
+                    let height = img.height;
 
-                let width = img.width;
-                let height = img.height;
+                    // Calculate scale factor based on both constraints
+                    const scaleWidth = MAX_WIDTH / width;
+                    const scaleHeight = MAX_HEIGHT / height;
+                    const scale = Math.min(1, scaleWidth, scaleHeight); // Never upscale
+                    
+                    width = Math.floor(width * scale);
+                    height = Math.floor(height * scale);
 
-                if (width > MAX_WIDTH) {
-                    height = Math.round((height * MAX_WIDTH) / width);
-                    width = MAX_WIDTH;
+                    // Set canvas dimensions
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    // Enable image smoothing for better quality
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+
+                    // Clear the canvas and maintain transparency
+                    ctx.clearRect(0, 0, width, height);
+
+                    // Draw resized image
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Determine if the image has transparency
+                    let hasTransparency = false;
+                    
+                    // Check file type first
+                    const fileType = file.type.toLowerCase();
+                    if (fileType === 'image/png' || fileType === 'image/webp' || fileType === 'image/gif') {
+                        // These formats support transparency, so we'll check for it
+                        // Get image data to check for transparency
+                        const imageData = ctx.getImageData(0, 0, width, height);
+                        const data = imageData.data;
+                        
+                        // Check if any pixel has alpha < 255 (not fully opaque)
+                        for (let i = 3; i < data.length; i += 4) {
+                            if (data[i] < 255) {
+                                hasTransparency = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Use appropriate format based on transparency
+                    let processedImageData;
+                    if (hasTransparency) {
+                        // Use PNG for images with transparency
+                        processedImageData = canvas.toDataURL('image/png', 0.7);
+                    } else {
+                        // Use JPEG for images without transparency (better compression)
+                        processedImageData = canvas.toDataURL('image/jpeg', 0.8);
+                    }
+
+                    // Update preview
+                    const preview = document.getElementById('ruleImagePreview');
+                    preview.innerHTML = `
+                        <div style="max-width: 300px; max-height: 200px; overflow: hidden;">
+                            <img src="${processedImageData}" style="width: 100%; height: auto; object-fit: contain;">
+                        </div>`;
+
+                    // Enable save button since we have an image
+                    const saveButton = document.getElementById('saveRule');
+                    if (saveButton) {
+                        saveButton.disabled = false;
+                    }
+
+                } catch (err) {
+                    this.logError('[HANDLE RULE IMAGE UPLOAD] Failed to process image:', err);
+                    this.Homey.alert('Failed to process image: ' + err.message);
                 }
-                if (height > MAX_HEIGHT) {
-                    width = Math.round((width * MAX_HEIGHT) / height);
-                    height = MAX_HEIGHT;
-                }
-
-                canvas.width = width;
-                canvas.height = height;
-                ctx.clearRect(0, 0, width, height);
-                ctx.drawImage(img, 0, 0, width, height);
-
-                const imageData = canvas.toDataURL('image/png');
-
-                // Update preview
-                const preview = document.getElementById('ruleImagePreview');
-                preview.innerHTML = `
-                    <div style="max-width: 300px; max-height: 200px; overflow: hidden;">
-                        <img src="${imageData}" style="width: 100%; height: auto; object-fit: contain;">
-                    </div>`;
             };
             img.src = e.target.result;
         };
@@ -428,11 +476,13 @@ const ruleManager = {
         // Setup close handlers
         if (closeButton) {
             closeButton.onclick = () => {
+                this.cleanupEventListeners();
                 dialog.style.display = 'none';
             };
         }
         if (cancelButton) {
             cancelButton.onclick = () => {
+                this.cleanupEventListeners();
                 dialog.style.display = 'none';
             };
         }
@@ -462,6 +512,7 @@ const ruleManager = {
         // Add change listener for rule type
         typeSelect.onchange = () => {
             const ruleType = typeSelect.value;
+            
             if (!ruleType) {
                 configSection.innerHTML = '';
                 saveButton.disabled = true;
@@ -470,7 +521,8 @@ const ruleManager = {
 
             configSection.innerHTML = this.renderRuleConfig(ruleType);
 
-            if (ruleType === 'allIcon') {
+            // Attach event listeners for color-related rule types
+            if (ruleType === 'allIcon' || ruleType === 'allColor' || ruleType === 'onOffColor') {
                 this.attachRuleEventListeners();
             }
 
@@ -508,11 +560,13 @@ const ruleManager = {
         // Setup close handlers
         if (closeButton) {
             closeButton.onclick = () => {
+                this.cleanupEventListeners();
                 dialog.style.display = 'none';
             };
         }
         if (cancelButton) {
             cancelButton.onclick = () => {
+                this.cleanupEventListeners();
                 dialog.style.display = 'none';
             };
         }
@@ -533,7 +587,8 @@ const ruleManager = {
 
         configSection.innerHTML = this.renderRuleConfig(rule.type, rule);
 
-        if (rule.type === 'allIcon') {
+        // Attach event listeners for color-related rule types
+        if (rule.type === 'allIcon' || rule.type === 'allColor' || rule.type === 'onOffColor') {
             this.attachRuleEventListeners();
         }
 
@@ -770,62 +825,121 @@ const ruleManager = {
         const ruleDialog = document.getElementById('ruleDialog');
         if (!ruleDialog) return;
 
-        // Add event listeners for color inputs and checkboxes
-        const colorInputs = ruleDialog.querySelectorAll('input[type="color"]');
-        const checkboxes = ruleDialog.querySelectorAll('input[type="checkbox"]');
+        // Clean up any existing event listeners
+        this.cleanupEventListeners();
 
-        colorInputs.forEach(input => {
-            input.addEventListener('input', () => {
-                // Enable save button when color is changed
-                const saveButton = ruleDialog.querySelector('#saveRule');
-                if (saveButton) saveButton.disabled = false;
+        // Store references to elements we need to manage
+        this.dialogElements = {
+            container: ruleDialog.querySelector('.rule-config-group'),
+            checkboxes: ruleDialog.querySelectorAll('input[type="checkbox"]'),
+            colorInputs: ruleDialog.querySelectorAll('input[type="color"]'),
+            saveButton: ruleDialog.querySelector('#saveRule')
+        };
 
-                // Update disabled state of color inputs based on checkboxes
-                this.updateColorInputStates();
-            });
+        // Create bound event handlers that we can remove later
+        this.boundHandlers = {
+            checkboxChange: this.handleCheckboxChange.bind(this),
+            colorInput: this.handleColorInput.bind(this)
+        };
+
+        // Attach new event listeners
+        this.dialogElements.checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', this.boundHandlers.checkboxChange);
         });
 
-        checkboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', () => {
-                // Enable save button when checkbox is changed
-                const saveButton = ruleDialog.querySelector('#saveRule');
-                if (saveButton) saveButton.disabled = false;
-
-                // Update disabled state of color inputs based on checkboxes
-                this.updateColorInputStates();
-            });
+        this.dialogElements.colorInputs.forEach(input => {
+            input.addEventListener('input', this.boundHandlers.colorInput);
+            
+            // Set initial state
+            const settingsGroup = input.closest('.icon-settings, .cloud-settings');
+            if (settingsGroup) {
+                const checkbox = settingsGroup.querySelector('input[type="checkbox"]');
+                if (checkbox) {
+                    input.disabled = !checkbox.checked;
+                }
+            }
         });
+
+        // Initial state update
+        this.updateColorInputStates();
+    },
+
+    cleanupEventListeners() {
+        if (this.dialogElements) {
+            if (this.dialogElements.checkboxes) {
+                this.dialogElements.checkboxes.forEach(checkbox => {
+                    checkbox.removeEventListener('change', this.boundHandlers.checkboxChange);
+                });
+            }
+            if (this.dialogElements.colorInputs) {
+                this.dialogElements.colorInputs.forEach(input => {
+                    input.removeEventListener('input', this.boundHandlers.colorInput);
+                });
+            }
+        }
+        
+        this.dialogElements = null;
+        this.boundHandlers = null;
+    },
+
+    handleCheckboxChange(event) {
+        const checkbox = event.target;
+        const settingsGroup = checkbox.closest('.icon-settings, .cloud-settings');
+        if (settingsGroup) {
+            const colorInput = settingsGroup.querySelector('input[type="color"]');
+            if (colorInput) {
+                colorInput.disabled = !checkbox.checked;
+                
+                if (!checkbox.checked) {
+                    let newValue = '#ffffff';
+                    
+                    if (colorInput.id === 'iconColor' || colorInput.id === 'cloudColor') {
+                        newValue = '#00ff00';
+                    } else if (colorInput.id === 'iconColorOn' || colorInput.id === 'cloudColorOn') {
+                        newValue = '#ffeb3b';
+                    }
+                    
+                    colorInput.value = newValue;
+                }
+            }
+        }
+
+        if (this.dialogElements.saveButton) {
+            this.dialogElements.saveButton.disabled = false;
+        }
+    },
+
+    handleColorInput(event) {
+        if (this.dialogElements.saveButton) {
+            this.dialogElements.saveButton.disabled = false;
+        }
     },
 
     updateColorInputStates() {
-        const ruleDialog = document.getElementById('ruleDialog');
-        if (!ruleDialog) return;
+        if (!this.dialogElements) return;
 
-        // Handle On state inputs
-        const showIconOn = ruleDialog.querySelector('#showIconOn');
-        const iconColorOn = ruleDialog.querySelector('#iconColorOn');
-        if (showIconOn && iconColorOn) {
-            iconColorOn.disabled = !showIconOn.checked;
-        }
+        const settingsGroups = document.querySelectorAll('.icon-settings, .cloud-settings');
 
-        const showCloudOn = ruleDialog.querySelector('#showCloudOn');
-        const cloudColorOn = ruleDialog.querySelector('#cloudColorOn');
-        if (showCloudOn && cloudColorOn) {
-            cloudColorOn.disabled = !showCloudOn.checked;
-        }
-
-        // Handle Off state inputs
-        const showIconOff = ruleDialog.querySelector('#showIconOff');
-        const iconColorOff = ruleDialog.querySelector('#iconColorOff');
-        if (showIconOff && iconColorOff) {
-            iconColorOff.disabled = !showIconOff.checked;
-        }
-
-        const showCloudOff = ruleDialog.querySelector('#showCloudOff');
-        const cloudColorOff = ruleDialog.querySelector('#cloudColorOff');
-        if (showCloudOff && cloudColorOff) {
-            cloudColorOff.disabled = !showCloudOff.checked;
-        }
+        settingsGroups.forEach(group => {
+            const checkbox = group.querySelector('input[type="checkbox"]');
+            const colorInput = group.querySelector('input[type="color"]');
+            
+            if (checkbox && colorInput) {
+                colorInput.disabled = !checkbox.checked;
+                
+                if (!checkbox.checked) {
+                    let newValue = '#ffffff';
+                    
+                    if (colorInput.id === 'iconColor' || colorInput.id === 'cloudColor') {
+                        newValue = '#00ff00';
+                    } else if (colorInput.id === 'iconColorOn' || colorInput.id === 'cloudColorOn') {
+                        newValue = '#ffeb3b';
+                    }
+                    
+                    colorInput.value = newValue;
+                }
+            }
+        });
     },
 
     async searchMaterialIcons(searchTerm) {

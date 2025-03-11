@@ -224,7 +224,7 @@ const deviceManager = {
             homeyId: device.id,
             name: device.name,
             capability: capability,
-            position: { x: 5, y: 5 },  // Center of the floor plan (was 10, 10)
+            position: { x: 85, y: 85 },  // Center of the floor plan (was 10, 10)
             rules: [],
             iconOverride: device.hasOwnProperty('iconOverride') ? device.iconOverride : null  // Always copy the iconOverride property
         };

@@ -171,7 +171,7 @@ const floorManager = {
         this.currentFloorId = floorId;
         const floor = this.floors.find(f => f.id === floorId);
         if (!floor) {
-            this.logError('[EDIT FLOOR] Floor not found:', floorId);
+            window.logError('[EDIT FLOOR] Floor not found:', floorId);
             return;
         }
 
@@ -255,7 +255,7 @@ const floorManager = {
             // Save changes
             await this.saveFloors();
         } catch (err) {
-            this.logError('[UPDATE FLOOR NAME] Failed to update floor name:', err);
+            window.logError('[UPDATE FLOOR NAME] Failed to update floor name:', err);
             this.Homey.alert('Failed to update floor name: ' + err.message);
         }
     },
@@ -289,13 +289,13 @@ const floorManager = {
     async saveFloors() {
         try {
             if (!this.Homey) {
-                this.logError('[SAVE FLOORS] Homey not initialized');
+                window.logError('[SAVE FLOORS] Homey not initialized');
                 throw new Error('Homey not initialized');
             }
             
             // Validate floors data before saving
             if (!this.floors) {
-                this.logError('[SAVE FLOORS] Floors array is undefined');
+                window.logError('[SAVE FLOORS] Floors array is undefined');
                 throw new Error('Invalid floors data');
             }
             
@@ -323,7 +323,7 @@ const floorManager = {
             // Save to Homey
             await this.Homey.set('floors', validFloors);
         } catch (err) {
-            this.logError('[SAVE FLOORS] Error saving floors:', err);
+            window.logError('[SAVE FLOORS] Error saving floors:', err);
             throw err;
         }
     },
@@ -332,7 +332,7 @@ const floorManager = {
     showAddFloorDialog() {
         const dialog = document.getElementById('floorDialog');
         if (!dialog) {
-            this.logError('[SHOW ADD FLOOR DIALOG] Floor dialog not found');
+            window.logError('[SHOW ADD FLOOR DIALOG] Floor dialog not found');
             return;
         }
 
@@ -502,7 +502,7 @@ const floorManager = {
                         
 
                     } catch (err) {
-                        this.logError('[SAVE NEW FLOOR] Failed to process and save floor:', err);
+                        window.logError('[SAVE NEW FLOOR] Failed to process and save floor:', err);
                         this.Homey.alert('Failed to save floor: ' + err.message);
                     } finally {
                         // Reset button states
@@ -517,7 +517,7 @@ const floorManager = {
             reader.readAsDataURL(file);
 
         } catch (err) {
-            this.logError('[SAVE NEW FLOOR] Failed to save floor:', err);
+            window.logError('[SAVE NEW FLOOR] Failed to save floor:', err);
             this.Homey.alert('Failed to save floor: ' + err.message);
             saveButton.disabled = false;
             cancelButton.disabled = false;
@@ -529,7 +529,7 @@ const floorManager = {
     showDeleteFloorDialog(floorId) {
         const dialog = document.getElementById('deleteConfirmDialog');
         if (!dialog) {
-            this.logError('[SHOW DELETE FLOOR DIALOG] Delete confirmation dialog not found');
+            window.logError('[SHOW DELETE FLOOR DIALOG] Delete confirmation dialog not found');
             return;
         }
 
@@ -572,7 +572,7 @@ const floorManager = {
                 // Close dialog
                 dialog.style.display = 'none';
             } catch (err) {
-                this.logError('[SHOW DELETE FLOOR DIALOG] Failed to delete floor:', err);
+                window.logError('[SHOW DELETE FLOOR DIALOG] Failed to delete floor:', err);
                 this.Homey.alert('Failed to delete floor: ' + err.message);
             } finally {
                 // Reset button states
@@ -741,7 +741,7 @@ const floorManager = {
         const wrapper = document.getElementById('imageWrapper');
 
         if (!container || !image || !wrapper) {
-            this.logError('[RENDER DEVICES] Missing required elements:');
+            window.logError('[RENDER DEVICES] Missing required elements:');
             return;
         }
 
@@ -881,7 +881,7 @@ const floorManager = {
                 this.renderFloorPlanDevices(floor);
                 dialog.style.display = 'none';
             } catch (err) {
-                this.logError('[REMOVE DEVICE] Failed to remove device:', err);
+                window.logError('[REMOVE DEVICE] Failed to remove device:', err);
                 this.Homey.alert('Failed to remove device: ' + err.message);
             } finally {
                 // Reset button states
@@ -1020,7 +1020,7 @@ const floorManager = {
                         this.resetFloorDialog();
 
                     } catch (err) {
-                        this.logError('[HANDLE SAVE FLOOR] Failed to save floor:', err);
+                        window.logError('[HANDLE SAVE FLOOR] Failed to save floor:', err);
                         this.Homey.alert('Failed to save: ' + err.message);
                     } finally {
                         saveButton.disabled = false;
@@ -1032,7 +1032,7 @@ const floorManager = {
             };
             reader.readAsDataURL(file);
         } catch (err) {
-            this.logError('[HANDLE SAVE FLOOR] Failed to read image:', err);
+            window.logError('[HANDLE SAVE FLOOR] Failed to read image:', err);
             this.Homey.alert('Failed to read image: ' + err.message);
             saveButton.disabled = false;
             cancelButton.disabled = false;
@@ -1043,7 +1043,7 @@ const floorManager = {
     deleteRule(deviceId, ruleId) {
         const dialog = document.getElementById('deleteConfirmDialog');
         if (!dialog) {
-            this.logError('[DELETE RULE] Delete confirmation dialog not found');
+            window.logError('[DELETE RULE] Delete confirmation dialog not found');
             return;
         }
         // Update dialog text for rule deletion
@@ -1093,7 +1093,7 @@ const floorManager = {
                 }
                 dialog.style.display = 'none';
             } catch (err) {
-                this.logError('[DELETE RULE] Failed to delete rule:', err);
+                window.logError('[DELETE RULE] Failed to delete rule:', err);
                 this.Homey.alert('Failed to delete rule: ' + err.message);
             } finally {
                 // Reset button states
@@ -1166,7 +1166,7 @@ const floorManager = {
                 }
                 dialog.style.display = 'none';
             } catch (err) {
-                this.logError('[EDIT RULE] Failed to save rule:', err);
+                window.logError('[EDIT RULE] Failed to save rule:', err);
                 this.Homey.alert('Failed to save rule');
             }
         };
@@ -1267,7 +1267,7 @@ const floorManager = {
 
             return newDevice;
         } catch (err) {
-            this.logError('[ADD DEVICE TO FLOOR] Failed to add device:', err);
+            window.logError('[ADD DEVICE TO FLOOR] Failed to add device:', err);
             this.Homey.alert('Failed to add device: ' + err.message);
         }
     },
@@ -1473,7 +1473,7 @@ const floorManager = {
 
                     this.saveFloors()
                         .catch(err => {
-                            this.logError('[DRAG END] Failed to save device position:', err);
+                            window.logError('[DRAG END] Failed to save device position:', err);
                             this.Homey.alert('Failed to save device position: ' + err.message);
                         });
                 }

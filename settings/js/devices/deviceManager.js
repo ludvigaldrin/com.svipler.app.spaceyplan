@@ -15,7 +15,7 @@ const deviceManager = {
                 return nameA.localeCompare(nameB);
             });
         } catch (err) {
-            this.logError('Failed to initialize device manager:', err);
+            window.logError('Failed to initialize device manager:', err);
         }
     },
 
@@ -58,7 +58,7 @@ const deviceManager = {
                     this.updateSearchResults(searchTerm, filteredDevices);
 
                 } catch (err) {
-                    this.logError('Search error:', err);
+                    window.logError('Search error:', err);
                     searchResults.innerHTML = '<div class="error-state">Error searching devices: ' + err.message + '</div>';
                 }
             }, 300));
@@ -101,33 +101,75 @@ const deviceManager = {
             if (supported.length === 0) return '';
 
             // Get icon source - we don't have base64 yet at this stage
-            const iconSrc = device.iconObj ? device.iconObj.url : '';
+            let iconSrc = device.iconObj ? device.iconObj.url : '';
 
-            return `
-                <div class="device-item">
-                    <div class="device-header">
-                        <div class="device-icon">
-                            <img src="${iconSrc}" alt="${device.name}">
-                        </div>
-                        <div class="device-name">${device.name}</div>
+            // Check if there's an iconOverride property and it's not null
+            if (device.hasOwnProperty('iconOverride') && device.iconOverride) {
+                // Use our API endpoint instead of direct URL
+                iconSrc = `https://my.homey.app/img/devices/${device.iconOverride}.svg`;
+            }
+
+            const deviceInfo = document.createElement('div');
+            deviceInfo.className = 'device-item';
+
+            deviceInfo.innerHTML = `
+                <div class="device-header">
+                    <div class="device-icon">
+                        <img src="${iconSrc}" alt="${device.name}" onerror="this.style.display='none'">
                     </div>
-                    <div class="capabilities-section">
-                        ${supported.map(capability => {
+                    <div class="device-name">${device.name}</div>
+                </div>
+                <div class="capabilities-section">
+                    ${supported.map(capability => {
                 const displayName = this.getCapabilityDisplayName(capability);
                 const isAdded = this.isDeviceCapabilityAdded(device.id, capability);
                 return `
-                                <div class="capability-row">
-                                    <span class="capability-name">${displayName}</span>
-                                    <button class="add-capability-btn ${isAdded ? 'added' : ''}" 
-                                            data-device-id="${device.id}" 
-                                            data-capability="${capability}"
-                                            ${isAdded ? 'disabled' : ''}>
-                                        ${isAdded ? 'Added' : 'Add'}
-                                    </button>
-                                </div>`;
+                            <div class="capability-row">
+                                <span class="capability-name">${displayName}</span>
+                                <button class="add-capability-btn ${isAdded ? 'added' : ''}" 
+                                        data-device-id="${device.id}" 
+                                        data-capability="${capability}"
+                                        ${isAdded ? 'disabled' : ''}>
+                                    ${isAdded ? 'Added' : 'Add'}
+                                </button>
+                            </div>`;
             }).join('')}
-                    </div>
-                </div>`;
+                </div>
+            `;
+
+            deviceInfo.addEventListener('click', async () => {
+                const deviceId = device.id;
+                const capability = supported[0]; // Assuming the first supported capability is selected
+
+                try {
+                    // Disable button and show loading state
+                    const addButton = document.querySelector(`.add-capability-btn[data-device-id="${deviceId}"][data-capability="${capability}"]`);
+                    if (addButton) {
+                        addButton.textContent = 'Adding...';
+                        addButton.disabled = true;
+                    }
+
+                    await this.addDeviceToFloor(device, capability);
+
+                    // Update button state
+                    if (addButton) {
+                        addButton.textContent = 'Added';
+                        addButton.classList.add('added');
+                    }
+
+                } catch (err) {
+                    window.logError('Failed to add device:', err);
+                    this.Homey.alert(err.message || 'Failed to add device');
+
+                    // Reset button state on error
+                    if (addButton) {
+                        addButton.disabled = false;
+                        addButton.textContent = 'Add';
+                    }
+                }
+            });
+
+            return deviceInfo.outerHTML;
         }).join('');
 
         // If no supported devices found after filtering
@@ -183,33 +225,48 @@ const deviceManager = {
             name: device.name,
             capability: capability,
             position: { x: 5, y: 5 },  // Center of the floor plan (was 10, 10)
-            rules: []
+            rules: [],
+            iconOverride: device.hasOwnProperty('iconOverride') ? device.iconOverride : null  // Always copy the iconOverride property
         };
 
         // Process icon if available
-        if (device.iconObj && device.iconObj.url) {
-            try {
-                // Show loading state
-                const addButton = document.querySelector(`.add-capability-btn[data-device-id="${device.id}"][data-capability="${capability}"]`);
-                if (addButton) {
-                    addButton.textContent = 'Processing icon...';
+        try {
+            // Show loading state
+            const addButton = document.querySelector(`.add-capability-btn[data-device-id="${device.id}"][data-capability="${capability}"]`);
+            if (addButton) {
+                addButton.textContent = 'Processing icon...';
+            }
+
+            // Check if there's an iconOverride property and it's not null
+            if (device.hasOwnProperty('iconOverride') && device.iconOverride) {
+                // Use our API endpoint to get the icon
+
+                //const response = await Homey.api('GET', '/icons/' + device.iconOverride);
+                const response = await this.Homey.api('GET', '/icons/' + device.iconOverride);
+                if (!response.dataUrl) {
+                    throw new Error(`Failed to fetch icon: ${response.status}`);
                 }
-                
-                // Convert icon to base64
+
+                const data = response;
+                // The base64 data URL is returned directly from our API
+                newDevice.iconObj = {
+                    ...(device.iconObj || {}),
+                    base64: data.dataUrl
+                };
+            } else if (device.iconObj && device.iconObj.url) {
+                // For regular icons, use the existing method
                 const iconBase64 = await this.fetchImageAsBase64(device.iconObj.url);
-                
-                // Store both original iconObj and the base64 data
                 newDevice.iconObj = {
                     ...device.iconObj,
                     base64: iconBase64
                 };
-            } catch (err) {
-                this.logError('Failed to process icon:', err);
-                // Fall back to original iconObj if conversion fails
+            } else {
+                // No icon available
                 newDevice.iconObj = device.iconObj;
             }
-        } else {
-            // No icon available
+        } catch (err) {
+            console.error('Failed to process icon:', err);
+            // Fall back to original iconObj if conversion fails
             newDevice.iconObj = device.iconObj;
         }
 
@@ -225,7 +282,7 @@ const deviceManager = {
                     iconColorOn: '#ffeb3b',
                     showCloudOn: true,
                     cloudColorOn: '#ffeb3b',
-                    
+
                     // Off state settings
                     showIconOff: true,
                     iconColorOff: '#ffffff',
@@ -247,7 +304,7 @@ const deviceManager = {
                     iconColorOn: '#ff0000',
                     showCloudOn: true,
                     cloudColorOn: '#ff0000',
-                    
+
                     // Off state settings
                     showIconOff: true,
                     iconColorOff: '#ffffff',
@@ -276,7 +333,7 @@ const deviceManager = {
             // Close the dialog
             document.getElementById('deviceDialog').style.display = 'none';
         } catch (err) {
-            this.logError('Failed to save device:', err);
+            window.logError('Failed to save device:', err);
             throw new Error('Failed to save device: ' + err.message);
         }
     },
@@ -290,7 +347,7 @@ const deviceManager = {
                     const device = filteredDevices.find(d => d.id === deviceId);
 
                     if (!device) {
-                        this.logError('Device not found:', deviceId);
+                        window.logError('Device not found:', deviceId);
                         return;
                     }
 
@@ -307,7 +364,7 @@ const deviceManager = {
                         button.classList.add('added');
 
                     } catch (err) {
-                        this.logError('Failed to add device:', err);
+                        window.logError('Failed to add device:', err);
                         this.Homey.alert(err.message || 'Failed to add device');
 
                         // Reset button state on error
@@ -326,16 +383,16 @@ const deviceManager = {
             if (url.startsWith('/')) {
                 url = window.location.origin + url;
             }
-            
+
             // Fetch the image
             const response = await fetch(url);
             if (!response.ok) {
                 throw new Error(`Failed to fetch image: ${response.status}`);
             }
-            
+
             // Get the blob
             const blob = await response.blob();
-            
+
             // Convert to base64
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -344,7 +401,7 @@ const deviceManager = {
                 reader.readAsDataURL(blob);
             });
         } catch (err) {
-            this.logError('Error converting image to base64:', err);
+            window.logError('Error converting image to base64:', err);
             throw err;
         }
     }

@@ -113,7 +113,7 @@ const ruleManager = {
                     }
 
                 } catch (err) {
-                    this.logError('[HANDLE RULE IMAGE UPLOAD] Failed to process image:', err);
+                    window.logError('[HANDLE RULE IMAGE UPLOAD] Failed to process image:', err);
                     this.Homey.alert('Failed to process image: ' + err.message);
                 }
             };
@@ -659,7 +659,7 @@ const ruleManager = {
             const config = await this.getRuleConfig(type);
 
             if (!config) {
-                this.logError('[SAVE RULE] Invalid rule configuration');
+                window.logError('[SAVE RULE] Invalid rule configuration');
                 return;
             }
 
@@ -717,7 +717,7 @@ const ruleManager = {
                 dialog.style.display = 'none';
             }
         } catch (err) {
-            this.logError('[SAVE RULE] Failed to save rule:', err);
+            window.logError('[SAVE RULE] Failed to save rule:', err);
             this.Homey.alert('Failed to save rule');
         }
     },
@@ -806,7 +806,7 @@ const ruleManager = {
                 }
                 dialog.style.display = 'none';
             } catch (err) {
-                this.logError('[DELETE RULE] Failed to delete rule:', err);
+                window.logError('[DELETE RULE] Failed to delete rule:', err);
                 this.Homey.alert('Failed to delete rule');
             }
         };
@@ -987,7 +987,7 @@ const ruleManager = {
 
             return results;
         } catch (error) {
-            this.logError('[SEARCH MATERIAL ICONS] Search failed:', error);
+            window.logError('[SEARCH MATERIAL ICONS] Search failed:', error);
             return [];
         }
     },
@@ -1006,7 +1006,7 @@ const ruleManager = {
             this.iconData = data.icons || [];
 
         } catch (error) {
-            this.logError('[INITIALIZE] Error loading Material Icons:', error);
+            window.logError('[INITIALIZE] Error loading Material Icons:', error);
             this.Homey.alert('Failed to load icons');
             this.iconData = [];
         }

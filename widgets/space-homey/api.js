@@ -6,7 +6,7 @@ module.exports = {
     try {
       const floors = await homey.app.getFloors();
       // Log the first floor data for debugging
-   
+
       return floors;
     } catch (error) {
       homey.app.error('Widget API - getFloors error:', error);
@@ -51,20 +51,20 @@ module.exports = {
       if (!body.widgetId) {
         throw new Error('No widget ID provided');
       }
-      
+
       homey.app.log('Saving selected floor:', JSON.stringify(body));
       let selectedFloors = homey.settings.get('selectedFloors') || {};
-      
+
       // Clean up any undefined entries
       selectedFloors = Object.fromEntries(
         Object.entries(selectedFloors).filter(([key]) => key !== 'undefined')
       );
-      
+
       selectedFloors[body.widgetId] = {
         floorId: body.floorId,
         timestamp: new Date().toISOString()
       };
-      
+
       await homey.settings.set('selectedFloors', selectedFloors);
       return { success: true };
     } catch (error) {
@@ -86,7 +86,7 @@ module.exports = {
   async getDeviceState({ homey, params }) {
     try {
       const { deviceId, capabilityId } = params;
-      
+
       if (!capabilityId) {
         throw new Error('Invalid capability ID');
       }
@@ -120,7 +120,7 @@ module.exports = {
           device.capability
         );
       }
-      
+
       return { success: true };
     } catch (error) {
       homey.app.error('Widget API - subscribeToDevices error:', error);
@@ -137,5 +137,6 @@ module.exports = {
       homey.app.error('Widget API - unsubscribeWidget error:', error);
       throw error;
     }
-  }
+  },
+
 };

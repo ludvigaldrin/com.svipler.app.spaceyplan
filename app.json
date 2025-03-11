@@ -44,6 +44,10 @@
       "method": "get",
       "path": "/devices",
       "public": false
+    },
+    "getIconByName": {
+      "method": "GET",
+      "path": "/icons/:iconName"
     }
   },
   "widgets": {

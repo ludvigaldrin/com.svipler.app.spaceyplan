@@ -34,5 +34,8 @@
   },
   "0.1.0": {
     "en": "This is the first officiall beta release for production. "
+  },
+  "0.1.1": {
+    "en": "Fixed some styling and text"
   }
 }

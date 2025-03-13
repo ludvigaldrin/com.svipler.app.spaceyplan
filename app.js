@@ -6,7 +6,11 @@ const CapabilityManager = require('./lib/CapabilityManager');
 const SubscriptionManager = require('./lib/SubscriptionManager');
 
 if (!global.fetch) {
-  global.fetch = require('node-fetch');
+  import('node-fetch').then(module => {
+    global.fetch = module.default;
+  }).catch(err => {
+    this.error('Failed to import node-fetch:', err);
+  });
 }
 
 class SpaceHomeyApp extends Homey.App {

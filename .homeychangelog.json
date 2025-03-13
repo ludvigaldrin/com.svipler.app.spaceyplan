@@ -37,5 +37,8 @@
   },
   "0.1.1": {
     "en": "Fixed some styling and text"
+  },
+  "0.1.2": {
+    "en": "Fix for Fetch on old Homey"
   }
 }

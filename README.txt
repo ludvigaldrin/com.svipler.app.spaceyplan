@@ -22,5 +22,5 @@ Space Homey is an app that allows you to create a floor plan of your home and us
 # Comming Soon
 - More Supported Device Capabilities
 - Support for Widget on Home Screen
-- More capabilitie rules
+- More capabilities rules
 - Support for sizing icons

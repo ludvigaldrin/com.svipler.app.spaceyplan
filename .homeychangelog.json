@@ -31,5 +31,8 @@
   },
   "0.0.12": {
     "en": "Fixed bugs"
+  },
+  "0.1.0": {
+    "en": "This is the first officiall beta release for production. "
   }
 }

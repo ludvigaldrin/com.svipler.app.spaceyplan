@@ -5,6 +5,10 @@ const { HomeyAPI } = require('homey-api');
 const CapabilityManager = require('./lib/CapabilityManager');
 const SubscriptionManager = require('./lib/SubscriptionManager');
 
+if (!global.fetch) {
+  global.fetch = require('node-fetch');
+}
+
 class SpaceHomeyApp extends Homey.App {
   async onInit() {
     this.log('Space Homey is running...');

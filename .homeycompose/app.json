@@ -1,6 +1,6 @@
 {
   "id": "com.svipler.athom.spacehomey",
-  "version": "0.0.12",
+  "version": "0.1.0",
   "compatibility": ">=12.1.0",
   "sdk": 3,
   "platforms": [
@@ -10,8 +10,14 @@
     "en": "Space Homey"
   },
   "description": {
-    "en": "Interactive Flor Plan Widget"
+    "en": "Interactive Flor Plan Widget for Homey Dashboard"
   },
+  "bugs": {
+    "url": "https://community.homey.app/t/app-pro-space-homey/132628"
+  },
+  "source": "https://github.com/ludvigaldrin/com.svipler.athom.spacehomey",
+  "homepage": "https://github.com/ludvigaldrin/com.svipler.athom.spacehomey",
+  "support": "https://community.homey.app/t/app-pro-space-homey/132628",
   "category": [
     "tools"
   ],
@@ -56,7 +62,7 @@
         "en": "Space Homey"
       },
       "description": {
-        "en": "Display devices on a floor plan"
+        "en": "Interactive Flor Plan Widget for Homey Dashboard"
       },
       "uiComponent": "space-homey",
       "size": {

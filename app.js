@@ -15,7 +15,7 @@ if (!global.fetch) {
 
 class SpaceHomeyApp extends Homey.App {
   async onInit() {
-    this.log('Space Homey is running...');
+    this.log('Space Widget is running...');
 
     // Initialize managers
     this.capabilityManager = new CapabilityManager(this.homey);

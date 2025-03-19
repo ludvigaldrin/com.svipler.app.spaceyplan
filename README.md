@@ -1,11 +1,8 @@
-# Space Homey
+# Spacey Plan
 Interactive Flor Plan Widget for Homey Dashboard
 
-# Where to get it
-https://homey.app/a/com.svipler.athom.spacehomey/test
-
-# What is Space Homey?
-Space Homey is an app that allows you to create a floor plan of your home and use it to interact with devices.
+# What is Spacey Plan?
+Spacey Plan is an app that allows you to create a floor plan of your home and use it to interact with devices.
 
 # Usage
 1. Create Floor under Settings (Dashboard or Device)
@@ -30,6 +27,3 @@ Space Homey is an app that allows you to create a floor plan of your home and us
 - Support for Widget on Home Screen
 - More capabilities rules
 - Support for sizing icons
-
-# Contribute
-https://www.paypal.com/donate/?business=W7HRNMYTYS4WE&no_recurring=0&currency_code=SEK

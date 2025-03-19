@@ -1,5 +1,5 @@
 {
-  "id": "com.svipler.athom.spacehomey",
+  "id": "com.svipler.athom.spaceyplan",
   "version": "0.1.3",
   "compatibility": ">=12.1.0",
   "sdk": 3,
@@ -7,17 +7,17 @@
     "local"
   ],
   "name": {
-    "en": "Space Homey"
+    "en": "Spacey plan"
   },
   "description": {
     "en": "Interactive Flor Plan Widget for Homey Dashboard"
   },
   "bugs": {
-    "url": "https://community.homey.app/t/app-pro-space-homey/132628"
+    "url": "https://community.homey.app/t/app-pro-spacey-plan/132628"
   },
-  "source": "https://github.com/ludvigaldrin/com.svipler.athom.spacehomey",
-  "homepage": "https://github.com/ludvigaldrin/com.svipler.athom.spacehomey",
-  "support": "https://community.homey.app/t/app-pro-space-homey/132628",
+  "source": "https://github.com/ludvigaldrin/com.svipler.athom.spaceyplan ",
+  "homepage": "https://github.com/ludvigaldrin/com.svipler.athom.spaceyplan",
+  "support": "https://community.homey.app/t/app-pro-spacey-plan/132628",
   "homeyCommunityTopicId": 132628,
   "category": [
     "tools"
@@ -57,15 +57,15 @@
     }
   },
   "widgets": {
-    "space-homey": {
-      "id": "space-homey",
+    "spacey-plan": {
+      "id": "spacey-plan",
       "name": {
-        "en": "Space Homey"
+        "en": "Spacey Plan"
       },
       "description": {
         "en": "Interactive Flor Plan Widget for Homey Dashboard"
       },
-      "uiComponent": "space-homey",
+      "uiComponent": "spacey-plan",
       "size": {
         "width": 2,
         "height": 2

@@ -84,7 +84,7 @@ async function showFloorSelector(floors) {
 
     const html = `
         <div class="welcome-message">
-            <h2>Welcome to Space Homey!</h2>
+            <h2>Welcome to Spacey Plan!</h2>
             <div class="floor-select-container">
                 <select id="floorSelect" class="floor-select" >
                     <option value="">Choose a floor...</option>

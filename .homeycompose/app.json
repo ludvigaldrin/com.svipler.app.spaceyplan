@@ -1,13 +1,13 @@
 {
   "id": "com.svipler.app.spaceyplan",
-  "version": "0.1.4",
+  "version": "0.1.0",
   "compatibility": ">=12.1.0",
   "sdk": 3,
   "platforms": [
     "local"
   ],
   "name": {
-    "en": "Spacey plan"
+    "en": "Spacey Plan"
   },
   "description": {
     "en": "Interactive Flor Plan Widget for Homey Dashboard"

@@ -54,7 +54,7 @@
                 <input type="text" id="editFloorName" class="homey-form-input">
             </div>
 
-            <div id="floorPlanContainer">
+            <div id="floorMapContainer" class="floor-map-container">
                 <div id="imageWrapper" class="image-wrapper">
                     <img id="floorMapImage" class="floor-map" src="" alt="Floor Plan">
                     <div id="floorPlanDevices"></div>
@@ -187,6 +187,8 @@
 
     <!-- Load helpers first -->
     <script src="js/utils/helpers.js"></script>
+    <!-- Load image utilities -->
+    <script src="js/utils/imageUtils.js"></script>
     <!-- Then load floorManager which uses helpers -->
     <script src="js/floors/floorManager.js"></script>
     <!-- Then load ruleManager -->

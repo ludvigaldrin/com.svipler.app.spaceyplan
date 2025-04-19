@@ -202,6 +202,37 @@ const floorManager = {
         document.getElementById('editViewTitle').textContent = `Edit ${floor.name}`;
         document.getElementById('editFloorName').value = floor.name;
         document.getElementById('floorMapImage').src = floor.imageData;
+        
+        // Add image change button next to the back button in the header
+        const viewHeader = document.querySelector('.view-header');
+        if (viewHeader) {
+            // Remove the button if it already exists
+            let existingChangeBtn = document.getElementById('changeFloorImage');
+            if (existingChangeBtn) {
+                existingChangeBtn.remove();
+            }
+            
+            // Create the change image button
+            const changeImageBtn = document.createElement('button');
+            changeImageBtn.id = 'changeFloorImage';
+            changeImageBtn.className = 'icon-button header-action-button';
+            changeImageBtn.title = 'Change Floor Image';
+            changeImageBtn.innerHTML = `
+                <svg width="24" height="24" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                </svg>
+            `;
+            changeImageBtn.onclick = () => this.showChangeImageDialog(floorId);
+            
+            // Insert after the back button
+            const backButton = viewHeader.querySelector('#backToList');
+            if (backButton && backButton.parentNode) {
+                backButton.parentNode.insertBefore(changeImageBtn, backButton.nextSibling);
+            } else {
+                // If no back button, just add at the beginning
+                viewHeader.insertBefore(changeImageBtn, viewHeader.firstChild);
+            }
+        }
 
         // Add event listener for floor name changes
         const nameInput = document.getElementById('editFloorName');
@@ -416,106 +447,43 @@ const floorManager = {
 
             // Read the image file
             const file = imageInput.files[0];
-            const reader = new FileReader();
+            
+            // Use the image utils to process the image
+            imageUtils.processImage(file)
+                .then(processedImage => {
+                    // Create new floor object
+                    const newFloor = {
+                        id: Date.now().toString(),
+                        name: nameInput.value.trim(),
+                        imageData: processedImage.imageData,
+                        devices: [],
+                        imageAspectRatio: processedImage.aspectRatio
+                    };
 
-            reader.onload = async (e) => {
-                const img = new Image();
-                img.onload = async () => {
-                    try {
-                        // Create canvas for image processing
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
-                        
-                        // Reduce dimensions for compression
-                        const MAX_WIDTH = 500;
-                        const MAX_HEIGHT = 800;
-                        
-                        // Calculate dimensions
-                        let { width, height } = img;
-                        const scaleWidth = MAX_WIDTH / width;
-                        const scaleHeight = MAX_HEIGHT / height;
-                        const scale = Math.min(1, scaleWidth, scaleHeight);
-
-                        width = Math.floor(width * scale);
-                        height = Math.floor(height * scale);
-
-                        // Set canvas size
-                        canvas.width = width;
-                        canvas.height = height;
-
-                        // Draw image with smoothing
-                        ctx.imageSmoothingEnabled = true;
-                        ctx.imageSmoothingQuality = 'high';
-                        ctx.clearRect(0, 0, width, height);
-                        ctx.drawImage(img, 0, 0, width, height);
-
-                        // Determine if the image has transparency
-                        let hasTransparency = false;
-                        
-                        // Check file type first
-                        const fileType = file.type.toLowerCase();
-                        if (fileType === 'image/png' || fileType === 'image/webp' || fileType === 'image/gif') {
-                            // These formats support transparency, so we'll check for it
-                            // Get image data to check for transparency
-                            const imageData = ctx.getImageData(0, 0, width, height);
-                            const data = imageData.data;
-                            
-                            // Check if any pixel has alpha < 255 (not fully opaque)
-                            for (let i = 3; i < data.length; i += 4) {
-                                if (data[i] < 255) {
-                                    hasTransparency = true;
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        // Use appropriate format based on transparency
-                        let processedImageData;
-                        if (hasTransparency) {
-                            // Use PNG for images with transparency
-                            processedImageData = canvas.toDataURL('image/png', 0.7);
-                        } else {
-                            // Use JPEG for images without transparency (better compression)
-                            processedImageData = canvas.toDataURL('image/jpeg', 0.8);
-                        }
-
-                        // Create new floor object
-                        const newFloor = {
-                            id: Date.now().toString(),
-                            name: nameInput.value.trim(),
-                            imageData: processedImageData,
-                            devices: [],
-                            // Store the original aspect ratio
-                            imageAspectRatio: img.naturalWidth / img.naturalHeight
-                        };
-
-                        // Add to floors array and save
-                        this.floors.push(newFloor);
-                        await this.saveFloors();
-                        
-                        // Update UI
-                        this.renderFloorsList();
-                        
-                        // Close and reset dialog
-                        dialog.style.display = 'none';
-                        this.resetFloorDialog();
-                        
-
-                    } catch (err) {
-                        window.logError('[SAVE NEW FLOOR] Failed to process and save floor:', err);
-                        this.Homey.alert('Failed to save floor: ' + err.message);
-                    } finally {
-                        // Reset button states
-                        saveButton.disabled = false;
-                        cancelButton.disabled = false;
-                        saveButton.innerHTML = 'Create Floor';
-                    }
-                };
-                img.src = e.target.result;
-            };
-
-            reader.readAsDataURL(file);
-
+                    this.floors.push(newFloor);
+                    this.saveFloors()
+                        .then(() => {
+                            this.renderFloorsList();
+                            dialog.style.display = 'none';
+                            this.resetFloorDialog();
+                        })
+                        .catch(err => {
+                            window.logError('[SAVE NEW FLOOR] Failed to save floor:', err);
+                            this.Homey.alert('Failed to save floor: ' + err.message);
+                        })
+                        .finally(() => {
+                            saveButton.disabled = false;
+                            cancelButton.disabled = false;
+                            saveButton.innerHTML = 'Create Floor';
+                        });
+                })
+                .catch(err => {
+                    window.logError('[SAVE NEW FLOOR] Failed to process image:', err);
+                    this.Homey.alert('Failed to process image: ' + err.message);
+                    saveButton.disabled = false;
+                    cancelButton.disabled = false;
+                    saveButton.innerHTML = 'Create Floor';
+                });
         } catch (err) {
             window.logError('[SAVE NEW FLOOR] Failed to save floor:', err);
             this.Homey.alert('Failed to save floor: ' + err.message);
@@ -935,102 +903,42 @@ const floorManager = {
 
         try {
             const file = imageInput.files[0];
-            const reader = new FileReader();
             
-            reader.onload = async (e) => {
-                const img = new Image();
-                
-                img.onload = async () => {
-                    try {
-                        // Create canvas for resizing
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
+            // Use the image utils to process the image
+            imageUtils.processImage(file)
+                .then(processedImage => {
+                    const newFloor = {
+                        id: Date.now().toString(),
+                        name: nameInput.value.trim(),
+                        imageData: processedImage.imageData,
+                        devices: [],
+                        imageAspectRatio: processedImage.aspectRatio
+                    };
 
-                        // Compression through size reduction
-                        const MAX_WIDTH = 500;
-                        const MAX_HEIGHT = 800;
-                        let width = img.width;
-                        let height = img.height;
-
-                        // Calculate scale factor based on both constraints
-                        const scaleWidth = MAX_WIDTH / width;
-                        const scaleHeight = MAX_HEIGHT / height;
-                        const scale = Math.min(1, scaleWidth, scaleHeight); // Never upscale
-                        
-                        width = Math.floor(width * scale);
-                        height = Math.floor(height * scale);
-
-                        // Set canvas dimensions
-                        canvas.width = width;
-                        canvas.height = height;
-
-                        // Enable image smoothing for better quality
-                        ctx.imageSmoothingEnabled = true;
-                        ctx.imageSmoothingQuality = 'high';
-
-                        // Clear the canvas and maintain transparency
-                        ctx.clearRect(0, 0, width, height);
-
-                        // Draw resized image
-                        ctx.drawImage(img, 0, 0, width, height);
-
-                        // Determine if the image has transparency
-                        let hasTransparency = false;
-                        
-                        // Check file type first
-                        const fileType = file.type.toLowerCase();
-                        if (fileType === 'image/png' || fileType === 'image/webp' || fileType === 'image/gif') {
-                            // These formats support transparency, so we'll check for it
-                            // Get image data to check for transparency
-                            const imageData = ctx.getImageData(0, 0, width, height);
-                            const data = imageData.data;
-                            
-                            // Check if any pixel has alpha < 255 (not fully opaque)
-                            for (let i = 3; i < data.length; i += 4) {
-                                if (data[i] < 255) {
-                                    hasTransparency = true;
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        // Use appropriate format based on transparency
-                        let processedImageData;
-                        if (hasTransparency) {
-                            // Use PNG for images with transparency
-                            processedImageData = canvas.toDataURL('image/png', 0.7);
-                        } else {
-                            // Use JPEG for images without transparency (better compression)
-                            processedImageData = canvas.toDataURL('image/jpeg', 0.8);
-                        }
-
-                        const newFloor = {
-                            id: Date.now().toString(),
-                            name: nameInput.value.trim(),
-                            imageData: processedImageData,
-                            devices: [],
-                            // Store the original aspect ratio
-                            imageAspectRatio: img.naturalWidth / img.naturalHeight
-                        };
-
-                        this.floors.push(newFloor);
-                        await this.saveFloors();
-                        this.renderFloorsList();
-                        dialog.style.display = 'none';
-                        this.resetFloorDialog();
-
-                    } catch (err) {
-                        window.logError('[HANDLE SAVE FLOOR] Failed to save floor:', err);
-                        this.Homey.alert('Failed to save: ' + err.message);
-                    } finally {
-                        saveButton.disabled = false;
-                        cancelButton.disabled = false;
-                        saveButton.innerHTML = 'Create Floor';
-                    }
-                };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
+                    this.floors.push(newFloor);
+                    this.saveFloors()
+                        .then(() => {
+                            this.renderFloorsList();
+                            dialog.style.display = 'none';
+                            this.resetFloorDialog();
+                        })
+                        .catch(err => {
+                            window.logError('[HANDLE SAVE FLOOR] Failed to save floor:', err);
+                            this.Homey.alert('Failed to save: ' + err.message);
+                        })
+                        .finally(() => {
+                            saveButton.disabled = false;
+                            cancelButton.disabled = false;
+                            saveButton.innerHTML = 'Create Floor';
+                        });
+                })
+                .catch(err => {
+                    window.logError('[HANDLE SAVE FLOOR] Failed to process image:', err);
+                    this.Homey.alert('Failed to process image: ' + err.message);
+                    saveButton.disabled = false;
+                    cancelButton.disabled = false;
+                    saveButton.innerHTML = 'Create Floor';
+                });
         } catch (err) {
             window.logError('[HANDLE SAVE FLOOR] Failed to read image:', err);
             this.Homey.alert('Failed to read image: ' + err.message);
@@ -1492,7 +1400,152 @@ const floorManager = {
         document.removeEventListener('mouseup', this.boundHandleDragEnd);
         document.removeEventListener('touchmove', this.boundHandleDragMove);
         document.removeEventListener('touchend', this.boundHandleDragEnd);
-    }
+    },
+
+    // New method to show change image dialog
+    showChangeImageDialog(floorId) {
+        const floor = this.floors.find(f => f.id === floorId);
+        if (!floor) return;
+        
+        const dialog = document.getElementById('floorDialog');
+        if (!dialog) {
+            window.logError('[SHOW CHANGE IMAGE DIALOG] Floor dialog not found');
+            return;
+        }
+
+        // Update dialog title and button text
+        const dialogTitle = dialog.querySelector('.modal-title');
+        if (dialogTitle) dialogTitle.textContent = 'Change Floor Image';
+        
+        // Reset form
+        const nameInput = dialog.querySelector('#floorName');
+        const imageInput = dialog.querySelector('#floorImage');
+        const saveButton = dialog.querySelector('#saveFloor');
+        const previewImage = dialog.querySelector('#imagePreview');
+        const closeButton = dialog.querySelector('.modal-close-button');
+        const cancelButton = dialog.querySelector('#cancelFloor');
+
+        // Set current floor name but hide this field since we're only changing the image
+        if (nameInput) {
+            nameInput.value = floor.name;
+            nameInput.parentElement.style.display = 'none'; // Hide the name field
+        }
+        
+        if (imageInput) imageInput.value = '';
+        if (previewImage) previewImage.innerHTML = '';
+        
+        if (saveButton) {
+            saveButton.disabled = true;
+            saveButton.textContent = 'Update Image';
+            saveButton.onclick = () => this.saveChangedImage(floorId);
+        }
+
+        // Setup image preview
+        if (imageInput) {
+            imageInput.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file && previewImage) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        previewImage.innerHTML = `<img src="${e.target.result}" style="max-width: 100%; height: auto;">`;
+                        if (saveButton) {
+                            saveButton.disabled = false;
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+        }
+
+        // Setup close handlers
+        if (closeButton) {
+            closeButton.onclick = () => {
+                dialog.style.display = 'none';
+                // Restore name field visibility when closing
+                if (nameInput?.parentElement) nameInput.parentElement.style.display = '';
+            };
+        }
+        if (cancelButton) {
+            cancelButton.onclick = () => {
+                dialog.style.display = 'none';
+                // Restore name field visibility when closing
+                if (nameInput?.parentElement) nameInput.parentElement.style.display = '';
+            };
+        }
+
+        // Show dialog
+        dialog.style.display = 'flex';
+    },
+    
+    // New method to save changed image
+    async saveChangedImage(floorId) {
+        const dialog = document.getElementById('floorDialog');
+        const imageInput = dialog.querySelector('#floorImage');
+        const saveButton = dialog.querySelector('#saveFloor');
+        const cancelButton = dialog.querySelector('#cancelFloor');
+        const nameInput = dialog.querySelector('#floorName'); // We'll need this to restore display
+
+        if (!imageInput?.files[0]) {
+            this.Homey.alert('Please select a new image');
+            return;
+        }
+
+        try {
+            // Disable buttons and show loading state
+            saveButton.disabled = true;
+            cancelButton.disabled = true;
+            saveButton.innerHTML = '<div class="button-content"><div class="spinner"></div>Updating...</div>';
+
+            // Read the image file
+            const file = imageInput.files[0];
+            
+            // Use the image utils to process the image
+            const processedImageData = await imageUtils.processImage(file);
+            
+            // Update the floor with the new image
+            const floor = this.floors.find(f => f.id === floorId);
+            if (floor) {
+                // Store original image data for rollback in case of errors
+                const originalImageData = floor.imageData;
+                
+                try {
+                    // Update the floor with the new image
+                    floor.imageData = processedImageData.imageData;
+                    floor.imageAspectRatio = processedImageData.aspectRatio;
+                    
+                    // Save to Homey
+                    await this.saveFloors();
+                    
+                    // Update the image in the UI
+                    const floorMapImage = document.getElementById('floorMapImage');
+                    if (floorMapImage) {
+                        floorMapImage.src = floor.imageData;
+                    }
+                    
+                    // Re-render floor plan devices with the new image ratio
+                    this.renderFloorPlanDevices(floor);
+                    
+                    // Close dialog
+                    dialog.style.display = 'none';
+                } catch (err) {
+                    // Rollback on error
+                    floor.imageData = originalImageData;
+                    throw err;
+                }
+            }
+        } catch (err) {
+            window.logError('[SAVE CHANGED IMAGE] Failed to update image:', err);
+            this.Homey.alert('Failed to update image: ' + err.message);
+        } finally {
+            // Reset button states
+            saveButton.disabled = false;
+            cancelButton.disabled = false;
+            saveButton.innerHTML = 'Update Image';
+            
+            // Restore name field visibility
+            if (nameInput?.parentElement) nameInput.parentElement.style.display = '';
+        }
+    },
 };
 
 // Export for global access

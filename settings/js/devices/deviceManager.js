@@ -113,9 +113,6 @@ const deviceManager = {
             // Skip devices with no capabilities at all
             if (deviceCapabilities.length === 0) return '';
             
-            // Skip devices with no supported capabilities
-            if (supported.length === 0) return '';
-
             // Get icon source - we don't have base64 yet at this stage
             let iconSrc = device.iconObj ? device.iconObj.url : '';
 

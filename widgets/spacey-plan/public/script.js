@@ -378,33 +378,50 @@ async function showSelectedFloor(floor) {
         // Important: Don't render devices here - use a separate call
         // to ensure the browser has fully rendered the image first
         setTimeout(() => {
-
-            
             // Make sure we have the devices container
             let devContainer = document.getElementById('floorPlanDevices');
             if (!devContainer) {
                 devContainer = document.createElement('div');
                 devContainer.id = 'floorPlanDevices';
                 imageWrapper.appendChild(devContainer);
-
+                
+                // Ensure container has proper styles
+                devContainer.style.position = 'absolute';
+                devContainer.style.top = '0';
+                devContainer.style.left = '0';
+                devContainer.style.width = '100%';
+                devContainer.style.height = '100%';
+                devContainer.style.zIndex = '5';
             }
             
             // Important: Clear existing devices first
             devContainer.innerHTML = '';
-
             
             // Verify the floor data before rendering
             if (floor && floor.devices && floor.devices.length > 0) {
-
+                // Log how many devices we're going to render
+                Homey.api('POST', '/log', { message: `Attempting to render ${floor.devices.length} devices` });
                 
                 // Render each device
                 let renderedCount = 0;
                 const renderPromises = floor.devices.map(device => {
                     try {
+                        // Skip devices with unsupported capabilities
+                        if (!device.capability) {
+                            Homey.api('POST', '/log', { message: `Device is missing capability: ${device.name || device.id}` });
+                            return Promise.resolve();
+                        }
+                        
+                        const renderer = rendererManager.getRenderer(device.capability);
+                        if (!renderer) {
+                            Homey.api('POST', '/log', { message: `No renderer for capability: ${device.capability}` });
+                            return Promise.resolve(); // Skip this device
+                        }
+                        
                         return rendererManager.renderDevice(device, devContainer)
                             .then(() => {
                                 renderedCount++;
-
+                                Homey.api('POST', '/log', { message: `Successfully rendered device: ${device.name || device.id}` });
                             })
                             .catch(err => {
                                 Homey.api('POST', '/error', { message: `DIRECT: Error rendering device ${device.name || device.id}: ${err.message}` });
@@ -417,7 +434,7 @@ async function showSelectedFloor(floor) {
                 
                 Promise.all(renderPromises)
                     .then(() => {
-
+                        Homey.api('POST', '/log', { message: `Successfully rendered ${renderedCount}/${floor.devices.length} devices` });
                         
                         // Dispatch an event for any other components
                         document.dispatchEvent(new CustomEvent('floorImageReady', {
@@ -435,7 +452,7 @@ async function showSelectedFloor(floor) {
                         Homey.api('POST', '/error', { message: `DIRECT: Error in device rendering promises: ${err.message}` });
                     });
             }
-        }, 10); // Minimal delay for cached images
+        }, 100); // Increased delay for cached images (was 10ms)
     };
     
     // Handle image load errors
@@ -558,8 +575,6 @@ async function showSelectedFloor(floor) {
 
                         // Let the DOM render the image first, then render devices
                         setTimeout(() => {
-
-                            
                             // Make sure we have the devices container
                             let devContainer = document.getElementById('floorPlanDevices');
                             if (!devContainer) {
@@ -573,15 +588,29 @@ async function showSelectedFloor(floor) {
                             
                             // Verify the floor data before rendering
                             if (floor && floor.devices && floor.devices.length > 0) {
+                                // Log how many devices we're going to render
+                                Homey.api('POST', '/log', { message: `Proxy: Attempting to render ${floor.devices.length} devices` });
                                 
                                 // Render each device
                                 let renderedCount = 0;
                                 const renderPromises = floor.devices.map(device => {
                                     try {
+                                        // Skip devices with unsupported capabilities
+                                        if (!device.capability) {
+                                            Homey.api('POST', '/log', { message: `Proxy: Device is missing capability: ${device.name || device.id}` });
+                                            return Promise.resolve();
+                                        }
+                                        
+                                        const renderer = rendererManager.getRenderer(device.capability);
+                                        if (!renderer) {
+                                            Homey.api('POST', '/log', { message: `Proxy: No renderer for capability: ${device.capability}` });
+                                            return Promise.resolve(); // Skip this device
+                                        }
+                                        
                                         return rendererManager.renderDevice(device, devContainer)
                                             .then(() => {
                                                 renderedCount++;
-
+                                                Homey.api('POST', '/log', { message: `Proxy: Successfully rendered device: ${device.name || device.id}` });
                                             })
                                             .catch(err => {
                                                 Homey.api('POST', '/error', { message: `PROXY: Error rendering device ${device.name || device.id}: ${err.message}` });
@@ -594,7 +623,8 @@ async function showSelectedFloor(floor) {
                                 
                                 Promise.all(renderPromises)
                                     .then(() => {
-
+                                        Homey.api('POST', '/log', { message: `Proxy: Successfully rendered ${renderedCount}/${floor.devices.length} devices` });
+                                        
                                         // Dispatch an event for any other components
                                         document.dispatchEvent(new CustomEvent('floorImageReady', {
                                             detail: { 
@@ -608,7 +638,7 @@ async function showSelectedFloor(floor) {
                                         Homey.api('POST', '/error', { message: `PROXY: Error in device rendering promises: ${err.message}` });
                                     });
                             } 
-                        }, 250); // Longer delay to ensure the image is fully processed
+                        }, 100); // Use the same delay as the direct loading path
                     };
                     
                     // Now set the src to start loading
@@ -735,7 +765,7 @@ async function showSelectedFloor(floor) {
                                             Homey.api('POST', '/error', { message: `CLOUD PROXY: Error in device rendering promises: ${err.message}` });
                                         });
                                 }
-                            }, 250); // Longer delay to ensure the image is fully processed
+                            }, 100); // Longer delay to ensure the image is fully processed
                         };
                         
                         // Now set the src to start loading

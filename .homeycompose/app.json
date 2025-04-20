@@ -54,6 +54,16 @@
     "getIconByName": {
       "method": "GET",
       "path": "/icons/:iconName"
+    },
+    "uploadFloorImage": {
+      "method": "POST",
+      "path": "/floor-images/upload",
+      "public": false
+    },
+    "updateFloorImage": {
+      "method": "POST",
+      "path": "/floor-images/update",
+      "public": false
     }
   },
   "widgets": {

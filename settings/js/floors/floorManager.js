@@ -101,6 +101,7 @@ const floorManager = {
         const emptyState = document.getElementById('emptyState');
 
         if (!this.floors || this.floors.length === 0) {
+            window.log('No floors found to render');
             if (emptyState) emptyState.style.display = 'block';
             if (floorsList) floorsList.innerHTML = '';
             return;
@@ -108,20 +109,25 @@ const floorManager = {
 
         if (emptyState) emptyState.style.display = 'none';
         if (floorsList) {
-            floorsList.innerHTML = this.floors.map(floor => `
-                <div class="floor-card" data-floor-id="${floor.id}">
-                    <div class="floor-thumbnail">
-                        <img src="${floor.imageData}" alt="${floor.name}">
-                    </div>
-                    <div class="floor-info">
-                        <h3>${floor.name}</h3>
-                        <div class="floor-actions">
-                            <button class="edit-floor" data-floor-id="${floor.id}">Edit</button>
-                            <button class="delete-floor" data-floor-id="${floor.id}">Delete</button>
+            floorsList.innerHTML = this.floors.map(floor => {
+                // Get image source with debug info
+                const imageSource = this.getFloorImageSource(floor);
+
+                return `
+                    <div class="floor-card" data-floor-id="${floor.id}">
+                        <div class="floor-thumbnail">
+                            <img src="${imageSource}" alt="${floor.name}">
+                        </div>
+                        <div class="floor-info">
+                            <h3>${floor.name}</h3>
+                            <div class="floor-actions">
+                                <button class="edit-floor" data-floor-id="${floor.id}">Edit</button>
+                                <button class="delete-floor" data-floor-id="${floor.id}">Delete</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
             this.attachFloorEventListeners();
         }
     },
@@ -130,7 +136,7 @@ const floorManager = {
         return `
             <div class="floor-card">
                 <div class="floor-thumbnail">
-                    <img src="${floor.imageData}" alt="${floor.name}">
+                    <img src="${this.getFloorImageSource(floor)}" alt="${floor.name}">
                 </div>
                 <div class="floor-name">${floor.name}</div>
                 <div class="floor-actions">
@@ -201,7 +207,7 @@ const floorManager = {
         // Update UI
         document.getElementById('editViewTitle').textContent = `Edit ${floor.name}`;
         document.getElementById('editFloorName').value = floor.name;
-        document.getElementById('floorMapImage').src = floor.imageData;
+        document.getElementById('floorMapImage').src = this.getFloorImageSource(floor);
         
         // Add image change button next to the back button in the header
         const viewHeader = document.querySelector('.view-header');
@@ -333,23 +339,35 @@ const floorManager = {
             // Make sure we're passing a valid array
             const floorsToSave = Array.isArray(this.floors) ? this.floors : [];
             
+            
             // Ensure each floor has required properties and check image sizes
             const validFloors = floorsToSave.map(floor => {
                 // Create a clean floor object with all required properties
                 const newFloor = {
                     id: floor.id || Date.now().toString(),
                     name: floor.name || 'Unnamed Floor',
-                    imageData: floor.imageData || '',
                     devices: Array.isArray(floor.devices) ? floor.devices : [],
-                    // Include the image aspect ratio if available
                     imageAspectRatio: floor.imageAspectRatio || null,
-                    image: floor.image || null
+                    rules: Array.isArray(floor.rules) ? floor.rules : []
                 };
                 
-                // Verify image data size if it exists
-                if (newFloor.imageData && !imageUtils.verifyImageSize(newFloor.imageData)) {
-                    window.logError('[SAVE FLOORS] Floor image too large:', newFloor.id);
-                    throw new Error(`The image for floor "${newFloor.name}" is too large and cannot be saved. Please try replacing it with a smaller image.`);
+                // Include image ID and URLs
+                if (floor.imageId) {
+                    newFloor.imageId = floor.imageId;
+                    
+                    // Include cloud and local URLs if they exist
+                    if (floor.cloudUrl) newFloor.cloudUrl = floor.cloudUrl;
+                    if (floor.localUrl) newFloor.localUrl = floor.localUrl;
+                    
+                    // Only include imageData as a fallback if there's no imageUrl/imageId
+                } else if (floor.imageData) {
+                    newFloor.imageData = floor.imageData;
+                    
+                    // Verify image data size
+                    if (newFloor.imageData && !imageUtils.verifyImageSize(newFloor.imageData)) {
+                        window.logError('[SAVE FLOORS] Floor image too large:', newFloor.id);
+                        throw new Error(`The image for floor "${newFloor.name}" is too large and cannot be saved. Please try replacing it with a smaller image.`);
+                    }
                 }
                 
                 return newFloor;
@@ -358,9 +376,11 @@ const floorManager = {
             // Update the floors array with validated data
             this.floors = validFloors;
             
+            
             // Try to save to Homey
             try {
                 await this.Homey.set('floors', validFloors);
+                window.log('Floors saved successfully');
             } catch (error) {
                 window.logError('[SAVE FLOORS] Error saving floors to Homey:', error);
                 throw new Error('Failed to save floor data to Homey. The data may be too large or there may be a connection issue.');
@@ -405,7 +425,7 @@ const floorManager = {
                     const reader = new FileReader();
                     reader.onload = (e) => {
                         previewImage.innerHTML = `<img src="${e.target.result}" style="max-width: 100%; height: auto;">`;
-                        if (saveButton && nameInput.value) {
+                        if (saveButton) {
                             saveButton.disabled = false;
                         }
                     };
@@ -469,45 +489,8 @@ const floorManager = {
                 return;
             }
             
-            // Use the image utils to process the image
-            imageUtils.processImage(file)
-                .then(processedImage => {
-                    // Final size check before saving
-                    if (!imageUtils.verifyImageSize(processedImage.imageData)) {
-                        throw new Error(`The processed image is still too large (${(processedImage.size / 1024 / 1024).toFixed(1)}MB). Please choose a smaller image.`);
-                    }
-                    
-                    // Create new floor object
-                    const newFloor = {
-                        id: Date.now().toString(),
-                        name: nameInput.value.trim(),
-                        imageData: processedImage.imageData,
-                        devices: [],
-                        imageAspectRatio: processedImage.aspectRatio
-                    };
-
-                    // Add to floors array and save
-                    this.floors.push(newFloor);
-                    return this.saveFloors()
-                        .then(() => {
-                            // Update UI
-                            this.renderFloorsList();
-                            
-                            // Close and reset dialog
-                            dialog.style.display = 'none';
-                            this.resetFloorDialog();
-                        });
-                })
-                .catch(err => {
-                    window.logError('[SAVE NEW FLOOR] Failed to process or save floor:', err);
-                    this.Homey.alert(err.message || 'Failed to save floor. The image may be too large or in an unsupported format.');
-                })
-                .finally(() => {
-                    // Reset button states
-                    saveButton.disabled = false;
-                    cancelButton.disabled = false;
-                    saveButton.innerHTML = 'Create Floor';
-                });
+            // Process and save using Homey Images API
+            this.processAndSaveFloorWithHomeyImages(file, nameInput.value.trim(), saveButton, cancelButton, dialog);
         } catch (err) {
             window.logError('[SAVE NEW FLOOR] Failed to save floor:', err);
             this.Homey.alert('Failed to save floor: ' + err.message);
@@ -515,6 +498,165 @@ const floorManager = {
             cancelButton.disabled = false;
             saveButton.innerHTML = 'Create Floor';
         }
+    },
+
+    // Helper method to process image and save floor using Homey Images API
+    async processAndSaveFloorWithHomeyImages(file, floorName, saveButton, cancelButton, dialog) {
+        try {
+            // Disable buttons and show loading state
+            saveButton.disabled = true;
+            cancelButton.disabled = true;
+            saveButton.innerHTML = '<div class="button-content"><div class="spinner"></div>Saving...</div>';
+
+            // Read the file as a data URL
+            const imageData = await this.readFileAsDataURL(file);
+            
+            try {
+                // Upload the image using the API endpoint
+                
+                try {
+                    const response = await this.Homey.api('POST', '/floor-images/upload', {
+                        imageData: imageData
+                    });
+
+                    
+                    if (!response || !response.success) {
+                        throw new Error(response?.error || 'Failed to upload image');
+                    }
+                    
+                    // Determine URL based on environment
+                    const hostname = window.location.hostname;
+                    const isLocalEnvironment = hostname.includes('192.168.') || 
+                                             hostname.includes('localhost') || 
+                                             hostname.includes('.local');
+                    const imageUrl = isLocalEnvironment ? response.localUrl : response.cloudUrl;
+                    
+                    // Use the aspectRatio method to get dimensions
+                    const aspectRatio = await this.getImageAspectRatio(imageUrl);
+                    
+                    // Create new floor object with Homey Image API data
+                    const newFloor = {
+                        id: Date.now().toString(),
+                        name: floorName,
+                        imageId: response.imageId,
+                        // Store both cloud and local URLs from the API response
+                        cloudUrl: response.cloudUrl,
+                        localUrl: response.localUrl,
+                        devices: [],
+                        imageAspectRatio: aspectRatio,
+                        rules: [
+                            {
+                                id: generateUUID(),
+                                name: 'On/Off - Color Switcher',
+                                type: 'onOffColor',
+                                config: {
+                                    // On state settings
+                                    showIconOn: true,
+                                    iconColorOn: '#ffeb3b',
+                                    showCloudOn: true,
+                                    cloudColorOn: '#ffeb3b',
+
+                                    // Off state settings
+                                    showIconOff: true,
+                                    iconColorOff: '#ffffff',
+                                    showCloudOff: true,
+                                    cloudColorOff: '#ffffff'
+                                }
+                            },
+                            {
+                                id: generateUUID(),
+                                name: 'Alarm - Color Switcher',
+                                type: 'alarmColor',
+                                config: {
+                                    // On state settings (Alarm Yes)
+                                    showIconOn: true,
+                                    iconColorOn: '#ff0000',
+                                    showCloudOn: true,
+                                    cloudColorOn: '#ff0000',
+
+                                    // Off state settings (Alarm No)
+                                    showIconOff: true,
+                                    iconColorOff: '#ffffff',
+                                    showCloudOff: true,
+                                    cloudColorOff: '#ffffff'
+                                }
+                            }
+                        ]
+                    };
+
+                    // Add to floors array
+                    this.floors.push(newFloor);
+                    
+                    // Save to Homey settings
+                    await this.saveFloors();
+                    
+                    // Update UI
+                    this.renderFloorsList();
+                    dialog.style.display = 'none';
+                    this.resetFloorDialog();
+                } catch (apiError) {
+                    console.error('API call error:', apiError);
+                    window.logError('[API CALL ERROR]', apiError);
+                    throw new Error(`API call failed: ${apiError.message}`);
+                }
+            } catch (err) {
+                window.logError('[PROCESS AND SAVE WITH HOMEY IMAGES] API failed:', err);
+                throw new Error('Failed to process image: ' + err.message);
+            }
+            
+            // Reset button states
+            saveButton.disabled = false;
+            cancelButton.disabled = false;
+            saveButton.innerHTML = 'Create Floor';
+        } catch (err) {
+            window.logError('[PROCESS AND SAVE WITH HOMEY IMAGES] Failed:', err);
+            this.Homey.alert('Failed to save floor: ' + err.message);
+            saveButton.disabled = false;
+            cancelButton.disabled = false;
+            saveButton.innerHTML = 'Create Floor';
+        }
+    },
+    
+    // Keep both helper methods
+    readFileAsArrayBuffer(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                resolve(event.target.result);
+            };
+            reader.onerror = (err) => {
+                reject(err);
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    },
+    
+    readFileAsDataURL(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                resolve(event.target.result);
+            };
+            reader.onerror = (err) => {
+                reject(err);
+            };
+            reader.readAsDataURL(file);
+        });
+    },
+
+    // Helper method to get image aspect ratio
+    getImageAspectRatio(imageData) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                resolve(img.naturalWidth / img.naturalHeight);
+            };
+            img.onerror = () => {
+                // Default to 1.5 aspect ratio if we can't determine
+                resolve(1.5);
+            };
+            img.src = imageData;
+        });
     },
 
     // Delete Floor
@@ -928,41 +1070,8 @@ const floorManager = {
         try {
             const file = imageInput.files[0];
             
-            // Use the image utils to process the image
-            imageUtils.processImage(file)
-                .then(processedImage => {
-                    const newFloor = {
-                        id: Date.now().toString(),
-                        name: nameInput.value.trim(),
-                        imageData: processedImage.imageData,
-                        devices: [],
-                        imageAspectRatio: processedImage.aspectRatio
-                    };
-
-                    this.floors.push(newFloor);
-                    this.saveFloors()
-                        .then(() => {
-                            this.renderFloorsList();
-                            dialog.style.display = 'none';
-                            this.resetFloorDialog();
-                        })
-                        .catch(err => {
-                            window.logError('[HANDLE SAVE FLOOR] Failed to save floor:', err);
-                            this.Homey.alert('Failed to save: ' + err.message);
-                        })
-                        .finally(() => {
-                            saveButton.disabled = false;
-                            cancelButton.disabled = false;
-                            saveButton.innerHTML = 'Create Floor';
-                        });
-                })
-                .catch(err => {
-                    window.logError('[HANDLE SAVE FLOOR] Failed to process image:', err);
-                    this.Homey.alert('Failed to process image: ' + err.message);
-                    saveButton.disabled = false;
-                    cancelButton.disabled = false;
-                    saveButton.innerHTML = 'Create Floor';
-                });
+            // Process and save using Homey Images API
+            this.processAndSaveFloorWithHomeyImages(file, nameInput.value.trim(), saveButton, cancelButton, dialog);
         } catch (err) {
             window.logError('[HANDLE SAVE FLOOR] Failed to read image:', err);
             this.Homey.alert('Failed to read image: ' + err.message);
@@ -1507,7 +1616,7 @@ const floorManager = {
         const imageInput = dialog.querySelector('#floorImage');
         const saveButton = dialog.querySelector('#saveFloor');
         const cancelButton = dialog.querySelector('#cancelFloor');
-        const nameInput = dialog.querySelector('#floorName'); // We'll need this to restore display
+        const nameInput = dialog.querySelector('#floorName');
 
         if (!imageInput?.files[0]) {
             this.Homey.alert('Please select a new image');
@@ -1535,52 +1644,95 @@ const floorManager = {
                 return;
             }
             
+            // Get the floor object to update
+            const floor = this.floors.find(f => f.id === floorId);
+            if (!floor) {
+                throw new Error('Floor not found');
+            }
+            
+            // Store original image properties for rollback
+            const originalImageData = floor.imageData;
+            const originalImageId = floor.imageId;
+            
             try {
-                // Use the image utils to process the image
-                const processedImageData = await imageUtils.processImage(file);
+                // Read the file as a data URL
+                const imageData = await this.readFileAsDataURL(file);
+
+                let response;
                 
-                // Final size check before saving
-                if (!imageUtils.verifyImageSize(processedImageData.imageData)) {
-                    throw new Error(`The processed image is still too large (${(processedImageData.size / 1024 / 1024).toFixed(1)}MB). Please choose a smaller image.`);
+                if (floor.imageId) {
+                    // Update existing image
+
+                    response = await this.Homey.api('POST', '/floor-images/update', {
+                        imageId: floor.imageId,
+                        imageData: imageData
+                    });
+                } else {
+                    // Create new image
+
+                    response = await this.Homey.api('POST', '/floor-images/upload', {
+                        imageData: imageData
+                    });
+                }
+
+                
+                if (!response || !response.success) {
+                    window.logError('API response error:', response?.error);
+                    throw new Error(response?.error || 'Failed to process image');
                 }
                 
-                // Update the floor with the new image
-                const floor = this.floors.find(f => f.id === floorId);
-                if (floor) {
-                    // Store original image data for rollback in case of errors
-                    const originalImageData = floor.imageData;
-                    
-                    try {
-                        // Update the floor with the new image
-                        floor.imageData = processedImageData.imageData;
-                        floor.imageAspectRatio = processedImageData.aspectRatio;
-                        
-                        // Save to Homey
-                        await this.saveFloors();
-                        
-                        // Update the image in the UI
-                        const floorMapImage = document.getElementById('floorMapImage');
-                        if (floorMapImage) {
-                            floorMapImage.src = floor.imageData;
-                        }
-                        
-                        // Re-render floor plan devices with the new image ratio
-                        this.renderFloorPlanDevices(floor);
-                        
-                        // Close dialog
-                        dialog.style.display = 'none';
-                    } catch (err) {
-                        // Rollback on error
-                        floor.imageData = originalImageData;
-                        window.logError('[SAVE CHANGED IMAGE] Failed to save floor data:', err);
-                        throw new Error('Failed to save the new image to Homey. The image may be too large.');
-                    }
+                
+                // Determine URL based on environment
+                const hostname = window.location.hostname;
+                const isLocalEnvironment = hostname.includes('192.168.') || 
+                                         hostname.includes('localhost') || 
+                                         hostname.includes('.local');
+                const imageUrl = isLocalEnvironment ? response.localUrl : response.cloudUrl;
+                
+                // Get dimensions for aspect ratio
+                const aspectRatio = await this.getImageAspectRatio(imageUrl);
+                
+                // Update floor with new image properties
+                floor.imageId = response.imageId;
+                // Store both cloud and local URLs from the API response
+                floor.cloudUrl = response.cloudUrl;
+                floor.localUrl = response.localUrl;
+                // Remove any legacy imageUrl
+                if (floor.imageUrl) delete floor.imageUrl;
+                floor.imageAspectRatio = aspectRatio;
+                
+                // Remove any base64 data if it exists (we're fully transitioning to Homey Images API)
+                if (floor.imageData) {
+                    delete floor.imageData;
                 }
-            } catch (err) {
-                window.logError('[SAVE CHANGED IMAGE] Failed to process or save image:', err);
-                throw err;
+                
+                // Save to Homey settings
+                await this.saveFloors();
+                
+                // Update the image in the UI
+                const floorMapImage = document.getElementById('floorMapImage');
+                if (floorMapImage) {
+                    floorMapImage.src = this.getFloorImageSource(floor);
+                }
+                
+                // Re-render floor plan devices with the new image
+                this.renderFloorPlanDevices(floor);
+                
+                // Close dialog
+                dialog.style.display = 'none';
+            } catch (apiError) {
+                console.error('API call error:', apiError);
+                window.logError('[API CALL ERROR]', apiError);
+                
+                // Restore original image properties on error
+                floor.imageData = originalImageData;
+                floor.imageId = originalImageId;
+                if (floor.imageUrl) delete floor.imageUrl;
+                
+                throw new Error('Failed to process image: ' + apiError.message);
             }
         } catch (err) {
+            window.logError('[SAVE CHANGED IMAGE] Failed:', err);
             this.Homey.alert(err.message || 'Failed to update image. The image may be too large or in an unsupported format.');
         } finally {
             // Reset button states
@@ -1592,6 +1744,76 @@ const floorManager = {
             if (nameInput?.parentElement) nameInput.parentElement.style.display = '';
         }
     },
+
+    dragResizeRender() {
+        const floor = this.floors.find(f => f.id === this.currentFloorId);
+        if (!floor) {
+            window.logError('[DRAG RESIZE] Floor not found:', this.currentFloorId);
+            return;
+        }
+
+        const floorContainer = document.getElementById('deviceDragContainer');
+        floorContainer.innerHTML = '';
+
+        // Create the floor image
+        const floorImage = document.createElement('img');
+        floorImage.id = 'dragFloorImage';
+        floorImage.src = this.getFloorImageSource(floor);
+        floorImage.style.width = '100%';
+        floorImage.style.height = 'auto';
+        floorImage.style.position = 'absolute';
+        floorImage.style.top = '0';
+        floorImage.style.left = '0';
+        floorImage.style.zIndex = '1';
+
+        floorContainer.appendChild(floorImage);
+    },
+
+    // Function to get the best image source for a floor
+    getFloorImageSource(floor) {
+        // If there's no floor data, return a default image
+        if (!floor) {
+            return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB4PSIwIiB5PSIwIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2VlZWVlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjI0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBhbGlnbm1lbnQtYmFzZWxpbmU9Im1pZGRsZSIgZmlsbD0iIzk5OTk5OSI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+';
+        }
+        
+        // Determine if we're in a local environment
+        const hostname = window.location.hostname;
+        const isLocalEnvironment = hostname.includes('192.168.') || 
+                                  hostname.includes('localhost') || 
+                                  hostname.includes('.local');
+        
+        // Choose URL based on environment
+        if (floor.imageId) {
+            // If we have both URLs, use local in local environment, cloud otherwise
+            if (floor.localUrl && floor.cloudUrl) {
+                if (isLocalEnvironment) {
+                    return floor.localUrl;
+                } else {
+                    return floor.cloudUrl;
+                }
+            }
+            
+            // If we only have one URL type, use what we have
+            if (floor.localUrl) return floor.localUrl;
+            if (floor.cloudUrl) return floor.cloudUrl;
+            
+            // If we have imageId but no URLs, construct a URL
+            if (isLocalEnvironment) {
+                return `http://${hostname}/api/image/${floor.imageId}`;
+            } else {
+                return `https://${hostname}/api/image/${floor.imageId}`;
+            }
+        }
+        
+        // Fall back to direct image data if available
+        if (floor.imageData) {
+            return floor.imageData;
+        }
+        
+        // Default image if nothing else is available
+        return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB4PSIwIiB5PSIwIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2VlZWVlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjI0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBhbGlnbm1lbnQtYmFzZWxpbmU9Im1pZGRsZSIgZmlsbD0iIzk5OTk5OSI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+';
+    },
+
 };
 
 // Export for global access

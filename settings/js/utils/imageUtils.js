@@ -2,11 +2,11 @@
  * Image utility functions for handling image processing in the app
  */
 const imageUtils = {
-    // Maximum image size in bytes (lowering to 1MB to be safe)
-    MAX_FILE_SIZE: 1 * 1024 * 1024,
+    // Maximum image size in bytes (lowering to 0.75MB to be safe)
+    MAX_FILE_SIZE: 0.75 * 1024 * 1024,
     
-    // Absolute maximum size in bytes (2MB - hard limit)
-    ABSOLUTE_MAX_SIZE: 2 * 1024 * 1024,
+    // Absolute maximum size in bytes (1.5MB - hard limit)
+    ABSOLUTE_MAX_SIZE: 1.5 * 1024 * 1024,
 
     /**
      * Process an image for use in the app with adaptive compression
@@ -14,9 +14,12 @@ const imageUtils = {
      * compression until the image is small enough to use
      * 
      * @param {File} file - The image file to process
+     * @param {Object} [options] - Optional compression options
+     * @param {number} [options.quality] - Quality factor (0-1)
+     * @param {number} [options.maxDimension] - Maximum dimension for width/height
      * @returns {Promise<Object>} - Object containing imageData and aspectRatio
      */
-    processImage: function(file) {
+    processImage: function(file, options = {}) {
         return new Promise((resolve, reject) => {
             try {
                 // Check file size first to avoid unnecessary processing
@@ -43,8 +46,21 @@ const imageUtils = {
                                 console.warn(`Image dimensions are very large: ${img.naturalWidth}x${img.naturalHeight}. This may cause performance issues.`);
                             }
                             
-                            // Try to process with decreasing quality until success
-                            const result = await this.tryCompressWithMultipleLevels(img, file);
+                            let result;
+                            
+                            // If specific options were provided, use those
+                            if (options.quality || options.maxDimension) {
+                                const maxWidth = options.maxDimension || 1500;
+                                const maxHeight = options.maxDimension || 1500;
+                                const quality = options.quality || 0.9;
+                                
+                                // Use specified compression settings
+                                const hasTransparency = this.checkFileTypeForTransparency(file);
+                                result = await this.compressImage(img, maxWidth, maxHeight, quality, hasTransparency);
+                            } else {
+                                // Use adaptive compression
+                                result = await this.tryCompressWithMultipleLevels(img, file);
+                            }
                             
                             // Final size check
                             const finalSize = this.estimateBase64Size(result);

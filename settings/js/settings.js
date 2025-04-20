@@ -28,21 +28,35 @@ function onHomeyReady(Homey) {
     init();
 }
 
-function logError(message) {
-    // Convert objects to strings for better logging
-    const formattedMessage = typeof message === 'object' && message !== null
-        ? JSON.stringify(message)
-        : message;
+function logError(...args) {
+    // Combine all arguments into a single message
+    let formattedMessage = args.map(arg => {
+        if (typeof arg === 'object' && arg !== null) {
+            try {
+                return JSON.stringify(arg);
+            } catch (e) {
+                return `[Object conversion failed: ${e.message}]`;
+            }
+        }
+        return String(arg);
+    }).join(' ');
         
     console.error(formattedMessage);
     Homey.api('POST', '/error', { message: 'SETTINGS ERROR: ' + formattedMessage });
 }
 
-function log(message) {
-    // Convert objects to strings for better logging
-    const formattedMessage = typeof message === 'object' && message !== null
-        ? JSON.stringify(message)
-        : message;
+function log(...args) {
+    // Combine all arguments into a single message
+    let formattedMessage = args.map(arg => {
+        if (typeof arg === 'object' && arg !== null) {
+            try {
+                return JSON.stringify(arg);
+            } catch (e) {
+                return `[Object conversion failed: ${e.message}]`;
+            }
+        }
+        return String(arg);
+    }).join(' ');
         
     console.log(formattedMessage);
     Homey.api('POST', '/log', { message: 'SETTINGS LOG: ' + formattedMessage });

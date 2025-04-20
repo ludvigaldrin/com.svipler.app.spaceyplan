@@ -28,7 +28,6 @@ class SpaceHomeyApp extends Homey.App {
     } catch (error) {
       this.error('Failed to initialize:', error);
     }
-
   }
 
   async getFloors() {
@@ -48,24 +47,38 @@ class SpaceHomeyApp extends Homey.App {
       throw error;
     }
   }
-
+/**
   async saveFloor(floorData) {
     try {
       const floors = await this.homey.settings.get('floors') || [];
       const floorIndex = floors.findIndex(f => f.id === floorData.id);
 
+      // Prepare floor object with proper image properties
+      const floorToSave = {
+        ...floorData
+      };
+      
+      // Prioritize imageId/imageUrl over imageData
+      if (floorData.imageId && floorData.imageUrl) {
+        floorToSave.imageId = floorData.imageId;
+        floorToSave.imageUrl = floorData.imageUrl;
+      } else if (floorData.floorPlan) {
+        floorToSave.imageData = floorData.floorPlan;
+      }
+      
+      // Delete floorPlan as we've handled it
+      delete floorToSave.floorPlan;
+
       if (floorIndex >= 0) {
-        // Update existing floor
+        // Update existing floor while preserving non-updated properties
         floors[floorIndex] = {
           ...floors[floorIndex],
-          ...floorData,
-          imageData: floorData.floorPlan
+          ...floorToSave
         };
       } else {
         // Add new floor
         floors.push({
-          ...floorData,
-          imageData: floorData.floorPlan,
+          ...floorToSave,
           devices: []
         });
       }
@@ -77,7 +90,7 @@ class SpaceHomeyApp extends Homey.App {
       throw error;
     }
   }
-
+ */
   async getFloorDevices(floorId) {
     try {
       const floors = await this.getFloors();

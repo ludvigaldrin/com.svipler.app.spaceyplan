@@ -11,7 +11,8 @@ const ruleManager = {
         allColor: { name: 'All - Color Select', allowMultiple: false },
         onOffColor: { name: 'On/Off - Color Switcher', allowMultiple: false },
         onOffImage: { name: 'On/Off - Image Switcher', allowMultiple: false },
-        measureDisplay: { name: 'Measure - Display Settings', allowMultiple: false }
+        measureDisplay: { name: 'Measure - Display Settings', allowMultiple: false },
+        alarmColor: { name: 'Alarm - Color Switcher', allowMultiple: false }
     },
 
     init(floorManager, Homey) {
@@ -476,6 +477,84 @@ const ruleManager = {
             }, 100);
             
             return html;
+        } else if (ruleType === 'alarmColor') {
+            return `
+                <div class="rule-config-group">
+                    <div class="icon-settings">
+                        <div class="settings-header">
+                            <h3>Alarm Yes - Icon Settings</h3>
+                            <label class="switch">
+                                <input type="checkbox" id="showIconOn" 
+                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIconOn !== false ? 'checked' : ''}>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div class="color-input-group">
+                            <label>Icon Color</label>
+                            <input type="color" id="iconColorOn" 
+                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.iconColorOn || '#ff0000'}"
+                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIconOn === false ? 'disabled' : ''}>
+                        </div>
+                        <div class="settings-note">
+                            Note: Not all icons allow for color change
+                        </div>
+                    </div>
+
+                    <div class="cloud-settings">
+                        <div class="settings-header">
+                            <h3>Alarm Yes - Cloud Effect Settings</h3>
+                            <label class="switch">
+                                <input type="checkbox" id="showCloudOn" 
+                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloudOn !== false ? 'checked' : ''}>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div class="color-input-group">
+                            <label>Cloud Color</label>
+                            <input type="color" id="cloudColorOn" 
+                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.cloudColorOn || '#ff0000'}"
+                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloudOn === false ? 'disabled' : ''}>
+                        </div>
+                    </div>
+
+                    <div class="icon-settings">
+                        <div class="settings-header">
+                            <h3>Alarm No - Icon Settings</h3>
+                            <label class="switch">
+                                <input type="checkbox" id="showIconOff" 
+                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIconOff !== false ? 'checked' : ''}>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div class="color-input-group">
+                            <label>Icon Color</label>
+                            <input type="color" id="iconColorOff" 
+                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.iconColorOff || '#ffffff'}"
+                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIconOff === false ? 'disabled' : ''}>
+                        </div>
+                        <div class="settings-note">
+                            Note: Not all icons allow for color change
+                        </div>
+                    </div>
+
+                    <div class="cloud-settings">
+                        <div class="settings-header">
+                            <h3>Alarm No - Cloud Effect Settings</h3>
+                            <label class="switch">
+                                <input type="checkbox" id="showCloudOff" 
+                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloudOff !== false ? 'checked' : ''}>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div class="color-input-group">
+                            <label>Cloud Color</label>
+                            <input type="color" id="cloudColorOff" 
+                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.cloudColorOff || '#ffffff'}"
+                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloudOff === false ? 'disabled' : ''}>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
         
         return '<p>No configuration needed for this rule type.</p>';
@@ -625,7 +704,7 @@ const ruleManager = {
             configSection.innerHTML = this.renderRuleConfig(ruleType, device);
 
             // Attach event listeners for color-related rule types
-            if (ruleType === 'allIcon' || ruleType === 'allColor' || ruleType === 'onOffColor') {
+            if (ruleType === 'allIcon' || ruleType === 'allColor' || ruleType === 'onOffColor' || ruleType === 'alarmColor') {
                 this.attachRuleEventListeners();
             }
 
@@ -691,7 +770,7 @@ const ruleManager = {
         configSection.innerHTML = this.renderRuleConfig(rule.type, rule);
 
         // Attach event listeners for color-related rule types
-        if (rule.type === 'allIcon' || rule.type === 'allColor' || rule.type === 'onOffColor') {
+        if (rule.type === 'allIcon' || rule.type === 'allColor' || rule.type === 'onOffColor' || rule.type === 'alarmColor') {
             this.attachRuleEventListeners();
         }
 
@@ -926,6 +1005,22 @@ const ruleManager = {
                     temperatureColor: showTemperature ? temperatureColor : null,
                     showHumidity,
                     humidityColor: showHumidity ? humidityColor : null
+                };
+            } else if (type === 'alarmColor') {
+                const showIconOn = document.getElementById('showIconOn').checked;
+                const showCloudOn = document.getElementById('showCloudOn').checked;
+                const showIconOff = document.getElementById('showIconOff').checked;
+                const showCloudOff = document.getElementById('showCloudOff').checked;
+
+                return {
+                    showIconOn,
+                    iconColorOn: showIconOn ? document.getElementById('iconColorOn').value : null,
+                    showCloudOn,
+                    cloudColorOn: showCloudOn ? document.getElementById('cloudColorOn').value : null,
+                    showIconOff,
+                    iconColorOff: showIconOff ? document.getElementById('iconColorOff').value : null,
+                    showCloudOff,
+                    cloudColorOff: showCloudOff ? document.getElementById('cloudColorOff').value : null
                 };
             }
 

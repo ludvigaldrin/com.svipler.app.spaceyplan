@@ -428,16 +428,16 @@ const deviceManager = {
         if (capability === 'alarm_contact' || capability === 'alarm_motion') {
             newDevice.rules.push({
                 id: generateUUID(),
-                name: 'On/Off - Color Switcher',
-                type: 'onOffColor',
+                name: 'Alarm - Color Switcher',
+                type: 'alarmColor',
                 config: {
-                    // On state settings
+                    // On state settings (Alarm Yes)
                     showIconOn: true,
                     iconColorOn: '#ff0000',
                     showCloudOn: true,
                     cloudColorOn: '#ff0000',
 
-                    // Off state settings
+                    // Off state settings (Alarm No)
                     showIconOff: true,
                     iconColorOff: '#ffffff',
                     showCloudOff: true,

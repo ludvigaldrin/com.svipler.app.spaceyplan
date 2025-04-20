@@ -599,9 +599,9 @@ const ruleManager = {
                             <path fill="#666" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                         </svg>
                     </button>
-                    <button class="icon-button delete-rule" data-device-id="${deviceId}" data-rule-id="${rule.id}" title="Delete">
+                    <button class="icon-button delete-rule-btn" data-device-id="${deviceId}" data-rule-id="${rule.id}" title="Delete">
                         <svg width="20" height="20" viewBox="0 0 24 24">
-                            <path fill="#666" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                            <path fill="#ff4444" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                         </svg>
                     </button>
                 </div>
@@ -701,7 +701,7 @@ const ruleManager = {
         
         // Filter available rule types based on existing rules and valid types
         const availableTypes = Object.entries(this.RULE_TYPES)
-            .filter(([type, config]) => 
+            .filter(([type, config]) =>
                 validRuleTypes.includes(type) && 
                 (config.allowMultiple || !existingRuleTypes.includes(type))
             );
@@ -958,49 +958,49 @@ const ruleManager = {
     async getRuleConfig(type) {
         try {
             if (type === 'allIcon') {
-                const selectedIconElement = document.querySelector('.selected-icon .material-symbols-outlined');
-                if (!selectedIconElement) {
-                    console.warn('No icon selected when trying to save');
-                    return null;
-                }
+            const selectedIconElement = document.querySelector('.selected-icon .material-symbols-outlined');
+            if (!selectedIconElement) {
+                console.warn('No icon selected when trying to save');
+                return null;
+            }
 
-                const selectedIcon = selectedIconElement.textContent;
-                return {
-                    selectedIcon
-                };
+            const selectedIcon = selectedIconElement.textContent;
+            return {
+                selectedIcon
+            };
             } else if (type === 'allColor') {
-                const showIcon = document.getElementById('showIcon').checked;
-                const showCloud = document.getElementById('showCloud').checked;
+            const showIcon = document.getElementById('showIcon').checked;
+            const showCloud = document.getElementById('showCloud').checked;
 
-                return {
-                    showIcon,
-                    iconColor: showIcon ? document.getElementById('iconColor').value : null,
-                    showCloud,
-                    cloudColor: showCloud ? document.getElementById('cloudColor').value : null
-                };
+            return {
+                showIcon,
+                iconColor: showIcon ? document.getElementById('iconColor').value : null,
+                showCloud,
+                cloudColor: showCloud ? document.getElementById('cloudColor').value : null
+            };
             } else if (type === 'onOffColor') {
-                const showIconOn = document.getElementById('showIconOn').checked;
-                const showCloudOn = document.getElementById('showCloudOn').checked;
-                const showIconOff = document.getElementById('showIconOff').checked;
-                const showCloudOff = document.getElementById('showCloudOff').checked;
+            const showIconOn = document.getElementById('showIconOn').checked;
+            const showCloudOn = document.getElementById('showCloudOn').checked;
+            const showIconOff = document.getElementById('showIconOff').checked;
+            const showCloudOff = document.getElementById('showCloudOff').checked;
 
-                return {
-                    showIconOn,
-                    iconColorOn: showIconOn ? document.getElementById('iconColorOn').value : null,
-                    showCloudOn,
-                    cloudColorOn: showCloudOn ? document.getElementById('cloudColorOn').value : null,
-                    showIconOff,
-                    iconColorOff: showIconOff ? document.getElementById('iconColorOff').value : null,
-                    showCloudOff,
-                    cloudColorOff: showCloudOff ? document.getElementById('cloudColorOff').value : null
-                };
+            return {
+                showIconOn,
+                iconColorOn: showIconOn ? document.getElementById('iconColorOn').value : null,
+                showCloudOn,
+                cloudColorOn: showCloudOn ? document.getElementById('cloudColorOn').value : null,
+                showIconOff,
+                iconColorOff: showIconOff ? document.getElementById('iconColorOff').value : null,
+                showCloudOff,
+                cloudColorOff: showCloudOff ? document.getElementById('cloudColorOff').value : null
+            };
             } else if (type === 'onOffImage') {
-                const imagePreview = document.getElementById('ruleImagePreview').querySelector('img');
-                const visibilitySelect = document.getElementById('imageVisibility');
-                return {
-                    imageData: imagePreview ? imagePreview.src : null,
-                    showOn: visibilitySelect.value === 'on'
-                };
+            const imagePreview = document.getElementById('ruleImagePreview').querySelector('img');
+            const visibilitySelect = document.getElementById('imageVisibility');
+            return {
+                imageData: imagePreview ? imagePreview.src : null,
+                showOn: visibilitySelect.value === 'on'
+            };
             } else if (type === 'measureDisplay') {
                 // Get elements
                 const showTemperatureEl = document.getElementById('showTemperature');
@@ -1013,15 +1013,6 @@ const ruleManager = {
                 const temperatureColor = showTemperature && temperatureColorEl ? temperatureColorEl.value : '#2196F3';
                 const showHumidity = showHumidityEl ? showHumidityEl.checked : true;
                 const humidityColor = showHumidity && humidityColorEl ? humidityColorEl.value : '#2196F3';
-                
-                console.log('DEBUG: Getting measureDisplay config:', {
-                    showTemperature,
-                    temperatureColor,
-                    showHumidity,
-                    humidityColor,
-                    showTempElement: showTemperatureEl ? 'exists' : 'null',
-                    showHumidityElement: showHumidityEl ? 'exists' : 'null'
-                });
                 
                 return {
                     showTemperature,
@@ -1118,15 +1109,6 @@ const ruleManager = {
         const colorInputs = ruleDialog.querySelectorAll('input[type="color"]');
         const saveButton = ruleDialog.querySelector('#saveRule');
 
-        console.log(`DEBUG: Found ${checkboxes.length} checkboxes and ${colorInputs.length} color inputs`);
-        
-        // Special debug for temperature and humidity
-        const showTemperature = document.getElementById('showTemperature');
-        const temperatureColor = document.getElementById('temperatureColor');
-        if (showTemperature && temperatureColor) {
-            console.log(`DEBUG: Found temperature controls - checkbox checked: ${showTemperature.checked}, color input disabled: ${temperatureColor.disabled}`);
-        }
-
         // Store references to elements we need to manage
         this.dialogElements = {
             container: ruleDialog.querySelector('.rule-config-group'),
@@ -1144,12 +1126,10 @@ const ruleManager = {
         // Attach new event listeners
         checkboxes.forEach(checkbox => {
             checkbox.addEventListener('change', this.boundHandlers.checkboxChange);
-            console.log(`DEBUG: Attached event listener to checkbox: ${checkbox.id}`);
         });
 
         colorInputs.forEach(input => {
             input.addEventListener('input', this.boundHandlers.colorInput);
-            console.log(`DEBUG: Attached event listener to color input: ${input.id}`);
         });
 
         // Initial state update
@@ -1389,23 +1369,15 @@ const ruleManager = {
                     const showHumidity = document.getElementById('showHumidity');
                     const humidityColor = document.getElementById('humidityColor');
                     
-                    console.log('DEBUG: After rule type change, found temperature controls:', 
-                        showTemperature ? 'yes' : 'no', 
-                        temperatureColor ? 'yes' : 'no');
-                    
                     if (showTemperature && temperatureColor) {
                         showTemperature.addEventListener('change', (e) => {
-                            console.log(`DEBUG: Direct temperature checkbox change: ${e.target.checked}`);
                             temperatureColor.disabled = !e.target.checked;
-                            console.log(`DEBUG: Directly set temperature color disabled: ${!e.target.checked}`);
                         });
                     }
                     
                     if (showHumidity && humidityColor) {
                         showHumidity.addEventListener('change', (e) => {
-                            console.log(`DEBUG: Direct humidity checkbox change: ${e.target.checked}`);
                             humidityColor.disabled = !e.target.checked;
-                            console.log(`DEBUG: Directly set humidity color disabled: ${!e.target.checked}`);
                         });
                     }
                 }, 100);
@@ -1415,18 +1387,14 @@ const ruleManager = {
         // Direct document listener for temperature and humidity checkboxes
         document.addEventListener('change', (e) => {
             if (e.target.id === 'showTemperature') {
-                console.log(`DEBUG: Document-level temperature checkbox change: ${e.target.checked}`);
                 const temperatureColor = document.getElementById('temperatureColor');
                 if (temperatureColor) {
                     temperatureColor.disabled = !e.target.checked;
-                    console.log(`DEBUG: Document listener set temperature color disabled: ${!e.target.checked}`);
                 }
             } else if (e.target.id === 'showHumidity') {
-                console.log(`DEBUG: Document-level humidity checkbox change: ${e.target.checked}`);
                 const humidityColor = document.getElementById('humidityColor');
                 if (humidityColor) {
                     humidityColor.disabled = !e.target.checked;
-                    console.log(`DEBUG: Document listener set humidity color disabled: ${!e.target.checked}`);
                 }
             }
         });

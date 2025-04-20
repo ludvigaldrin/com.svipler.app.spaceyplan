@@ -8,19 +8,19 @@ const floorManager = {
         this.Homey = Homey;
         this.floors = [];
         this.currentFloorId = null;
-        
+
         // Bind event handlers once to preserve references
         this.boundHandleDragMove = this.handleDragMove.bind(this);
         this.boundHandleDragEnd = this.handleDragEnd.bind(this);
-        
+
         // Attach add floor button handler
         const addFloorButton = document.getElementById('addFloor');
         if (addFloorButton) {
             addFloorButton.onclick = () => this.showAddFloorDialog();
         }
-        
+
         await this.loadFloors();
-        
+
         this.ruleManager = ruleManager;
         this.ruleManager.init(this, Homey);
     },
@@ -177,7 +177,6 @@ const floorManager = {
         this.currentFloorId = floorId;
         const floor = this.floors.find(f => f.id === floorId);
         if (!floor) {
-            window.logError('[EDIT FLOOR] Floor not found:', floorId);
             return;
         }
 
@@ -208,7 +207,7 @@ const floorManager = {
         document.getElementById('editViewTitle').textContent = `Edit ${floor.name}`;
         document.getElementById('editFloorName').value = floor.name;
         document.getElementById('floorMapImage').src = this.getFloorImageSource(floor);
-        
+
         // Add image change button next to the back button in the header
         const viewHeader = document.querySelector('.view-header');
         if (viewHeader) {
@@ -217,7 +216,7 @@ const floorManager = {
             if (existingChangeBtn) {
                 existingChangeBtn.remove();
             }
-            
+
             // Create the change image button
             const changeImageBtn = document.createElement('button');
             changeImageBtn.id = 'changeFloorImage';
@@ -229,7 +228,7 @@ const floorManager = {
                 </svg>
             `;
             changeImageBtn.onclick = () => this.showChangeImageDialog(floorId);
-            
+
             // Insert after the back button
             const backButton = viewHeader.querySelector('#backToList');
             if (backButton && backButton.parentNode) {
@@ -246,7 +245,7 @@ const floorManager = {
             // Remove any existing event listeners
             const newNameInput = nameInput.cloneNode(true);
             nameInput.parentNode.replaceChild(newNameInput, nameInput);
-            
+
             // Add input event listener
             newNameInput.addEventListener('change', () => {
                 this.updateFloorName(floorId, newNameInput.value);
@@ -262,6 +261,9 @@ const floorManager = {
         if (backButton) {
             backButton.onclick = () => this.backToFloorsList();
         }
+
+        // Render floor rules
+        this.renderFloorRules();
 
         // Trigger onEditFloor callback
         if (this.onEditFloor) {
@@ -281,7 +283,7 @@ const floorManager = {
 
         // Update floor name
         floor.name = newName.trim();
-        
+
         // Update title
         const titleElement = document.getElementById('editViewTitle');
         if (titleElement) {
@@ -312,13 +314,13 @@ const floorManager = {
             editView.style.bottom = '';
             editView.style.overflowY = '';
         }
-        
+
         // Show list view
         document.getElementById('floorsListView').style.display = 'block';
-        
+
         // Reset current floor ID
         this.currentFloorId = null;
-        
+
         // Re-render floors list to ensure it's up to date
         this.renderFloorsList();
     },
@@ -329,17 +331,17 @@ const floorManager = {
                 window.logError('[SAVE FLOORS] Homey not initialized');
                 throw new Error('Homey not initialized');
             }
-            
+
             // Validate floors data before saving
             if (!this.floors) {
                 window.logError('[SAVE FLOORS] Floors array is undefined');
                 throw new Error('Invalid floors data');
             }
-            
+
             // Make sure we're passing a valid array
             const floorsToSave = Array.isArray(this.floors) ? this.floors : [];
-            
-            
+
+
             // Ensure each floor has required properties and check image sizes
             const validFloors = floorsToSave.map(floor => {
                 // Create a clean floor object with all required properties
@@ -350,33 +352,33 @@ const floorManager = {
                     imageAspectRatio: floor.imageAspectRatio || null,
                     rules: Array.isArray(floor.rules) ? floor.rules : []
                 };
-                
+
                 // Include image ID and URLs
                 if (floor.imageId) {
                     newFloor.imageId = floor.imageId;
-                    
+
                     // Include cloud and local URLs if they exist
                     if (floor.cloudUrl) newFloor.cloudUrl = floor.cloudUrl;
                     if (floor.localUrl) newFloor.localUrl = floor.localUrl;
-                    
+
                     // Only include imageData as a fallback if there's no imageUrl/imageId
                 } else if (floor.imageData) {
                     newFloor.imageData = floor.imageData;
-                    
+
                     // Verify image data size
                     if (newFloor.imageData && !imageUtils.verifyImageSize(newFloor.imageData)) {
                         window.logError('[SAVE FLOORS] Floor image too large:', newFloor.id);
                         throw new Error(`The image for floor "${newFloor.name}" is too large and cannot be saved. Please try replacing it with a smaller image.`);
                     }
                 }
-                
+
                 return newFloor;
             });
-            
+
             // Update the floors array with validated data
             this.floors = validFloors;
-            
-            
+
+
             // Try to save to Homey
             try {
                 await this.Homey.set('floors', validFloors);
@@ -479,7 +481,7 @@ const floorManager = {
 
             // Read the image file
             const file = imageInput.files[0];
-            
+
             // Check file size before processing
             if (file.size > 15 * 1024 * 1024) { // 15MB
                 this.Homey.alert(`The image is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Please choose an image smaller than 15MB.`);
@@ -488,7 +490,7 @@ const floorManager = {
                 saveButton.innerHTML = 'Create Floor';
                 return;
             }
-            
+
             // Process and save using Homey Images API
             this.processAndSaveFloorWithHomeyImages(file, nameInput.value.trim(), saveButton, cancelButton, dialog);
         } catch (err) {
@@ -510,30 +512,30 @@ const floorManager = {
 
             // Read the file as a data URL
             const imageData = await this.readFileAsDataURL(file);
-            
+
             try {
                 // Upload the image using the API endpoint
-                
+
                 try {
                     const response = await this.Homey.api('POST', '/floor-images/upload', {
                         imageData: imageData
                     });
 
-                    
+
                     if (!response || !response.success) {
                         throw new Error(response?.error || 'Failed to upload image');
                     }
-                    
+
                     // Determine URL based on environment
                     const hostname = window.location.hostname;
-                    const isLocalEnvironment = hostname.includes('192.168.') || 
-                                             hostname.includes('localhost') || 
-                                             hostname.includes('.local');
+                    const isLocalEnvironment = hostname.includes('192.168.') ||
+                        hostname.includes('localhost') ||
+                        hostname.includes('.local');
                     const imageUrl = isLocalEnvironment ? response.localUrl : response.cloudUrl;
-                    
+
                     // Use the aspectRatio method to get dimensions
                     const aspectRatio = await this.getImageAspectRatio(imageUrl);
-                    
+
                     // Create new floor object with Homey Image API data
                     const newFloor = {
                         id: Date.now().toString(),
@@ -586,10 +588,10 @@ const floorManager = {
 
                     // Add to floors array
                     this.floors.push(newFloor);
-                    
+
                     // Save to Homey settings
                     await this.saveFloors();
-                    
+
                     // Update UI
                     this.renderFloorsList();
                     dialog.style.display = 'none';
@@ -603,7 +605,7 @@ const floorManager = {
                 window.logError('[PROCESS AND SAVE WITH HOMEY IMAGES] API failed:', err);
                 throw new Error('Failed to process image: ' + err.message);
             }
-            
+
             // Reset button states
             saveButton.disabled = false;
             cancelButton.disabled = false;
@@ -616,7 +618,7 @@ const floorManager = {
             saveButton.innerHTML = 'Create Floor';
         }
     },
-    
+
     // Keep both helper methods
     readFileAsArrayBuffer(file) {
         return new Promise((resolve, reject) => {
@@ -630,7 +632,7 @@ const floorManager = {
             reader.readAsArrayBuffer(file);
         });
     },
-    
+
     readFileAsDataURL(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -681,7 +683,7 @@ const floorManager = {
         const confirmBtn = document.getElementById('confirmDelete');
         const cancelBtn = document.getElementById('cancelDelete');
         const closeBtn = dialog.querySelector('.modal-close-button');
-        
+
         // Store original confirm button text
         const originalBtnText = confirmBtn.innerHTML;
 
@@ -692,17 +694,17 @@ const floorManager = {
                 confirmBtn.disabled = true;
                 cancelBtn.disabled = true;
                 if (closeBtn) closeBtn.disabled = true;
-                
+
                 // Add spinner and loading text
                 confirmBtn.innerHTML = '<div class="button-content"><div class="spinner"></div>Deleting...</div>';
-                
+
                 // Delete the floor
                 this.floors = this.floors.filter(f => f.id !== floorId);
                 await this.saveFloors();
-                
+
                 // Update UI
                 this.renderFloorsList();
-                
+
                 // Close dialog
                 dialog.style.display = 'none';
             } catch (err) {
@@ -727,6 +729,7 @@ const floorManager = {
         const list = document.getElementById('devicesList');
         if (!list) return;
 
+
         if (!devices || devices.length === 0) {
             list.innerHTML = `
                 <div class="empty-devices-state">
@@ -739,7 +742,7 @@ const floorManager = {
             return;
         }
 
-        const sortedDevices = [...devices].sort((a, b) => 
+        const sortedDevices = [...devices].sort((a, b) =>
             a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
         );
 
@@ -840,7 +843,7 @@ const floorManager = {
     },
 
     attachRuleEventListeners(element) {
-        element.querySelectorAll('.delete-rule').forEach(button => {
+        element.querySelectorAll('.delete-rule-btn').forEach(button => {
             button.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -869,7 +872,7 @@ const floorManager = {
     },
 
     renderFloorPlanDevices(floor) {
-        
+
         const container = document.getElementById('floorPlanDevices');
         const image = document.getElementById('floorMapImage');
         const wrapper = document.getElementById('imageWrapper');
@@ -909,17 +912,17 @@ const floorManager = {
         }
 
         const wrapperRect = wrapper.getBoundingClientRect();
-        
+
         // Store the image aspect ratio for future use
         const imageAspectRatio = image.naturalWidth / image.naturalHeight;
         floor.imageAspectRatio = imageAspectRatio;
-        
+
         // Get the actual displayed dimensions of the image
         const imageRect = image.getBoundingClientRect();
 
-        
+
         floor.devices.forEach(device => {
-            
+
             const deviceEl = document.createElement('div');
             deviceEl.className = 'floor-plan-device';
             deviceEl.id = `device-${device.id}`;
@@ -927,14 +930,14 @@ const floorManager = {
 
             // Calculate the actual position based on the percentage and the displayed image dimensions
             let displayX, displayY;
-            
+
             // If the image is constrained by height (taller than wide relative to container)
             if (imageRect.width < wrapperRect.width) {
                 // Image is centered horizontally, so adjust X coordinate
                 const horizontalOffset = (wrapperRect.width - imageRect.width) / 2;
                 displayX = horizontalOffset + (device.position.x / 100) * imageRect.width;
                 displayY = (device.position.y / 100) * imageRect.height;
-            } 
+            }
             // If the image is constrained by width (wider than tall relative to container)
             else if (imageRect.height < wrapperRect.height) {
                 // Image is centered vertically, so adjust Y coordinate
@@ -960,7 +963,7 @@ const floorManager = {
             } else if (device.iconObj?.url) {
                 iconSrc = device.iconObj.url;
             }
-            
+
             deviceEl.innerHTML = `
                 <img src="${iconSrc}" alt="${device.name}">
             `;
@@ -990,7 +993,7 @@ const floorManager = {
         const confirmBtn = document.getElementById('confirmDelete');
         const cancelBtn = document.getElementById('cancelDelete');
         const closeBtn = dialog.querySelector('.modal-close-button');
-        
+
         // Store original confirm button text
         const originalBtnText = confirmBtn.innerHTML;
 
@@ -1003,7 +1006,7 @@ const floorManager = {
                 confirmBtn.disabled = true;
                 cancelBtn.disabled = true;
                 if (closeBtn) closeBtn.disabled = true;
-                
+
                 // Add spinner and loading text
                 confirmBtn.innerHTML = '<div class="button-content"><div class="spinner"></div>Removing...</div>';
 
@@ -1069,7 +1072,7 @@ const floorManager = {
 
         try {
             const file = imageInput.files[0];
-            
+
             // Process and save using Homey Images API
             this.processAndSaveFloorWithHomeyImages(file, nameInput.value.trim(), saveButton, cancelButton, dialog);
         } catch (err) {
@@ -1098,7 +1101,7 @@ const floorManager = {
         const confirmBtn = document.getElementById('confirmDelete');
         const cancelBtn = document.getElementById('cancelDelete');
         const closeBtn = dialog.querySelector('.modal-close-button');
-        
+
         // Store original confirm button text
         const originalBtnText = confirmBtn.innerHTML;
 
@@ -1117,7 +1120,7 @@ const floorManager = {
                 confirmBtn.disabled = true;
                 cancelBtn.disabled = true;
                 if (closeBtn) closeBtn.disabled = true;
-                
+
                 // Add spinner and loading text
                 confirmBtn.innerHTML = '<div class="button-content"><div class="spinner"></div>Deleting...</div>';
 
@@ -1216,7 +1219,7 @@ const floorManager = {
         const saveBtn = dialog.querySelector('#saveRule');
         const cancelBtn = dialog.querySelector('#cancelRule');
         const closeBtn = dialog.querySelector('.modal-close-button');
-        
+
         if (saveBtn) saveBtn.onclick = handleSave;
         if (cancelBtn) cancelBtn.onclick = () => dialog.style.display = 'none';
         if (closeBtn) closeBtn.onclick = () => dialog.style.display = 'none';
@@ -1279,7 +1282,7 @@ const floorManager = {
             const displayY = (position.y / 100) * wrapperRect.height;
 
             deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
-            
+
             // Use base64 data if available, otherwise fall back to URL
             let iconSrc = 'default-icon.png';
             if (device.iconObj?.base64) {
@@ -1287,7 +1290,7 @@ const floorManager = {
             } else if (device.iconObj?.url) {
                 iconSrc = device.iconObj.url;
             }
-            
+
             deviceEl.innerHTML = `
                 <img src="${iconSrc}" alt="${device.name}">
             `;
@@ -1302,7 +1305,7 @@ const floorManager = {
 
             // Save floors
             this.saveFloors();
-            
+
             // Update device list
             this.renderDevicesList(floor.devices);
 
@@ -1318,13 +1321,13 @@ const floorManager = {
         if (!e.touches) {
             e.preventDefault();
         }
-        
+
         const deviceEl = e.target.closest('.floor-plan-device');
         if (!deviceEl) return;
-        
+
         // Get the current floor based on currentFloorId
         const currentFloor = this.floors.find(f => f.id === this.currentFloorId);
-        
+
         // Get the floor map image and store its dimensions
         const floorMapImage = document.getElementById('floorMapImage');
         if (floorMapImage && currentFloor) {
@@ -1336,25 +1339,25 @@ const floorManager = {
 
         this.draggedDevice = deviceEl;
         deviceEl.classList.add('dragging');
-        
+
         const event = e.touches ? e.touches[0] : e;
         const rect = deviceEl.getBoundingClientRect();
-        
+
         // Calculate offset from the top-left corner of the element
         this.dragOffset = {
             x: event.clientX - rect.left,
             y: event.clientY - rect.top
         };
-        
+
         // For touch events, store initial position to determine if it's a drag or scroll
         this.initialTouchPos = {
             x: event.clientX,
             y: event.clientY
         };
-        
+
         this.dragStartTime = Date.now();
         this.isDragging = false;
-        
+
         // Add document-level event listeners
         if (!e.touches) {
             document.addEventListener('mousemove', this.boundHandleDragMove);
@@ -1367,21 +1370,21 @@ const floorManager = {
 
     handleDragMove(e) {
         if (!this.draggedDevice) return;
-        
+
         const event = e.touches ? e.touches[0] : e;
-        
+
         // For touch events, determine if this is a drag or scroll
         if (this.initialTouchPos && !this.isDragging) {
             const deltaX = Math.abs(event.clientX - this.initialTouchPos.x);
             const deltaY = Math.abs(event.clientY - this.initialTouchPos.y);
             const timeDelta = Date.now() - this.dragStartTime;
-            
+
             // If movement is mostly vertical and quick, it's likely a scroll attempt
             if (deltaY > deltaX * 1.5 && timeDelta < 300) {
                 this.handleDragEnd(e);
                 return;
             }
-            
+
             // If we've moved enough horizontally, consider it a drag
             if (deltaX > 10) {
                 this.isDragging = true;
@@ -1392,7 +1395,7 @@ const floorManager = {
             // For mouse events, always prevent default
             e.preventDefault();
         }
-        
+
         // If we're not dragging yet, don't move the element
         if (this.initialTouchPos && !this.isDragging) {
             return;
@@ -1400,24 +1403,24 @@ const floorManager = {
 
         const wrapper = document.getElementById('imageWrapper');
         const wrapperRect = wrapper.getBoundingClientRect();
-        
+
         // Get the floor map image
         const floorMapImage = document.getElementById('floorMapImage');
-        
+
         // Get the current floor data which includes the aspect ratio
         const currentFloor = this.floors.find(f => f.id === this.currentFloorId);
         const imageAspectRatio = currentFloor?.imageAspectRatio || (floorMapImage.naturalWidth / floorMapImage.naturalHeight);
-        
+
         // Get the actual displayed dimensions of the image
         const imageRect = floorMapImage.getBoundingClientRect();
 
         // Calculate new position relative to wrapper
         let x = event.clientX - wrapperRect.left - this.dragOffset.x;
         let y = event.clientY - wrapperRect.top - this.dragOffset.y;
-        
+
         // Calculate position relative to the actual image, not the wrapper
         let posX, posY;
-        
+
         // If the image is constrained by height (taller than wide relative to container)
         if (imageRect.width < wrapperRect.width) {
             // Adjust for horizontal centering
@@ -1428,7 +1431,7 @@ const floorManager = {
             // Calculate percentage based on image dimensions
             posX = (x / imageRect.width) * 100;
             posY = (y / imageRect.height) * 100;
-        } 
+        }
         // If the image is constrained by width (wider than tall relative to container)
         else if (imageRect.height < wrapperRect.height) {
             // Adjust for vertical centering
@@ -1446,21 +1449,21 @@ const floorManager = {
             posX = (x / imageRect.width) * 100;
             posY = (y / imageRect.height) * 100;
         }
-        
+
         // Ensure percentages are within bounds
         posX = Math.max(0, Math.min(posX, 100));
         posY = Math.max(0, Math.min(posY, 100));
 
         // Calculate display position for visual feedback
         let displayX, displayY;
-        
+
         // If the image is constrained by height (taller than wide relative to container)
         if (imageRect.width < wrapperRect.width) {
             // Image is centered horizontally, so adjust X coordinate
             const horizontalOffset = (wrapperRect.width - imageRect.width) / 2;
             displayX = horizontalOffset + (posX / 100) * imageRect.width;
             displayY = (posY / 100) * imageRect.height;
-        } 
+        }
         // If the image is constrained by width (wider than tall relative to container)
         else if (imageRect.height < wrapperRect.height) {
             // Image is centered vertically, so adjust Y coordinate
@@ -1473,7 +1476,7 @@ const floorManager = {
             displayX = (posX / 100) * imageRect.width;
             displayY = (posY / 100) * imageRect.height;
         }
-        
+
         this.draggedDevice.style.transform = `translate(${displayX}px, ${displayY}px)`;
 
         // Store current position for drag end
@@ -1481,7 +1484,7 @@ const floorManager = {
     },
 
     handleDragEnd(e) {
-        
+
         if (!this.draggedDevice) {
             return;
         }
@@ -1491,10 +1494,10 @@ const floorManager = {
 
         // Always update device position if we have a valid position
         if (this.currentDragPosition) {
-            
+
             const floor = this.floors.find(f => f.id === this.currentFloorId);
             if (floor && floor.devices) {
-                
+
                 // Ensure the floor has the image aspect ratio stored
                 if (!floor.imageAspectRatio) {
                     const floorMapImage = document.getElementById('floorMapImage');
@@ -1519,7 +1522,7 @@ const floorManager = {
                         });
                 }
             }
-        } 
+        }
 
         // Clean up
         this.draggedDevice = null;
@@ -1539,7 +1542,7 @@ const floorManager = {
     showChangeImageDialog(floorId) {
         const floor = this.floors.find(f => f.id === floorId);
         if (!floor) return;
-        
+
         const dialog = document.getElementById('floorDialog');
         if (!dialog) {
             window.logError('[SHOW CHANGE IMAGE DIALOG] Floor dialog not found');
@@ -1549,7 +1552,7 @@ const floorManager = {
         // Update dialog title and button text
         const dialogTitle = dialog.querySelector('.modal-title');
         if (dialogTitle) dialogTitle.textContent = 'Change Floor Image';
-        
+
         // Reset form
         const nameInput = dialog.querySelector('#floorName');
         const imageInput = dialog.querySelector('#floorImage');
@@ -1563,10 +1566,10 @@ const floorManager = {
             nameInput.value = floor.name;
             nameInput.parentElement.style.display = 'none'; // Hide the name field
         }
-        
+
         if (imageInput) imageInput.value = '';
         if (previewImage) previewImage.innerHTML = '';
-        
+
         if (saveButton) {
             saveButton.disabled = true;
             saveButton.textContent = 'Update Image';
@@ -1609,7 +1612,7 @@ const floorManager = {
         // Show dialog
         dialog.style.display = 'flex';
     },
-    
+
     // New method to save changed image
     async saveChangedImage(floorId) {
         const dialog = document.getElementById('floorDialog');
@@ -1631,67 +1634,52 @@ const floorManager = {
 
             // Read the image file
             const file = imageInput.files[0];
-            
+
             // Check file size before processing
             if (file.size > 15 * 1024 * 1024) { // 15MB
                 this.Homey.alert(`The image is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Please choose an image smaller than 15MB.`);
                 saveButton.disabled = false;
                 cancelButton.disabled = false;
                 saveButton.innerHTML = 'Update Image';
-                
+
                 // Restore name field visibility
                 if (nameInput?.parentElement) nameInput.parentElement.style.display = '';
                 return;
             }
-            
+
             // Get the floor object to update
             const floor = this.floors.find(f => f.id === floorId);
             if (!floor) {
                 throw new Error('Floor not found');
             }
-            
-            // Store original image properties for rollback
-            const originalImageData = floor.imageData;
-            const originalImageId = floor.imageId;
-            
+
             try {
                 // Read the file as a data URL
                 const imageData = await this.readFileAsDataURL(file);
 
-                let response;
-                
-                if (floor.imageId) {
-                    // Update existing image
+                // Always create new image instead of updating
+                const response = await this.Homey.api('POST', '/floor-images/upload', {
+                    imageData: imageData
+                });
 
-                    response = await this.Homey.api('POST', '/floor-images/update', {
-                        imageId: floor.imageId,
-                        imageData: imageData
-                    });
-                } else {
-                    // Create new image
-
-                    response = await this.Homey.api('POST', '/floor-images/upload', {
-                        imageData: imageData
-                    });
-                }
-
-                
                 if (!response || !response.success) {
                     window.logError('API response error:', response?.error);
                     throw new Error(response?.error || 'Failed to process image');
                 }
-                
-                
+
+                // Remove old image references (no need to keep them)
+                // Homey will automatically clean up unused images eventually
+
                 // Determine URL based on environment
                 const hostname = window.location.hostname;
-                const isLocalEnvironment = hostname.includes('192.168.') || 
-                                         hostname.includes('localhost') || 
-                                         hostname.includes('.local');
+                const isLocalEnvironment = hostname.includes('192.168.') ||
+                    hostname.includes('localhost') ||
+                    hostname.includes('.local');
                 const imageUrl = isLocalEnvironment ? response.localUrl : response.cloudUrl;
-                
+
                 // Get dimensions for aspect ratio
                 const aspectRatio = await this.getImageAspectRatio(imageUrl);
-                
+
                 // Update floor with new image properties
                 floor.imageId = response.imageId;
                 // Store both cloud and local URLs from the API response
@@ -1700,35 +1688,29 @@ const floorManager = {
                 // Remove any legacy imageUrl
                 if (floor.imageUrl) delete floor.imageUrl;
                 floor.imageAspectRatio = aspectRatio;
-                
+
                 // Remove any base64 data if it exists (we're fully transitioning to Homey Images API)
                 if (floor.imageData) {
                     delete floor.imageData;
                 }
-                
+
                 // Save to Homey settings
                 await this.saveFloors();
-                
+
                 // Update the image in the UI
                 const floorMapImage = document.getElementById('floorMapImage');
                 if (floorMapImage) {
                     floorMapImage.src = this.getFloorImageSource(floor);
                 }
-                
+
                 // Re-render floor plan devices with the new image
                 this.renderFloorPlanDevices(floor);
-                
+
                 // Close dialog
                 dialog.style.display = 'none';
             } catch (apiError) {
                 console.error('API call error:', apiError);
                 window.logError('[API CALL ERROR]', apiError);
-                
-                // Restore original image properties on error
-                floor.imageData = originalImageData;
-                floor.imageId = originalImageId;
-                if (floor.imageUrl) delete floor.imageUrl;
-                
                 throw new Error('Failed to process image: ' + apiError.message);
             }
         } catch (err) {
@@ -1739,7 +1721,7 @@ const floorManager = {
             saveButton.disabled = false;
             cancelButton.disabled = false;
             saveButton.innerHTML = 'Update Image';
-            
+
             // Restore name field visibility
             if (nameInput?.parentElement) nameInput.parentElement.style.display = '';
         }
@@ -1775,43 +1757,253 @@ const floorManager = {
         if (!floor) {
             return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB4PSIwIiB5PSIwIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2VlZWVlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjI0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBhbGlnbm1lbnQtYmFzZWxpbmU9Im1pZGRsZSIgZmlsbD0iIzk5OTk5OSI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+';
         }
-        
-        // Determine if we're in a local environment
-        const hostname = window.location.hostname;
-        const isLocalEnvironment = hostname.includes('192.168.') || 
-                                  hostname.includes('localhost') || 
-                                  hostname.includes('.local');
-        
+
         // Choose URL based on environment
         if (floor.imageId) {
-            // If we have both URLs, use local in local environment, cloud otherwise
-            if (floor.localUrl && floor.cloudUrl) {
-                if (isLocalEnvironment) {
-                    return floor.localUrl;
-                } else {
-                    return floor.cloudUrl;
-                }
-            }
-            
-            // If we only have one URL type, use what we have
-            if (floor.localUrl) return floor.localUrl;
-            if (floor.cloudUrl) return floor.cloudUrl;
-            
-            // If we have imageId but no URLs, construct a URL
-            if (isLocalEnvironment) {
-                return `http://${hostname}/api/image/${floor.imageId}`;
-            } else {
-                return `https://${hostname}/api/image/${floor.imageId}`;
-            }
+            return floor.cloudUrl;
         }
-        
+
         // Fall back to direct image data if available
         if (floor.imageData) {
             return floor.imageData;
         }
-        
+
         // Default image if nothing else is available
         return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB4PSIwIiB5PSIwIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2VlZWVlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjI0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBhbGlnbm1lbnQtYmFzZWxpbmU9Im1pZGRsZSIgZmlsbD0iIzk5OTk5OSI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+';
+    },
+
+    // Render the floor rules list
+    renderFloorRules() {
+        const floorRulesList = document.getElementById('floorRulesList');
+        if (!floorRulesList) return;
+
+        const floor = this.floors.find(f => f.id === this.currentFloorId);
+        if (!floor) return;
+
+        if (!floor.rules || floor.rules.length === 0) {
+            floorRulesList.innerHTML = `
+                <div class="empty-rules-state">
+                    <p>No floor rules added yet</p>
+                    <p>Floor rules apply to the entire floor plan and all devices on it</p>
+                </div>`;
+            return;
+        }
+
+        floorRulesList.innerHTML = floor.rules.map(rule => `
+            <div class="floor-rule-item">
+                <div class="rule-info">
+                    <span class="rule-name">${rule.name}</span>
+                    <span class="rule-type">${rule.type}</span>
+                </div>
+                <div class="rule-actions">
+                    <button class="icon-button edit-floor-rule" data-rule-id="${rule.id}" title="Edit">
+                        <svg width="20" height="20" viewBox="0 0 24 24">
+                            <path fill="#666" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                        </svg>
+                    </button>
+                    <button class="icon-button delete-floor-rule-btn" data-rule-id="${rule.id}" title="Delete">
+                        <svg width="20" height="20" viewBox="0 0 24 24">
+                            <path fill="#ff4444" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+
+        this.attachFloorRuleEventListeners();
+    },
+
+    // Attach event listeners to floor rule elements
+    attachFloorRuleEventListeners() {
+        const floorRulesList = document.getElementById('floorRulesList');
+        if (!floorRulesList) return;
+
+        // Edit rule buttons
+        floorRulesList.querySelectorAll('.edit-floor-rule').forEach(button => {
+            button.addEventListener('click', () => {
+                const ruleId = button.dataset.ruleId;
+                this.editFloorRule(ruleId);
+            });
+        });
+
+        // Delete rule buttons
+        floorRulesList.querySelectorAll('.delete-floor-rule-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                const ruleId = button.dataset.ruleId;
+                this.deleteFloorRule(ruleId);
+            });
+        });
+
+        // Add rule button
+        const addFloorRuleBtn = document.getElementById('addFloorRule');
+        if (addFloorRuleBtn) {
+            // Remove existing event listeners
+            const newAddBtn = addFloorRuleBtn.cloneNode(true);
+            addFloorRuleBtn.parentNode.replaceChild(newAddBtn, addFloorRuleBtn);
+
+            // Add new event listener
+            newAddBtn.addEventListener('click', () => {
+                this.addFloorRule();
+            });
+        }
+    },
+
+    // Add a new floor rule
+    addFloorRule() {
+        const floor = this.floors.find(f => f.id === this.currentFloorId);
+        if (!floor) return;
+
+        // Create a new rule with default values
+        const newRule = {
+            id: generateUUID(),
+            name: 'New Floor Rule',
+            type: 'floorRule',
+            config: {
+                // Default configuration
+                showInteractionZones: true,
+                zoneColor: '#1976D2',
+                showDeviceLabels: true
+            }
+        };
+
+        // Add rule to floor
+        if (!floor.rules) {
+            floor.rules = [];
+        }
+        floor.rules.push(newRule);
+
+        // Save floors
+        this.saveFloors()
+            .then(() => {
+                // Update UI
+                this.renderFloorRules();
+            })
+            .catch(err => {
+                window.logError('[ADD FLOOR RULE] Failed to add rule:', err);
+                this.Homey.alert('Failed to add floor rule: ' + err.message);
+            });
+    },
+
+    // Edit a floor rule
+    editFloorRule(ruleId) {
+        const floor = this.floors.find(f => f.id === this.currentFloorId);
+        if (!floor) return;
+
+        const rule = floor.rules.find(r => r.id === ruleId);
+        if (!rule) return;
+
+        // For now, we'll implement a simple toggle for the rule configuration
+        if (rule.config.showInteractionZones) {
+            rule.config.showInteractionZones = false;
+        } else {
+            rule.config.showInteractionZones = true;
+        }
+
+        // Save changes
+        this.saveFloors()
+            .then(() => {
+                // Update UI
+                this.renderFloorRules();
+            })
+            .catch(err => {
+                window.logError('[EDIT FLOOR RULE] Failed to edit rule:', err);
+                this.Homey.alert('Failed to edit floor rule: ' + err.message);
+            });
+    },
+
+    // Delete a floor rule
+    deleteFloorRule(ruleId) {
+        const dialog = document.getElementById('deleteConfirmDialog');
+        if (!dialog) return;
+
+        // Update dialog text for rule deletion
+        const modalTitle = dialog.querySelector('#deleteDialogTitle');
+        const modalDescription = dialog.querySelector('#deleteDialogDescription');
+
+        if (modalTitle) modalTitle.textContent = 'Delete Floor Rule';
+        if (modalDescription) modalDescription.textContent = 'Are you sure you want to delete this floor rule? This action cannot be undone.';
+
+        // Show dialog
+        dialog.style.display = 'flex';
+
+        // Get buttons
+        const confirmBtn = document.getElementById('confirmDelete');
+        const cancelBtn = document.getElementById('cancelDelete');
+        const closeBtn = dialog.querySelector('.modal-close-button');
+
+        // Store original confirm button text
+        const originalBtnText = confirmBtn.innerHTML;
+
+        // Store current handlers
+        const oldConfirmHandler = confirmBtn.onclick;
+        const oldCancelHandler = cancelBtn.onclick;
+        const oldCloseHandler = closeBtn.onclick;
+
+        const handleDelete = async () => {
+            try {
+                const floor = this.floors.find(f => f.id === this.currentFloorId);
+                if (!floor) return;
+
+                // Show loading state
+                confirmBtn.disabled = true;
+                cancelBtn.disabled = true;
+                if (closeBtn) closeBtn.disabled = true;
+
+                // Add spinner and loading text
+                confirmBtn.innerHTML = '<div class="button-content"><div class="spinner"></div>Deleting...</div>';
+
+                // Remove rule
+                floor.rules = floor.rules.filter(r => r.id !== ruleId);
+
+                // Save changes
+                await this.saveFloors();
+
+                // Update UI
+                this.renderFloorRules();
+
+                // Close dialog
+                dialog.style.display = 'none';
+            } catch (err) {
+                window.logError('[DELETE FLOOR RULE] Failed to delete rule:', err);
+                this.Homey.alert('Failed to delete floor rule: ' + err.message);
+            } finally {
+                // Reset button states
+                confirmBtn.disabled = false;
+                cancelBtn.disabled = false;
+                if (closeBtn) closeBtn.disabled = false;
+                confirmBtn.innerHTML = originalBtnText;
+
+                // Restore original handlers
+                confirmBtn.onclick = oldConfirmHandler;
+                cancelBtn.onclick = oldCancelHandler;
+                closeBtn.onclick = oldCloseHandler;
+            }
+        };
+
+        // Set event listeners
+        confirmBtn.onclick = handleDelete;
+        cancelBtn.onclick = () => {
+            dialog.style.display = 'none';
+            // Restore original handlers
+            confirmBtn.onclick = oldConfirmHandler;
+            cancelBtn.onclick = oldCancelHandler;
+            closeBtn.onclick = oldCloseHandler;
+        };
+        closeBtn.onclick = () => {
+            dialog.style.display = 'none';
+            // Restore original handlers
+            confirmBtn.onclick = oldConfirmHandler;
+            cancelBtn.onclick = oldCancelHandler;
+            closeBtn.onclick = oldCloseHandler;
+        };
+    },
+
+    init() {
+        this.setupEventListeners();
+        this.loadFloors();
+        this.initImageDropZone();
+        this.attachFloorRuleEventListeners();
+
     },
 
 };

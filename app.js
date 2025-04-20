@@ -33,64 +33,56 @@ class SpaceHomeyApp extends Homey.App {
   async getFloors() {
     try {
       const floors = await this.homey.settings.get('floors') || [];
-
-      return floors.map(floor => ({
-        id: floor.id,
-        name: floor.name,
-        image: floor.imageData,
-        imageAspectRatio: floor.imageAspectRatio,
-        devices: floor.devices || []
-      }));
-
+      return floors;
     } catch (error) {
       this.error('Error getting floors:', error);
       throw error;
     }
   }
-/**
-  async saveFloor(floorData) {
-    try {
-      const floors = await this.homey.settings.get('floors') || [];
-      const floorIndex = floors.findIndex(f => f.id === floorData.id);
-
-      // Prepare floor object with proper image properties
-      const floorToSave = {
-        ...floorData
-      };
-      
-      // Prioritize imageId/imageUrl over imageData
-      if (floorData.imageId && floorData.imageUrl) {
-        floorToSave.imageId = floorData.imageId;
-        floorToSave.imageUrl = floorData.imageUrl;
-      } else if (floorData.floorPlan) {
-        floorToSave.imageData = floorData.floorPlan;
-      }
-      
-      // Delete floorPlan as we've handled it
-      delete floorToSave.floorPlan;
-
-      if (floorIndex >= 0) {
-        // Update existing floor while preserving non-updated properties
-        floors[floorIndex] = {
-          ...floors[floorIndex],
-          ...floorToSave
+  /**
+    async saveFloor(floorData) {
+      try {
+        const floors = await this.homey.settings.get('floors') || [];
+        const floorIndex = floors.findIndex(f => f.id === floorData.id);
+  
+        // Prepare floor object with proper image properties
+        const floorToSave = {
+          ...floorData
         };
-      } else {
-        // Add new floor
-        floors.push({
-          ...floorToSave,
-          devices: []
-        });
+        
+        // Prioritize imageId/imageUrl over imageData
+        if (floorData.imageId && floorData.imageUrl) {
+          floorToSave.imageId = floorData.imageId;
+          floorToSave.imageUrl = floorData.imageUrl;
+        } else if (floorData.floorPlan) {
+          floorToSave.imageData = floorData.floorPlan;
+        }
+        
+        // Delete floorPlan as we've handled it
+        delete floorToSave.floorPlan;
+  
+        if (floorIndex >= 0) {
+          // Update existing floor while preserving non-updated properties
+          floors[floorIndex] = {
+            ...floors[floorIndex],
+            ...floorToSave
+          };
+        } else {
+          // Add new floor
+          floors.push({
+            ...floorToSave,
+            devices: []
+          });
+        }
+  
+        await this.homey.settings.set('floors', floors);
+        return { success: true };
+      } catch (error) {
+        this.error('Error saving floor:', error);
+        throw error;
       }
-
-      await this.homey.settings.set('floors', floors);
-      return { success: true };
-    } catch (error) {
-      this.error('Error saving floor:', error);
-      throw error;
     }
-  }
- */
+  /** */
   async getFloorDevices(floorId) {
     try {
       const floors = await this.getFloors();

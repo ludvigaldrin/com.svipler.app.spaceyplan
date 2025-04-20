@@ -126,7 +126,6 @@ module.exports = {
     // Update an existing floor image
     async updateFloorImage({ homey, body }) {
         try {
-
             if (!body || !body.imageData) {
                 return { 
                     success: false,
@@ -147,19 +146,23 @@ module.exports = {
             
             try {
                 let image;
+                let isNewImage = false;
                 
-                // Try to get existing image or create new one
+                // Try to get existing image
                 try {
                     image = await homey.images.getImage({ id: body.imageId });
+                    homey.app.log('Found existing image to update:', body.imageId);
                 } catch (getImageError) {
-                    homey.app.error('Could not find existing image, creating new one:', getImageError);
+                    // If the image doesn't exist, create a new one with the same ID if possible
+                    homey.app.log('Could not find existing image, creating new one');
                     image = await homey.images.createImage();
+                    isNewImage = true;
+                    homey.app.log('Created new image with ID:', image.id);
                 }
                 
                 // Set the stream handler according to SDK documentation
                 const { Readable } = require('stream');
                 image.setStream((targetStream) => {
-                    
                     // Create a stream from our buffer
                     const sourceStream = new Readable();
                     sourceStream._read = () => {}; // Required for older Node versions
@@ -172,18 +175,13 @@ module.exports = {
                     return sourceStream.pipe(targetStream);
                 });
 
-                // If this was an existing image, call update
-                if (body.imageId) {
+                // If updating an existing image, call update
+                if (!isNewImage) {
                     await image.update();
-
+                    homey.app.log('Successfully updated existing image');
+                } else {
+                    homey.app.log('Initialized new image (no update needed)');
                 }
-                
-                // Get the image URL - use cloudUrl and localUrl properties
-                const cloudUrl = image.cloudUrl;
-                const localUrl = image.localUrl;
-                
-                homey.app.log('Updated image URLs:', { cloudUrl, localUrl });
-
                 
                 // Include URLs in the response for easier client-side use
                 return {

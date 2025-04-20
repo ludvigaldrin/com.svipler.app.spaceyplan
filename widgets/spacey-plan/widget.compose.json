@@ -47,6 +47,14 @@
       "method": "POST",
       "path": "/error"
     },
+    "proxyImage": {
+      "method": "GET",
+      "path": "/proxyImage"
+    },
+    "clearImageCache": {
+      "method": "POST",
+      "path": "/clearImageCache"
+    },
     "getDeviceState": {
       "method": "GET",
       "path": "/devices/:deviceId/capabilities/:capabilityId"

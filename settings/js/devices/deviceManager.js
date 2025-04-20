@@ -1,7 +1,7 @@
 const deviceManager = {
     Homey: null,
     currentFloorId: null,
-    supportedCapabilities: ['onoff', 'dim', 'alarm_motion', 'alarm_contact'],
+    supportedCapabilities: ['onoff', 'dim', 'alarm_motion', 'alarm_contact', 'measure_temperature', 'measure_humidity'],
     devices: [], // Cache for devices
 
     async initialize() {
@@ -36,8 +36,10 @@ const deviceManager = {
                     // Clear previous results
                     searchResults.innerHTML = '';
 
-                    if (searchTerm.length < 2) {
-                        searchResults.innerHTML = '<div class="initial-state">Start typing to search devices</div>';
+                    // Show all devices when search is empty
+                    if (searchTerm.length === 0) {
+                        // Show all devices when no search term is entered
+                        this.updateSearchResults('', this.devices);
                         return;
                     }
 
@@ -70,7 +72,8 @@ const deviceManager = {
                 deviceDialog.style.display = 'flex';
                 if (searchInput) {
                     searchInput.value = '';
-                    searchResults.innerHTML = '<div class="initial-state">Start typing to search devices</div>';
+                    // Show all devices initially
+                    this.updateSearchResults('', this.devices);
                 }
             });
         }
@@ -90,8 +93,15 @@ const deviceManager = {
 
     updateSearchResults(searchTerm, filteredDevices) {
         const resultsContainer = document.getElementById('searchResults');
+        
+        // Sort devices alphabetically to make finding easier
+        const sortedDevices = [...filteredDevices].sort((a, b) => {
+            const nameA = (a.name || '').toLowerCase();
+            const nameB = (b.name || '').toLowerCase();
+            return nameA.localeCompare(nameB);
+        });
 
-        const html = filteredDevices.map(device => {
+        const html = sortedDevices.map(device => {
             const deviceCapabilities = device.capabilities || [];
             
             // Filter supported capabilities with special handling for dim/onoff
@@ -105,6 +115,9 @@ const deviceManager = {
                 supported = supported.filter(cap => cap !== 'onoff');
             }
             
+            // Note: We keep both measure_temperature and measure_humidity visible
+            // when a device has both capabilities, as users might want to add either or both
+            
             // Get unsupported capabilities
             const unsupported = deviceCapabilities.filter(cap => 
                 !this.supportedCapabilities.includes(cap)
@@ -113,6 +126,9 @@ const deviceManager = {
             // Skip devices with no capabilities at all
             if (deviceCapabilities.length === 0) return '';
             
+            // Don't skip devices with no supported capabilities
+            // if (supported.length === 0) return '';
+
             // Get icon source - we don't have base64 yet at this stage
             let iconSrc = device.iconObj ? device.iconObj.url : '';
 
@@ -128,12 +144,17 @@ const deviceManager = {
             // Create unique ID for this device's unsupported section
             const unsupportedSectionId = `unsupported-${device.id}`;
 
+            // Show device zone when showing all devices (no search term)
+            const zoneInfo = device.zone && !searchTerm ? 
+                `<div class="device-zone">${device.zone.name || ''}</div>` : '';
+
             deviceInfo.innerHTML = `
                 <div class="device-header">
                     <div class="device-icon">
                         <img src="${iconSrc}" alt="${device.name}" onerror="this.style.display='none'">
                     </div>
                     <div class="device-name">${device.name}</div>
+                    ${zoneInfo}
                 </div>
                 <div class="capabilities-section">
                     ${supported.map(capability => {
@@ -225,7 +246,9 @@ const deviceManager = {
             'dim': 'Dim (with On/Off)',
             'onoff': 'On/Off',
             'alarm_contact': 'Sensor (Contact)',
-            'alarm_motion': 'Sensor (Motion)'
+            'alarm_motion': 'Sensor (Motion)',
+            'measure_temperature': 'Temperature',
+            'measure_humidity': 'Humidity'
         };
         return displayNames[capabilityId] || capabilityId;
     },
@@ -237,6 +260,11 @@ const deviceManager = {
         // For alarm_motion and alarm_contact, check sensor-specific IDs
         if (capability === 'alarm_motion' || capability === 'alarm_contact') {
             return floor.devices.some(d => d.id === `${deviceId}-sensor-${capability}`);
+        }
+
+        // For measure_temperature and measure_humidity, check measure-specific IDs
+        if (capability === 'measure_temperature' || capability === 'measure_humidity') {
+            return floor.devices.some(d => d.id === `${deviceId}-measure-${capability}`);
         }
 
         // For onoff and dim, check the respective IDs
@@ -261,16 +289,41 @@ const deviceManager = {
             throw new Error('Current floor not found');
         }
 
+        // Determine device ID based on capability
+        let deviceId;
+        let deviceCapability = capability;
+
+        if (capability === 'dim') {
+            deviceId = `${device.id}-dim`;
+        } else if (capability === 'onoff') {
+            deviceId = `${device.id}-onoff`;
+        } else if (capability === 'alarm_motion' || capability === 'alarm_contact') {
+            deviceId = `${device.id}-sensor-${capability}`;
+            deviceCapability = 'sensor';
+        } else if (capability === 'measure_temperature' || capability === 'measure_humidity') {
+            deviceId = `${device.id}-measure-${capability}`;
+            deviceCapability = 'measure';
+        } else {
+            deviceId = device.id;
+        }
+
         // Create new device object with base structure
         const newDevice = {
-            id: capability === 'dim' ? `${device.id}-dim` : capability === 'onoff' ? `${device.id}-onoff` : device.id,
+            id: deviceId,
             homeyId: device.id,
             name: device.name,
-            capability: capability,
-            position: { x: 85, y: 85 },  // Center of the floor plan (was 10, 10)
+            capability: deviceCapability,
+            position: { x: 85, y: 85 },  // Center of the floor plan
             rules: [],
             iconOverride: device.hasOwnProperty('iconOverride') ? device.iconOverride : null  // Always copy the iconOverride property
         };
+
+        // Add special type info for sensors and measures
+        if (capability === 'alarm_motion' || capability === 'alarm_contact') {
+            newDevice.sensorType = capability;
+        } else if (capability === 'measure_temperature' || capability === 'measure_humidity') {
+            newDevice.measureType = capability;
+        }
 
         // Process icon if available
         try {
@@ -283,8 +336,6 @@ const deviceManager = {
             // Check if there's an iconOverride property and it's not null
             if (device.hasOwnProperty('iconOverride') && device.iconOverride) {
                 // Use our API endpoint to get the icon
-
-                //const response = await Homey.api('GET', '/icons/' + device.iconOverride);
                 const response = await this.Homey.api('GET', '/icons/' + device.iconOverride);
                 if (!response.dataUrl) {
                     throw new Error(`Failed to fetch icon: ${response.status}`);
@@ -355,11 +406,20 @@ const deviceManager = {
                     cloudColorOff: '#ffffff'
                 }
             });
+        }
 
-            // Special handling for sensors
-            newDevice.id = `${device.id}-sensor-${capability}`;
-            newDevice.capability = 'sensor';
-            newDevice.sensorType = capability;
+        // Add default color rule for measure_temperature and measure_humidity
+        if (capability === 'measure_temperature' || capability === 'measure_humidity') {
+            newDevice.rules.push({
+                id: generateUUID(),
+                name: 'Default Style',
+                type: 'measureStyle',
+                config: {
+                    iconColor: '#2196F3',
+                    showCloud: true,
+                    cloudColor: '#2196F3'
+                }
+            });
         }
 
         // Add new device to floor's devices array

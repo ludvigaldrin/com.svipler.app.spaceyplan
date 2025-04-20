@@ -1,5 +1,5 @@
-const sensorRenderer = {
-    id: 'sensor',
+const measureRenderer = {
+    id: 'measure',
 
     createDeviceElement(device, position) {
         const deviceEl = document.createElement('div');
@@ -64,10 +64,12 @@ const sensorRenderer = {
         deviceEl.setAttribute('data-device-id', device.id);
         deviceEl.setAttribute('data-homey-id', device.homeyId);
         deviceEl.setAttribute('data-capability', this.id);
-        deviceEl.setAttribute('data-state', device.state || false);
         deviceEl.setAttribute('data-device', JSON.stringify(device));
 
-        deviceEl.setAttribute('data-sensor-type', device.sensorType);
+        // Store which measure capabilities this device supports
+        if (device.measureCapabilities) {
+            deviceEl.setAttribute('data-measure-capabilities', JSON.stringify(device.measureCapabilities));
+        }
 
         const iconWrapper = document.createElement('div');
         iconWrapper.className = 'icon-wrapper';
@@ -168,41 +170,43 @@ const sensorRenderer = {
 
     async initializeState(deviceEl, deviceId, widgetId) {
         try {
-            const sensorType = deviceEl.getAttribute('data-sensor-type');
-            const response = await Homey.api('GET', `/devices/${deviceId}/capabilities/sensor`);
-
-            if (response !== undefined) {
-                const onoff = response;
-                deviceEl.setAttribute('data-state', onoff);
-                deviceEl.classList.toggle('on', onoff);
-
-                const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
-                deviceData.state = onoff;
-                deviceEl.setAttribute('data-device', JSON.stringify(deviceData));
-
-                // Handle initial image visibility
-                if (deviceEl.getAttribute('data-image-rule') === 'true') {
-                    const ruleId = deviceEl.getAttribute('data-rule-id');
-                    const imageEl = document.querySelector(`.state-image-${ruleId}`);
-
-                    if (imageEl) {
-                        const onOffImageRule = deviceData.rules?.find(r => r.id === ruleId);
-                        if (onOffImageRule?.config) {
-                            const showImage = onOffImageRule.config.showOn === onoff;
-                            imageEl.style.display = showImage ? 'block' : 'none';
+            // Get the device data
+            const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
+            const measureCapabilities = deviceData.measureCapabilities || [];
+            
+            // Store measurement values
+            deviceEl.setAttribute('data-temperature', '');
+            deviceEl.setAttribute('data-humidity', '');
+            
+            // Subscribe to the device's measure capabilities
+            const subscribeDevices = [];
+            
+            // Fetch initial values for each capability
+            for (const capability of measureCapabilities) {
+                try {
+                    const response = await Homey.api('GET', `/devices/${deviceId}/capabilities/${capability}`);
+                    if (response !== undefined) {
+                        if (capability === 'measure_temperature') {
+                            deviceEl.setAttribute('data-temperature', response);
+                        } else if (capability === 'measure_humidity') {
+                            deviceEl.setAttribute('data-humidity', response);
                         }
                     }
+                    
+                    // Add to subscription list
+                    subscribeDevices.push({ deviceId, capability });
+                } catch (error) {
+                    Homey.api('POST', '/error', { message: `Error fetching ${capability}: ${JSON.stringify(error)}` });
                 }
-
-                this.applyInitialRules(deviceData, deviceEl);
             }
-
-            await Homey.api('POST', `/subscribeToDevices`, {
-                widgetId: widgetId,
-                devices: [{ deviceId, capability: sensorType },
-
-                ]
-            });
+            
+            // Subscribe to updates for all capabilities
+            if (subscribeDevices.length > 0) {
+                await Homey.api('POST', `/subscribeToDevices`, {
+                    widgetId: widgetId,
+                    devices: subscribeDevices
+                });
+            }
 
         } catch (error) {
             Homey.api('POST', '/error', { message: `Error in initializeState: ${JSON.stringify(error)}` });
@@ -285,7 +289,11 @@ const sensorRenderer = {
                 longPressTimer = null;
             }
 
-            // No action on touch end for sensors - only long press shows modal
+            // Short tap shows modal for measure devices
+            if (!touchMoved && (Date.now() - touchStartTime < 500)) {
+                this.showDeviceModal(deviceEl);
+            }
+            
             touchMoved = false;
         };
 
@@ -295,7 +303,8 @@ const sensorRenderer = {
                 e.preventDefault();
                 e.stopPropagation();
             }
-            // No action on click for sensors - only long press shows modal
+            // Show modal on click for measure devices
+            this.handleClick(deviceEl);
         };
 
         // Add event listeners to the device element
@@ -315,124 +324,36 @@ const sensorRenderer = {
     },
 
     async handleClick(deviceEl) {
-        // For sensors, no action on click - only long press shows modal
+        // For measure devices, show modal on click
+        this.showDeviceModal(deviceEl);
     },
 
     handleDeviceUpdate(deviceEl, value, capability) {
         try {
             if (!deviceEl) return;
 
-            // Update state attribute and class
-            deviceEl.setAttribute('data-state', value);
-            deviceEl.classList.toggle('on', value);
-
-            // Get device data and update state
-            const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
-            deviceData.state = value;
-            deviceEl.setAttribute('data-device', JSON.stringify(deviceData));
-
-            const iconWrapper = deviceEl.querySelector('.icon-wrapper');
-
-            // Reset cloud effect first
-            deviceEl.style.backgroundColor = 'transparent';
-            deviceEl.style.boxShadow = 'none';
-            if (iconWrapper) {
-                iconWrapper.style.backgroundColor = 'transparent';
-                iconWrapper.style.boxShadow = 'none';
-            }
-
-            // Handle image rule
-            if (deviceEl.getAttribute('data-image-rule') === 'true') {
-                const ruleId = deviceEl.getAttribute('data-rule-id');
-                const imageEl = document.querySelector(`.state-image-${ruleId}`);
-
-                if (imageEl) {
-                    const onOffImageRule = deviceData.rules?.find(r => r.id === ruleId);
-
-                    if (onOffImageRule?.config) {
-                        const showImage = onOffImageRule.config.showOn === value;
-                        imageEl.style.display = showImage ? 'block' : 'none';
-                    }
-                }
-            }
-
-            const allColorRule = deviceData.rules?.find(r => r.type === 'allColor');
-            if (allColorRule?.config) {
-                if (allColorRule.config.showCloud) {
-                    const color = allColorRule.config.cloudColor || allColorRule.config.mainColor;
-                    deviceEl.style.backgroundColor = `${color}80`;
-                    deviceEl.style.boxShadow = `0 0 8px 4px ${color}90`;
-
-                    if (iconWrapper) {
-                        iconWrapper.style.backgroundColor = `${color}F0`;
-                        iconWrapper.style.boxShadow = `0 0 5px ${color}E0`;
-                    }
-                }
-
-                // Handle icon visibility and color
-                if (iconWrapper) {
-                    iconWrapper.style.display = allColorRule.config.showIcon ? 'flex' : 'none';
-                    if (allColorRule.config.showIcon) {
-                        const iconElement = iconWrapper.querySelector('img, .material-symbols-outlined');
-                        if (iconElement && allColorRule.config.iconColor) {
-                            if (iconElement.tagName.toLowerCase() === 'img') {
-                                iconElement.style.filter = `brightness(0) saturate(100%) drop-shadow(0 0 4px ${allColorRule.config.iconColor})`;
-                            } else {
-                                iconElement.style.color = allColorRule.config.iconColor;
-                                iconElement.style.filter = `drop-shadow(0 0 4px ${allColorRule.config.iconColor})`;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Only process alarmColor if no allColor rule exists
-            const alarmColorRule = deviceData.rules?.find(r => r.type === 'alarmColor');
-            if (alarmColorRule?.config) {
-                const currentColor = value ? alarmColorRule.config.cloudColorOn : alarmColorRule.config.cloudColorOff;
-                const showCloud = value ? alarmColorRule.config.showCloudOn : alarmColorRule.config.showCloudOff;
-                const showIcon = value ? alarmColorRule.config.showIconOn : alarmColorRule.config.showIconOff;
-                const iconColor = value ? alarmColorRule.config.iconColorOn : alarmColorRule.config.iconColorOff;
-
-                if (showCloud && currentColor) {
-                    deviceEl.style.backgroundColor = `${currentColor}80`;
-                    deviceEl.style.boxShadow = `0 0 8px 4px ${currentColor}90`;
-
-                    if (iconWrapper) {
-                        iconWrapper.style.backgroundColor = `${currentColor}F0`;
-                        iconWrapper.style.boxShadow = `0 0 5px ${currentColor}E0`;
-                    }
-                }
-
-                // Handle icon visibility and color
-                if (iconWrapper) {
-                    iconWrapper.style.display = showIcon ? 'flex' : 'none';
-                    if (showIcon) {
-                        const iconElement = iconWrapper.querySelector('img, .material-symbols-outlined');
-                        if (iconElement && iconColor) {
-                            if (iconElement.tagName.toLowerCase() === 'img') {
-                                iconElement.style.filter = `brightness(0) saturate(100%) drop-shadow(0 0 4px ${iconColor})`;
-                            } else {
-                                iconElement.style.color = iconColor;
-                                iconElement.style.filter = `drop-shadow(0 0 4px ${iconColor})`;
-                            }
-                        }
-                    }
-                }
+            // Update the appropriate value based on capability
+            if (capability === 'measure_temperature') {
+                deviceEl.setAttribute('data-temperature', value);
+            } else if (capability === 'measure_humidity') {
+                deviceEl.setAttribute('data-humidity', value);
             }
 
             // Update modal if it exists
-            const modalId = deviceEl.getAttribute('data-device-id');
-            const modal = document.querySelector(`.device-modal[data-device-id="${modalId}"]`);
+            const deviceId = deviceEl.getAttribute('data-device-id');
+            const modal = document.querySelector(`.device-modal[data-device-id="${deviceId}"]`);
             if (modal) {
-                const powerButton = modal.querySelector('.power-button');
-                if (powerButton) {
-                    powerButton.classList.toggle('on', value);
+                if (capability === 'measure_temperature') {
+                    const tempValue = modal.querySelector('.temperature-value');
+                    if (tempValue) {
+                        tempValue.textContent = `${parseFloat(value).toFixed(1)}°C`;
+                    }
+                } else if (capability === 'measure_humidity') {
+                    const humidityValue = modal.querySelector('.humidity-value');
+                    if (humidityValue) {
+                        humidityValue.textContent = `${parseFloat(value).toFixed(0)}%`;
+                    }
                 }
-
-
-
-
             }
         } catch (error) {
             Homey.api('POST', '/error', { message: `Error in handleDeviceUpdate: ${JSON.stringify(error)}` });
@@ -442,7 +363,6 @@ const sensorRenderer = {
     applyInitialRules(device, deviceEl) {
         try {
             const iconWrapper = deviceEl.querySelector('.icon-wrapper');
-            const currentState = device.state === true;
 
             // Reset cloud effect first
             deviceEl.style.backgroundColor = 'transparent';
@@ -476,7 +396,6 @@ const sensorRenderer = {
             // Check allColor first - if it exists, only apply allColor and ignore all others
             const allColorRule = device.rules?.find(r => r.type === 'allColor');
             if (allColorRule?.config) {
-
                 deviceEl.setAttribute('data-color-rule', 'true');
                 deviceEl.setAttribute('data-all-color', allColorRule.config.cloudColor || allColorRule.config.mainColor);
 
@@ -512,47 +431,6 @@ const sensorRenderer = {
                     }
                 }
             }
-
-            // Only process alarmColor if no allColor rule exists
-            const alarmColorRule = device.rules?.find(r => r.type === 'alarmColor');
-            if (!allColorRule && alarmColorRule?.config) {
-                const currentColor = currentState ? alarmColorRule.config.cloudColorOn : alarmColorRule.config.cloudColorOff;
-                const showCloud = currentState ? alarmColorRule.config.showCloudOn : alarmColorRule.config.showCloudOff;
-                const showIcon = currentState ? alarmColorRule.config.showIconOn : alarmColorRule.config.showIconOff;
-                const iconColor = currentState ? alarmColorRule.config.iconColorOn : alarmColorRule.config.iconColorOff;
-
-                deviceEl.setAttribute('data-color-rule', 'true');
-                deviceEl.setAttribute('data-on-color', alarmColorRule.config.cloudColorOn);
-                deviceEl.setAttribute('data-off-color', alarmColorRule.config.cloudColorOff);
-
-                if (showCloud) {
-                    deviceEl.style.backgroundColor = `${currentColor}80`;
-                    deviceEl.style.boxShadow = `0 0 8px 4px ${currentColor}90`;
-
-                    if (iconWrapper) {
-                        iconWrapper.style.backgroundColor = `${currentColor}F0`;
-                        iconWrapper.style.boxShadow = `0 0 5px ${currentColor}E0`;
-                    }
-                }
-
-                // Handle icon visibility and color
-                if (iconWrapper) {
-                    if (!showIcon) {
-                        iconWrapper.style.display = 'none';
-                    } else {
-                        iconWrapper.style.display = 'flex';
-                        const iconElement = iconWrapper.querySelector('img, .material-symbols-outlined');
-                        if (iconElement && iconColor) {
-                            if (iconElement.tagName.toLowerCase() === 'img') {
-                                iconElement.style.filter = `brightness(0) saturate(100%) drop-shadow(0 0 4px ${iconColor})`;
-                            } else {
-                                iconElement.style.color = iconColor;
-                                iconElement.style.filter = `drop-shadow(0 0 4px ${iconColor})`;
-                            }
-                        }
-                    }
-                }
-            }
         } catch (error) {
             Homey.api('POST', '/error', { message: `Error in applyInitialRules: ${JSON.stringify(error)}` });
         }
@@ -561,12 +439,15 @@ const sensorRenderer = {
     showDeviceModal(deviceEl) {
         const name = deviceEl.getAttribute('data-name');
         const deviceId = deviceEl.getAttribute('data-device-id');
-        const currentState = deviceEl.getAttribute('data-state') === 'true';
-        const sensorType = deviceEl.getAttribute('data-sensor-type');
-
-        // Determine label and icon based on sensor type
-        const sensorLabel = sensorType === 'alarm_contact' ? 'Contact' : 'Motion';
-        const sensorIcon = sensorType === 'alarm_contact' ? 'door_open' : 'motion_sensor_alert';
+        const temperature = deviceEl.getAttribute('data-temperature');
+        const humidity = deviceEl.getAttribute('data-humidity');
+        
+        // Parse measure capabilities
+        const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
+        const measureCapabilities = deviceData.measureCapabilities || [];
+        
+        const hasTemperature = measureCapabilities.includes('measure_temperature');
+        const hasHumidity = measureCapabilities.includes('measure_humidity');
 
         const overlay = document.createElement('div');
         overlay.className = 'device-modal-overlay';
@@ -583,37 +464,68 @@ const sensorRenderer = {
             z-index: 1000;
         `;
 
+        // Create buttons for each available capability
+        const viewButtons = [];
+        const viewSections = [];
+        
+        if (hasTemperature) {
+            viewButtons.push(`<button class="view-button active" data-view="temperature">Temperature</button>`);
+            viewSections.push(`
+                <div class="dim-view temperature-view active">
+                    <div class="measure-display">
+                        <span class="material-symbols-outlined">device_thermostat</span>
+                        <div class="temperature-value">${temperature ? `${parseFloat(temperature).toFixed(1)}°C` : 'N/A'}</div>
+                    </div>
+                </div>
+            `);
+        }
+        
+        if (hasHumidity) {
+            viewButtons.push(`<button class="view-button ${!hasTemperature ? 'active' : ''}" data-view="humidity">Humidity</button>`);
+            viewSections.push(`
+                <div class="dim-view humidity-view ${!hasTemperature ? 'active' : ''}">
+                    <div class="measure-display">
+                        <span class="material-symbols-outlined">humidity_percentage</span>
+                        <div class="humidity-value">${humidity ? `${parseFloat(humidity).toFixed(0)}%` : 'N/A'}</div>
+                    </div>
+                </div>
+            `);
+        }
+
         const modal = document.createElement('div');
-        modal.className = 'device-modal';
+        modal.className = 'device-modal measure-modal';
         modal.setAttribute('data-device-id', deviceId);
         modal.innerHTML = `
             <div class="modal-header">
                 <h2>${name}</h2>
                 <button class="close-button" aria-label="Close">×</button>
             </div>
-            <div class="dim-view-toggle">
-                <button class="view-button active" data-view="onoff">${sensorLabel}</button>
-            </div>
-            <div class="dim-views">
-                <div class="dim-view onoff-view active">
-                    <div class="power-button ${currentState ? 'on' : ''}" role="button">
-                        <span class="material-symbols-outlined">${sensorIcon}</span>
-                    </div>
+            ${viewButtons.length > 1 ? `
+                <div class="dim-view-toggle">
+                    ${viewButtons.join('')}
                 </div>
+            ` : ''}
+            <div class="dim-views">
+                ${viewSections.join('')}
             </div>
         `;
 
         // Add styles if not present
-        if (!document.getElementById('sensorModalStyles')) {
+        if (!document.getElementById('measureModalStyles')) {
             const styles = document.createElement('style');
-            styles.id = 'sensorModalStyles';
+            styles.id = 'measureModalStyles';
             styles.textContent = `
                 .device-modal {
                     background: rgba(245, 245, 245, 0.95);
                     border-radius: 15px;
-                    padding: 12px;
+                    padding: 16px;
                     width: 260px;
                     max-width: 90vw;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                }
+
+                .measure-modal {
+                    min-height: 180px;
                 }
 
                 .modal-header {
@@ -621,12 +533,17 @@ const sensorRenderer = {
                     justify-content: space-between;
                     align-items: center;
                     margin-bottom: 12px;
+                    padding-bottom: 8px;
+                    border-bottom: 1px solid rgba(0,0,0,0.1);
                 }
 
                 .modal-header h2 {
                     margin: 0;
                     font-size: 18px;
                     color: #333;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    max-width: 200px;
                 }
 
                 .close-button {
@@ -642,60 +559,61 @@ const sensorRenderer = {
                     display: flex;
                     justify-content: center;
                     gap: 8px;
-                    margin-bottom: 12px;
+                    margin-bottom: 16px;
+                    padding: 4px;
+                    background: rgba(0,0,0,0.05);
+                    border-radius: 20px;
                 }
 
                 .view-button {
-                    padding: 6px 12px;
-                    border: 1px solid #1C1C1E;
+                    padding: 8px 16px;
+                    border: none;
                     background: none;
                     color: #1C1C1E;
                     border-radius: 20px;
                     cursor: pointer;
                     transition: all 0.2s ease;
+                    font-weight: bold;
+                    flex: 1;
+                    text-align: center;
                 }
 
                 .view-button.active {
                     background: #1C1C1E;
                     color: white;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
                 }
 
-                .power-button {
-                    width: 60px;
-                    height: 60px;
-                    border-radius: 50%;
-                    background: #1C1C1E;
-                    position: relative;
-                    margin: 12px auto;
+                .dim-view {
+                    display: none;
+                }
+
+                .dim-view.active {
+                    display: block;
+                }
+
+                .measure-display {
                     display: flex;
+                    flex-direction: column;
                     align-items: center;
                     justify-content: center;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                    transition: all 0.2s ease;
+                    padding: 16px;
+                    background: rgba(255,255,255,0.4);
+                    border-radius: 12px;
+                    box-shadow: inset 0 0 8px rgba(0,0,0,0.05);
+                    min-height: 100px;
                 }
 
-                .power-button.on {
-                    background: #ff0000;
+                .measure-display .material-symbols-outlined {
+                    font-size: 48px;
+                    margin-bottom: 12px;
+                    color: #0076ff;
                 }
 
-                .sensor-icon {
-                    color: #FFFFFF;
+                .temperature-value, .humidity-value {
                     font-size: 32px;
-                }
-
-                .material-symbols-outlined {
-                    font-size: 32px; /* Consistent with sensor-icon */
-                }
-
-                .sensor-state {
-                    text-align: center;
                     font-weight: bold;
-                    margin-top: 12px;
                     color: #1C1C1E;
-                }
-
-                .sensor-state.triggered {
-                    color: #ff0000;
                 }
             `;
             document.head.appendChild(styles);
@@ -716,55 +634,22 @@ const sensorRenderer = {
         closeButton.addEventListener('click', () => {
             overlay.remove();
         });
-    },
 
-
-
-
-
-
-
-
-
-    handleExternalUpdate(deviceEl, value, capability) {
-        try {
-
-
-
-
-
-            deviceEl.setAttribute('data-state', value);
-            deviceEl.classList.toggle('on', value);
-
-
-
-            const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
-
-
-            deviceData.state = value;  // Update the stored state
-            deviceEl.setAttribute('data-device', JSON.stringify(deviceData));
-
-            // Update visual state using existing method
-            this.handleDeviceUpdate(deviceEl, value, 'onoff');
-
-            const cleanDeviceId = deviceData.id.replace('-onoff', '');
-            const modal = document.querySelector(`.device-modal[data-device-id="${cleanDeviceId}"]`);
-            if (modal) {
-                const powerButton = modal.querySelector('.power-button');
-                if (powerButton) {
-                    powerButton.classList.toggle('on', value);
-                }
-                // Update modal's color display
-                const deviceStateEl = modal.querySelector('.device-state');
-                if (deviceStateEl) {
-                    deviceStateEl.textContent = value ? 'ON' : 'OFF';
-                    deviceStateEl.className = `device-state ${value ? 'on' : 'off'}`;
-                }
-            } else {
-                Homey.api('POST', '/error', { message: `No modal found for device: ${cleanDeviceId}` });
-            }
-        } catch (error) {
-            Homey.api('POST', '/error', { message: `Error in handleExternalUpdate: ${JSON.stringify(error)}` });
+        // Add tab switching functionality if we have multiple capabilities
+        if (viewButtons.length > 1) {
+            const tabButtons = modal.querySelectorAll('.view-button');
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    // Deactivate all buttons and views
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    modal.querySelectorAll('.dim-view').forEach(view => view.classList.remove('active'));
+                    
+                    // Activate the clicked button and corresponding view
+                    button.classList.add('active');
+                    const viewName = button.getAttribute('data-view');
+                    modal.querySelector(`.${viewName}-view`).classList.add('active');
+                });
+            });
         }
     },
 
@@ -778,15 +663,15 @@ const sensorRenderer = {
         window.Homey.removeAllListeners('realtime/device');
 
         window.Homey.on('realtime/device', (data) => {
-
-            if (data && data.capability === 'onoff') {
+            if (data && (data.capability === 'measure_temperature' || data.capability === 'measure_humidity')) {
                 const deviceElements = document.querySelectorAll(`[data-device-id="${data.id}"]`);
                 deviceElements.forEach(deviceEl => {
-                    this.handleExternalUpdate(deviceEl, data.value, 'onoff');
+                    this.handleDeviceUpdate(deviceEl, data.value, data.capability);
                 });
             }
         });
     },
+
     debounce(func, wait) {
         let timeout;
         return function executedFunction(...args) {
@@ -822,6 +707,6 @@ const sensorRenderer = {
 
 
 window.capabilityRenderers = window.capabilityRenderers || {};
-window.capabilityRenderers.sensor = sensorRenderer;
+window.capabilityRenderers.measure = measureRenderer;
 
-sensorRenderer.setupExternalUpdates();
+measureRenderer.setupExternalUpdates();

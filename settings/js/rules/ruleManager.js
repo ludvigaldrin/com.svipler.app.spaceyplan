@@ -741,7 +741,7 @@ const ruleManager = {
         const rule = device.rules.find(r => r.id === ruleId);
         if (!rule) return;
 
-        console.log(`Loading rule: ${JSON.stringify(rule)}`);
+        //console.log(`Loading rule: ${JSON.stringify(rule)}`);
 
         // Store IDs and set edit mode
         this.currentDeviceId = deviceId;
@@ -939,7 +939,7 @@ const ruleManager = {
                     }
 
                     device.rules[ruleIndex] = updatedRule;
-                    console.log(`Saved rule: ${JSON.stringify(updatedRule)}`);
+                   // console.log(`Saved rule: ${JSON.stringify(updatedRule)}`);
                 } else {
                     // Create a new rule if the existing one wasn't found
                     const newRule = {

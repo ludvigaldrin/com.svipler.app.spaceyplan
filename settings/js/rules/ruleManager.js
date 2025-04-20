@@ -442,12 +442,9 @@ const ruleManager = {
                 const showHumidity = document.getElementById('showHumidity');
                 const humidityColor = document.getElementById('humidityColor');
                 
-                console.log('DEBUG: After rendering in setTimeout, found elements:', {
-                    showTemperature: showTemperature ? true : false,
-                    temperatureColor: temperatureColor ? true : false,
-                    showHumidity: showHumidity ? true : false,
-                    humidityColor: humidityColor ? true : false
-                });
+                console.log('DEBUG: After rendering measureDisplay config, found temperature controls:', 
+                    showTemperature ? 'yes' : 'no', 
+                    temperatureColor ? 'yes' : 'no');
                 
                 if (showTemperature && temperatureColor) {
                     // Clean up existing event listener if any
@@ -676,11 +673,37 @@ const ruleManager = {
         const device = floor.devices.find(d => d.id === deviceId);
         if (!device) return;
 
-        // Filter available rule types based on existing rules
+        // Filter available rule types based on device capabilities and existing rules
         const existingRuleTypes = device.rules.map(r => r.type);
+        
+        // Determine valid rule types based on device capability
+        let validRuleTypes = [];
+        
+        // Universal rules that can be used with any device type
+        validRuleTypes.push('allIcon', 'allColor');
+        
+        // Rules specific to onoff/dim capabilities
+        if (device.capability === 'onoff' || device.capability === 'dim') {
+            validRuleTypes.push('onOffColor', 'onOffImage');
+        }
+        
+        // Rules specific to measure capabilities
+        if (device.capability === 'measure') {
+            validRuleTypes.push('measureDisplay');
+        }
+        
+        // Rules specific to alarm/sensor capabilities
+        if (device.capability === 'sensor' || 
+            (device.sensorType && 
+             (device.sensorType === 'alarm_motion' || device.sensorType === 'alarm_contact'))) {
+            validRuleTypes.push('alarmColor');
+        }
+        
+        // Filter available rule types based on existing rules and valid types
         const availableTypes = Object.entries(this.RULE_TYPES)
-            .filter(([type, config]) =>
-                config.allowMultiple || !existingRuleTypes.includes(type)
+            .filter(([type, config]) => 
+                validRuleTypes.includes(type) && 
+                (config.allowMultiple || !existingRuleTypes.includes(type))
             );
 
         // Populate rule type dropdown

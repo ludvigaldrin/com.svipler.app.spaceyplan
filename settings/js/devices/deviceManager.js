@@ -93,9 +93,17 @@ const deviceManager = {
 
         const html = filteredDevices.map(device => {
             const deviceCapabilities = device.capabilities || [];
-            const supported = deviceCapabilities.filter(cap =>
+            
+            // Filter supported capabilities with special handling for dim/onoff
+            let supported = deviceCapabilities.filter(cap =>
                 this.supportedCapabilities.includes(cap)
             );
+            
+            // If device has both 'dim' and 'onoff', hide the 'onoff' capability
+            // since 'dim' already includes 'onoff' functionality
+            if (supported.includes('dim') && supported.includes('onoff')) {
+                supported = supported.filter(cap => cap !== 'onoff');
+            }
             
             // Get unsupported capabilities
             const unsupported = deviceCapabilities.filter(cap => 
@@ -105,8 +113,8 @@ const deviceManager = {
             // Skip devices with no capabilities at all
             if (deviceCapabilities.length === 0) return '';
             
-            // Skip devices with no supported capabilities only if we want to
-            // if (supported.length === 0) return '';
+            // Skip devices with no supported capabilities
+            if (supported.length === 0) return '';
 
             // Get icon source - we don't have base64 yet at this stage
             let iconSrc = device.iconObj ? device.iconObj.url : '';
@@ -119,6 +127,9 @@ const deviceManager = {
 
             const deviceInfo = document.createElement('div');
             deviceInfo.className = 'device-item';
+            
+            // Create unique ID for this device's unsupported section
+            const unsupportedSectionId = `unsupported-${device.id}`;
 
             deviceInfo.innerHTML = `
                 <div class="device-header">
@@ -142,17 +153,31 @@ const deviceManager = {
                                 </button>
                             </div>`;
             }).join('')}
-                    ${unsupported.map(capability => {
-                return `
-                            <div class="capability-row unsupported">
-                                <span class="capability-name">${capability}</span>
-                                <span class="unsupported-badge">Unsupported</span>
-                            </div>`;
-            }).join('')}
+                    ${unsupported.length > 0 ? 
+                    `<div class="show-unsupported">
+                        <button class="toggle-unsupported-btn" data-target="${unsupportedSectionId}">
+                            Show all capabilities (${unsupported.length})
+                        </button>
+                    </div>
+                    <div id="${unsupportedSectionId}" class="unsupported-section" style="display: none;">
+                        ${unsupported.map(capability => {
+                            return `
+                                <div class="capability-row unsupported">
+                                    <span class="capability-name">${capability}</span>
+                                    <span class="unsupported-badge">Unsupported</span>
+                                </div>`;
+                        }).join('')}
+                    </div>` : ''}
                 </div>
             `;
 
-            deviceInfo.addEventListener('click', async () => {
+            deviceInfo.addEventListener('click', async (e) => {
+                // Skip if clicking on a toggle button or inside unsupported section
+                if (e.target.classList.contains('toggle-unsupported-btn') || 
+                    e.target.closest('.unsupported-section')) {
+                    return;
+                }
+                
                 const deviceId = device.id;
                 const capability = supported[0]; // Assuming the first supported capability is selected
 
@@ -195,6 +220,7 @@ const deviceManager = {
 
         resultsContainer.innerHTML = html;
         this.setupCapabilityButtonHandlers(filteredDevices);
+        this.setupUnsupportedToggles();
     },
 
     getCapabilityDisplayName(capabilityId) {
@@ -211,20 +237,25 @@ const deviceManager = {
         const floor = floorManager.floors.find(f => f.id === this.currentFloorId);
         if (!floor || !floor.devices) return false;
 
-        return floor.devices.some(d => {
-            if (capability === 'alarm_motion' || capability === 'alarm_contact') {
-                return d.id === `${deviceId}-sensor-${capability}`;
-            }
+        // For alarm_motion and alarm_contact, check sensor-specific IDs
+        if (capability === 'alarm_motion' || capability === 'alarm_contact') {
+            return floor.devices.some(d => d.id === `${deviceId}-sensor-${capability}`);
+        }
 
-            // For onoff and dim, check the modified device IDs
-            const expectedId = capability === 'dim' ?
-                `${deviceId}-dim` :
-                capability === 'onoff' ?
-                    `${deviceId}-onoff` :
-                    deviceId;
+        // For onoff and dim, check the respective IDs
+        if (capability === 'onoff') {
+            // Check for both onoff and dim (since dim includes onoff)
+            return floor.devices.some(d => 
+                d.id === `${deviceId}-onoff` || d.id === `${deviceId}-dim`
+            );
+        }
 
-            return d.id === expectedId;
-        });
+        if (capability === 'dim') {
+            return floor.devices.some(d => d.id === `${deviceId}-dim`);
+        }
+
+        // For other capabilities
+        return floor.devices.some(d => d.id === deviceId);
     },
 
     async addDeviceToFloor(device, capability) {
@@ -416,6 +447,24 @@ const deviceManager = {
             window.logError('Error converting image to base64:', err);
             throw err;
         }
+    },
+
+    setupUnsupportedToggles() {
+        document.querySelectorAll('.toggle-unsupported-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent triggering parent click events
+                const targetId = button.dataset.target;
+                const targetSection = document.getElementById(targetId);
+                
+                if (targetSection) {
+                    const isVisible = targetSection.style.display !== 'none';
+                    targetSection.style.display = isVisible ? 'none' : 'block';
+                    button.textContent = isVisible ? 
+                        `Show all capabilities (${targetSection.querySelectorAll('.capability-row').length})` : 
+                        'Hide additional capabilities';
+                }
+            });
+        });
     }
 };
 

@@ -40,5 +40,8 @@
   },
   "0.1.2": {
     "en": "Added so you can change Floor Plan under Edit Floor plan in settings"
+  },
+  "0.1.3": {
+    "en": "Changed how we store Floorplan images, Added support for Measure, Change so when you add device on search you can just carry on untill you are done. Loads of other stuff."
   }
 }

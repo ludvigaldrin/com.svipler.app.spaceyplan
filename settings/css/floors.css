@@ -297,7 +297,6 @@
 /* Floor plan container */
 #floorMapContainer {
     position: relative;
-    width: 100%;
     margin: 16px 0;
     background: #f8f9fa;
     padding: 20px;
@@ -313,7 +312,6 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    background: #f5f5f5;
     border-radius: 8px;
 }
 

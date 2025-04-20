@@ -333,7 +333,7 @@ const floorManager = {
             // Make sure we're passing a valid array
             const floorsToSave = Array.isArray(this.floors) ? this.floors : [];
             
-            // Ensure each floor has required properties
+            // Ensure each floor has required properties and check image sizes
             const validFloors = floorsToSave.map(floor => {
                 // Create a clean floor object with all required properties
                 const newFloor = {
@@ -344,15 +344,27 @@ const floorManager = {
                     // Include the image aspect ratio if available
                     imageAspectRatio: floor.imageAspectRatio || null,
                     image: floor.image || null
+                };
+                
+                // Verify image data size if it exists
+                if (newFloor.imageData && !imageUtils.verifyImageSize(newFloor.imageData)) {
+                    window.logError('[SAVE FLOORS] Floor image too large:', newFloor.id);
+                    throw new Error(`The image for floor "${newFloor.name}" is too large and cannot be saved. Please try replacing it with a smaller image.`);
                 }
+                
                 return newFloor;
             });
             
             // Update the floors array with validated data
             this.floors = validFloors;
             
-            // Save to Homey
-            await this.Homey.set('floors', validFloors);
+            // Try to save to Homey
+            try {
+                await this.Homey.set('floors', validFloors);
+            } catch (error) {
+                window.logError('[SAVE FLOORS] Error saving floors to Homey:', error);
+                throw new Error('Failed to save floor data to Homey. The data may be too large or there may be a connection issue.');
+            }
         } catch (err) {
             window.logError('[SAVE FLOORS] Error saving floors:', err);
             throw err;
@@ -427,7 +439,7 @@ const floorManager = {
         dialog.style.display = 'flex';
     },
 
-    async saveNewFloor() {
+    saveNewFloor() {
         const dialog = document.getElementById('floorDialog');
         const nameInput = dialog.querySelector('#floorName');
         const imageInput = dialog.querySelector('#floorImage');
@@ -448,9 +460,23 @@ const floorManager = {
             // Read the image file
             const file = imageInput.files[0];
             
+            // Check file size before processing
+            if (file.size > 15 * 1024 * 1024) { // 15MB
+                this.Homey.alert(`The image is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Please choose an image smaller than 15MB.`);
+                saveButton.disabled = false;
+                cancelButton.disabled = false;
+                saveButton.innerHTML = 'Create Floor';
+                return;
+            }
+            
             // Use the image utils to process the image
             imageUtils.processImage(file)
                 .then(processedImage => {
+                    // Final size check before saving
+                    if (!imageUtils.verifyImageSize(processedImage.imageData)) {
+                        throw new Error(`The processed image is still too large (${(processedImage.size / 1024 / 1024).toFixed(1)}MB). Please choose a smaller image.`);
+                    }
+                    
                     // Create new floor object
                     const newFloor = {
                         id: Date.now().toString(),
@@ -460,26 +486,24 @@ const floorManager = {
                         imageAspectRatio: processedImage.aspectRatio
                     };
 
+                    // Add to floors array and save
                     this.floors.push(newFloor);
-                    this.saveFloors()
+                    return this.saveFloors()
                         .then(() => {
+                            // Update UI
                             this.renderFloorsList();
+                            
+                            // Close and reset dialog
                             dialog.style.display = 'none';
                             this.resetFloorDialog();
-                        })
-                        .catch(err => {
-                            window.logError('[SAVE NEW FLOOR] Failed to save floor:', err);
-                            this.Homey.alert('Failed to save floor: ' + err.message);
-                        })
-                        .finally(() => {
-                            saveButton.disabled = false;
-                            cancelButton.disabled = false;
-                            saveButton.innerHTML = 'Create Floor';
                         });
                 })
                 .catch(err => {
-                    window.logError('[SAVE NEW FLOOR] Failed to process image:', err);
-                    this.Homey.alert('Failed to process image: ' + err.message);
+                    window.logError('[SAVE NEW FLOOR] Failed to process or save floor:', err);
+                    this.Homey.alert(err.message || 'Failed to save floor. The image may be too large or in an unsupported format.');
+                })
+                .finally(() => {
+                    // Reset button states
                     saveButton.disabled = false;
                     cancelButton.disabled = false;
                     saveButton.innerHTML = 'Create Floor';
@@ -1499,43 +1523,65 @@ const floorManager = {
             // Read the image file
             const file = imageInput.files[0];
             
-            // Use the image utils to process the image
-            const processedImageData = await imageUtils.processImage(file);
-            
-            // Update the floor with the new image
-            const floor = this.floors.find(f => f.id === floorId);
-            if (floor) {
-                // Store original image data for rollback in case of errors
-                const originalImageData = floor.imageData;
+            // Check file size before processing
+            if (file.size > 15 * 1024 * 1024) { // 15MB
+                this.Homey.alert(`The image is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Please choose an image smaller than 15MB.`);
+                saveButton.disabled = false;
+                cancelButton.disabled = false;
+                saveButton.innerHTML = 'Update Image';
                 
-                try {
-                    // Update the floor with the new image
-                    floor.imageData = processedImageData.imageData;
-                    floor.imageAspectRatio = processedImageData.aspectRatio;
-                    
-                    // Save to Homey
-                    await this.saveFloors();
-                    
-                    // Update the image in the UI
-                    const floorMapImage = document.getElementById('floorMapImage');
-                    if (floorMapImage) {
-                        floorMapImage.src = floor.imageData;
-                    }
-                    
-                    // Re-render floor plan devices with the new image ratio
-                    this.renderFloorPlanDevices(floor);
-                    
-                    // Close dialog
-                    dialog.style.display = 'none';
-                } catch (err) {
-                    // Rollback on error
-                    floor.imageData = originalImageData;
-                    throw err;
+                // Restore name field visibility
+                if (nameInput?.parentElement) nameInput.parentElement.style.display = '';
+                return;
+            }
+            
+            try {
+                // Use the image utils to process the image
+                const processedImageData = await imageUtils.processImage(file);
+                
+                // Final size check before saving
+                if (!imageUtils.verifyImageSize(processedImageData.imageData)) {
+                    throw new Error(`The processed image is still too large (${(processedImageData.size / 1024 / 1024).toFixed(1)}MB). Please choose a smaller image.`);
                 }
+                
+                // Update the floor with the new image
+                const floor = this.floors.find(f => f.id === floorId);
+                if (floor) {
+                    // Store original image data for rollback in case of errors
+                    const originalImageData = floor.imageData;
+                    
+                    try {
+                        // Update the floor with the new image
+                        floor.imageData = processedImageData.imageData;
+                        floor.imageAspectRatio = processedImageData.aspectRatio;
+                        
+                        // Save to Homey
+                        await this.saveFloors();
+                        
+                        // Update the image in the UI
+                        const floorMapImage = document.getElementById('floorMapImage');
+                        if (floorMapImage) {
+                            floorMapImage.src = floor.imageData;
+                        }
+                        
+                        // Re-render floor plan devices with the new image ratio
+                        this.renderFloorPlanDevices(floor);
+                        
+                        // Close dialog
+                        dialog.style.display = 'none';
+                    } catch (err) {
+                        // Rollback on error
+                        floor.imageData = originalImageData;
+                        window.logError('[SAVE CHANGED IMAGE] Failed to save floor data:', err);
+                        throw new Error('Failed to save the new image to Homey. The image may be too large.');
+                    }
+                }
+            } catch (err) {
+                window.logError('[SAVE CHANGED IMAGE] Failed to process or save image:', err);
+                throw err;
             }
         } catch (err) {
-            window.logError('[SAVE CHANGED IMAGE] Failed to update image:', err);
-            this.Homey.alert('Failed to update image: ' + err.message);
+            this.Homey.alert(err.message || 'Failed to update image. The image may be too large or in an unsupported format.');
         } finally {
             // Reset button states
             saveButton.disabled = false;

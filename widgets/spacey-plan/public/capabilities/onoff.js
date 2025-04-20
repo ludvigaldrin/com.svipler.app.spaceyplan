@@ -688,7 +688,10 @@ const onOffRenderer = {
                     display: flex;
                     justify-content: center;
                     gap: 8px;
-                    margin-bottom: 12px;
+                    margin-bottom: 16px;
+                    padding: 4px;
+                    background: transparent;
+                    border-radius: 20px;
                 }
 
                 .view-button {

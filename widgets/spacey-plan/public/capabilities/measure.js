@@ -845,7 +845,7 @@ const measureRenderer = {
                     gap: 8px;
                     margin-bottom: 16px;
                     padding: 4px;
-                    background: rgba(0,0,0,0.05);
+                    background: transparent;
                     border-radius: 20px;
                 }
 
@@ -882,9 +882,8 @@ const measureRenderer = {
                     align-items: center;
                     justify-content: center;
                     padding: 16px;
-                    background: rgba(255,255,255,0.4);
+                    background: transparent;
                     border-radius: 12px;
-                    box-shadow: inset 0 0 8px rgba(0,0,0,0.05);
                     min-height: 100px;
                 }
 

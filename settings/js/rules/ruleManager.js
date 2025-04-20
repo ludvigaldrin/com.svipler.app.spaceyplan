@@ -16,7 +16,6 @@ const ruleManager = {
     },
 
     init(floorManager, Homey) {
-
         this.floorManager = floorManager;
         this.Homey = Homey;
         this.attachImageUploadHandlers();
@@ -262,15 +261,15 @@ const ruleManager = {
                             <h3>Icon Settings</h3>
                             <label class="switch">
                                 <input type="checkbox" id="showIcon" 
-                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIcon !== false ? 'checked' : ''}>
+                                    ${existingRule?.config?.showIcon !== false ? 'checked' : ''}>
                                 <span class="slider round"></span>
                             </label>
                         </div>
                         <div class="color-input-group">
                             <label>Icon Color</label>
                             <input type="color" id="iconColor" 
-                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.iconColor || '#00ff00'}"
-                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIcon === false ? 'disabled' : ''}>
+                                value="${existingRule?.config?.iconColor || '#00ff00'}"
+                                ${existingRule?.config?.showIcon === false ? 'disabled' : ''}>
                         </div>
                     </div>
 
@@ -279,15 +278,15 @@ const ruleManager = {
                             <h3>Cloud Effect Settings</h3>
                             <label class="switch">
                                 <input type="checkbox" id="showCloud" 
-                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloud !== false ? 'checked' : ''}>
+                                    ${existingRule?.config?.showCloud !== false ? 'checked' : ''}>
                                 <span class="slider round"></span>
                             </label>
                         </div>
                         <div class="color-input-group">
                             <label>Cloud Color</label>
                             <input type="color" id="cloudColor" 
-                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.cloudColor || '#00ff00'}"
-                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloud === false ? 'disabled' : ''}>
+                                value="${existingRule?.config?.cloudColor || '#00ff00'}"
+                                ${existingRule?.config?.showCloud === false ? 'disabled' : ''}>
                         </div>
                     </div>
                 </div>
@@ -300,15 +299,15 @@ const ruleManager = {
                             <h3>On - Icon Settings</h3>
                             <label class="switch">
                                 <input type="checkbox" id="showIconOn" 
-                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIconOn !== false ? 'checked' : ''}>
+                                    ${existingRule?.config?.showIconOn !== false ? 'checked' : ''}>
                                 <span class="slider round"></span>
                             </label>
                         </div>
                         <div class="color-input-group">
                             <label>Icon Color</label>
                             <input type="color" id="iconColorOn" 
-                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.iconColorOn || '#ffeb3b'}"
-                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIconOn === false ? 'disabled' : ''}>
+                                value="${existingRule?.config?.iconColorOn || '#ffeb3b'}"
+                                ${existingRule?.config?.showIconOn === false ? 'disabled' : ''}>
                         </div>
                         <div class="settings-note">
                             Note: Not all icons allow for color change
@@ -320,15 +319,15 @@ const ruleManager = {
                             <h3>On - Cloud Effect Settings</h3>
                             <label class="switch">
                                 <input type="checkbox" id="showCloudOn" 
-                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloudOn !== false ? 'checked' : ''}>
+                                    ${existingRule?.config?.showCloudOn !== false ? 'checked' : ''}>
                                 <span class="slider round"></span>
                             </label>
                         </div>
                         <div class="color-input-group">
                             <label>Cloud Color</label>
                             <input type="color" id="cloudColorOn" 
-                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.cloudColorOn || '#ffeb3b'}"
-                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloudOn === false ? 'disabled' : ''}>
+                                value="${existingRule?.config?.cloudColorOn || '#ffeb3b'}"
+                                ${existingRule?.config?.showCloudOn === false ? 'disabled' : ''}>
                         </div>
                     </div>
 
@@ -337,15 +336,15 @@ const ruleManager = {
                             <h3>Off - Icon Settings</h3>
                             <label class="switch">
                                 <input type="checkbox" id="showIconOff" 
-                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIconOff !== false ? 'checked' : ''}>
+                                    ${existingRule?.config?.showIconOff !== false ? 'checked' : ''}>
                                 <span class="slider round"></span>
                             </label>
                         </div>
                         <div class="color-input-group">
                             <label>Icon Color</label>
                             <input type="color" id="iconColorOff" 
-                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.iconColorOff || '#ffffff'}"
-                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIconOff === false ? 'disabled' : ''}>
+                                value="${existingRule?.config?.iconColorOff || '#ffffff'}"
+                                ${existingRule?.config?.showIconOff === false ? 'disabled' : ''}>
                         </div>
                         <div class="settings-note">
                             Note: Not all icons allow for color change
@@ -357,15 +356,15 @@ const ruleManager = {
                             <h3>Off - Cloud Effect Settings</h3>
                             <label class="switch">
                                 <input type="checkbox" id="showCloudOff" 
-                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloudOff !== false ? 'checked' : ''}>
+                                    ${existingRule?.config?.showCloudOff !== false ? 'checked' : ''}>
                                 <span class="slider round"></span>
                             </label>
                         </div>
                         <div class="color-input-group">
                             <label>Cloud Color</label>
                             <input type="color" id="cloudColorOff" 
-                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.cloudColorOff || '#ffffff'}"
-                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloudOff === false ? 'disabled' : ''}>
+                                value="${existingRule?.config?.cloudColorOff || '#ffffff'}"
+                                ${existingRule?.config?.showCloudOff === false ? 'disabled' : ''}>
                         </div>
                     </div>
                 </div>
@@ -396,12 +395,6 @@ const ruleManager = {
             const showHumidity = existingRule?.config?.showHumidity !== false;
             const humidityColor = existingRule?.config?.humidityColor || '#2196F3';
 
-            console.log('DEBUG: Rendering measureDisplay with values:', {
-                showTemperature,
-                temperatureColor,
-                showHumidity,
-                humidityColor
-            });
 
             const html = `
                 <div class="rule-config-group">
@@ -446,10 +439,6 @@ const ruleManager = {
                 const showHumidity = document.getElementById('showHumidity');
                 const humidityColor = document.getElementById('humidityColor');
 
-                console.log('DEBUG: After rendering measureDisplay config, found temperature controls:',
-                    showTemperature ? 'yes' : 'no',
-                    temperatureColor ? 'yes' : 'no');
-
                 if (showTemperature && temperatureColor) {
                     // Clean up existing event listener if any
                     const newShowTemp = showTemperature.cloneNode(true);
@@ -457,9 +446,8 @@ const ruleManager = {
 
                     // Add new event listener
                     newShowTemp.addEventListener('change', (e) => {
-                        console.log(`DEBUG: Direct temperature checkbox change in renderRuleConfig: ${e.target.checked}`);
                         temperatureColor.disabled = !e.target.checked;
-                        console.log(`DEBUG: Directly set temperature color disabled in renderRuleConfig: ${!e.target.checked}`);
+
                     });
                 }
 
@@ -470,9 +458,9 @@ const ruleManager = {
 
                     // Add new event listener
                     newShowHumid.addEventListener('change', (e) => {
-                        console.log(`DEBUG: Direct humidity checkbox change in renderRuleConfig: ${e.target.checked}`);
+
                         humidityColor.disabled = !e.target.checked;
-                        console.log(`DEBUG: Directly set humidity color disabled in renderRuleConfig: ${!e.target.checked}`);
+
                     });
                 }
             }, 100);
@@ -486,15 +474,15 @@ const ruleManager = {
                             <h3>Alarm Yes - Icon Settings</h3>
                             <label class="switch">
                                 <input type="checkbox" id="showIconOn" 
-                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIconOn !== false ? 'checked' : ''}>
+                                    ${existingRule?.config?.showIconOn !== false ? 'checked' : ''}>
                                 <span class="slider round"></span>
                             </label>
                         </div>
                         <div class="color-input-group">
                             <label>Icon Color</label>
                             <input type="color" id="iconColorOn" 
-                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.iconColorOn || '#ff0000'}"
-                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIconOn === false ? 'disabled' : ''}>
+                                value="${existingRule?.config?.iconColorOn || '#ff0000'}"
+                                ${existingRule?.config?.showIconOn === false ? 'disabled' : ''}>
                         </div>
                         <div class="settings-note">
                             Note: Not all icons allow for color change
@@ -506,15 +494,15 @@ const ruleManager = {
                             <h3>Alarm Yes - Cloud Effect Settings</h3>
                             <label class="switch">
                                 <input type="checkbox" id="showCloudOn" 
-                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloudOn !== false ? 'checked' : ''}>
+                                    ${existingRule?.config?.showCloudOn !== false ? 'checked' : ''}>
                                 <span class="slider round"></span>
                             </label>
                         </div>
                         <div class="color-input-group">
                             <label>Cloud Color</label>
                             <input type="color" id="cloudColorOn" 
-                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.cloudColorOn || '#ff0000'}"
-                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloudOn === false ? 'disabled' : ''}>
+                                value="${existingRule?.config?.cloudColorOn || '#ff0000'}"
+                                ${existingRule?.config?.showCloudOn === false ? 'disabled' : ''}>
                         </div>
                     </div>
 
@@ -523,15 +511,15 @@ const ruleManager = {
                             <h3>Alarm No - Icon Settings</h3>
                             <label class="switch">
                                 <input type="checkbox" id="showIconOff" 
-                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIconOff !== false ? 'checked' : ''}>
+                                    ${existingRule?.config?.showIconOff !== false ? 'checked' : ''}>
                                 <span class="slider round"></span>
                             </label>
                         </div>
                         <div class="color-input-group">
                             <label>Icon Color</label>
                             <input type="color" id="iconColorOff" 
-                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.iconColorOff || '#ffffff'}"
-                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIconOff === false ? 'disabled' : ''}>
+                                value="${existingRule?.config?.iconColorOff || '#ffffff'}"
+                                ${existingRule?.config?.showIconOff === false ? 'disabled' : ''}>
                         </div>
                         <div class="settings-note">
                             Note: Not all icons allow for color change
@@ -543,15 +531,15 @@ const ruleManager = {
                             <h3>Alarm No - Cloud Effect Settings</h3>
                             <label class="switch">
                                 <input type="checkbox" id="showCloudOff" 
-                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloudOff !== false ? 'checked' : ''}>
+                                    ${existingRule?.config?.showCloudOff !== false ? 'checked' : ''}>
                                 <span class="slider round"></span>
                             </label>
                         </div>
                         <div class="color-input-group">
                             <label>Cloud Color</label>
                             <input type="color" id="cloudColorOff" 
-                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.cloudColorOff || '#ffffff'}"
-                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloudOff === false ? 'disabled' : ''}>
+                                value="${existingRule?.config?.cloudColorOff || '#ffffff'}"
+                                ${existingRule?.config?.showCloudOff === false ? 'disabled' : ''}>
                         </div>
                     </div>
                 </div>
@@ -753,6 +741,7 @@ const ruleManager = {
         const rule = device.rules.find(r => r.id === ruleId);
         if (!rule) return;
 
+        console.log(`Loading rule: ${JSON.stringify(rule)}`);
 
         // Store IDs and set edit mode
         this.currentDeviceId = deviceId;
@@ -848,20 +837,14 @@ const ruleManager = {
                 const showHumidity = document.getElementById('showHumidity');
                 const humidityColor = document.getElementById('humidityColor');
 
-                console.log('DEBUG: After rendering measureDisplay config, found temperature controls:',
-                    showTemperature ? 'yes' : 'no',
-                    temperatureColor ? 'yes' : 'no');
-
                 if (showTemperature && temperatureColor) {
                     showTemperature.addEventListener('change', (e) => {
-                        console.log(`DEBUG: Direct temperature event in onRuleTypeChange: ${e.target.checked}`);
                         temperatureColor.disabled = !e.target.checked;
                     });
                 }
 
                 if (showHumidity && humidityColor) {
                     showHumidity.addEventListener('change', (e) => {
-                        console.log(`DEBUG: Direct humidity event in onRuleTypeChange: ${e.target.checked}`);
                         humidityColor.disabled = !e.target.checked;
                     });
                 }
@@ -923,37 +906,26 @@ const ruleManager = {
 
     async saveRule(type) {
         try {
-
-
-            if (!this.floorManager) {
-                console.error('[DEBUG] floorManager reference is missing!');
-                throw new Error('Internal error: Floor manager not initialized');
-            }
-
             const config = await this.getRuleConfig(type);
-
 
             if (!config) {
                 window.logError('[SAVE RULE] Invalid rule configuration');
                 return;
             }
 
+            if (!this.floorManager) {
+                throw new Error('Internal error: Floor manager not initialized');
+            }
 
             const floor = this.floorManager.floors.find(f => f.id === this.floorManager.currentFloorId);
-
-
             if (!floor) throw new Error('Floor not found');
 
             const device = floor.devices.find(d => d.id === this.currentDeviceId);
-
-
             if (!device) throw new Error('Device not found');
 
             if (this.isEditing) {
-
                 // Update existing rule
                 const ruleIndex = device.rules.findIndex(r => r.id === this.currentRuleId);
-
 
                 if (ruleIndex !== -1) {
                     const updatedRule = {
@@ -967,9 +939,8 @@ const ruleManager = {
                     }
 
                     device.rules[ruleIndex] = updatedRule;
-
+                    console.log(`Saved rule: ${JSON.stringify(updatedRule)}`);
                 } else {
-                    console.error('[DEBUG] Rule not found for editing. Creating new rule instead.');
                     // Create a new rule if the existing one wasn't found
                     const newRule = {
                         id: this.currentRuleId || generateUUID(),
@@ -987,7 +958,6 @@ const ruleManager = {
 
                 }
             } else {
-
                 // Create new rule with UUID
                 const newRule = {
                     id: generateUUID(),
@@ -1005,38 +975,27 @@ const ruleManager = {
 
             }
 
-
+            // Save and update UI
             try {
                 await this.floorManager.saveFloors();
-
             } catch (err) {
-                console.error('[DEBUG] Error in saveFloors:', err);
                 throw new Error('Failed to save changes: ' + err.message);
             }
 
             // Update the UI
             const rulesSection = document.getElementById(`rules-${this.currentDeviceId}`);
 
-
             if (rulesSection) {
                 const rulesContent = rulesSection.querySelector('.floor-rules-content');
-
 
                 if (rulesContent) {
                     rulesContent.innerHTML = this.renderRules(device);
 
-
                     // Make sure we're calling the correct method
                     if (typeof this.floorManager.attachRuleEventListeners === 'function') {
                         this.floorManager.attachRuleEventListeners(rulesContent);
-
-                    } else {
-                        console.error('[DEBUG] floorManager.attachRuleEventListeners is not a function');
-                        // Fall back to our own method if available
-                        if (typeof this.attachRuleEventListeners === 'function') {
-                            this.attachRuleEventListeners();
-
-                        }
+                    } else if (typeof this.attachRuleEventListeners === 'function') {
+                        this.attachRuleEventListeners();
                     }
                 }
             }
@@ -1054,14 +1013,10 @@ const ruleManager = {
                     typeSelect.disabled = false;
                 }
                 dialog.style.display = 'none';
-
             }
 
-            // Provide feedback to the user
-            if (this.Homey && typeof this.Homey.alert === 'function') {
-            }
+          
         } catch (err) {
-            console.error('[DEBUG] Error in saveRule:', err);
             window.logError('[SAVE RULE] Failed to save rule:', err);
             if (this.Homey && typeof this.Homey.alert === 'function') {
                 this.Homey.alert('Failed to save rule: ' + err.message);
@@ -1293,15 +1248,11 @@ const ruleManager = {
         const checkbox = event.target;
         const settingsGroup = checkbox.closest('.icon-settings, .cloud-settings');
 
-        // Debug logging
-        console.log(`DEBUG: Checkbox changed: ${checkbox.id}, checked: ${checkbox.checked}`);
-
         if (settingsGroup) {
             const colorInput = settingsGroup.querySelector('input[type="color"]');
             if (colorInput) {
                 // Immediately disable/enable the color input
                 colorInput.disabled = !checkbox.checked;
-                console.log(`DEBUG: Color input ${colorInput.id} disabled set to: ${!checkbox.checked}`);
 
                 if (!checkbox.checked) {
                     let newValue = '#ffffff';
@@ -1318,7 +1269,6 @@ const ruleManager = {
                     }
 
                     colorInput.value = newValue;
-                    console.log(`DEBUG: Color input ${colorInput.id} value reset to: ${newValue}`);
                 }
             }
         }

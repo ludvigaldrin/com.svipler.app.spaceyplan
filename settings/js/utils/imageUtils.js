@@ -132,8 +132,7 @@ const imageUtils = {
                 
                 // Check if result is small enough
                 const estimatedSize = this.estimateBase64Size(result);
-                console.log(`Compression level: ${level.maxWidth}x${level.maxHeight}, Quality: ${level.quality}, Size: ~${(estimatedSize / 1024 / 1024).toFixed(2)}MB`);
-                
+
                 if (estimatedSize < this.MAX_FILE_SIZE) {
                     return result;
                 }
@@ -163,8 +162,7 @@ const imageUtils = {
             );
             
             const estimatedSize = this.estimateBase64Size(result);
-            console.log(`FINAL compression attempt: ${finalLevel.maxWidth}x${finalLevel.maxHeight}, Quality: ${finalLevel.quality}, Size: ~${(estimatedSize / 1024 / 1024).toFixed(2)}MB`);
-            
+
             return result;
         } catch (err) {
             window.logError('[COMPRESSION] Final compression attempt failed:', err);

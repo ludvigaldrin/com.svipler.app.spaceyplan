@@ -299,7 +299,8 @@ async function showSelectedFloor(floor) {
     rendererManager = new CapabilityRendererManager();
     rendererManager.setWidgetId(widgetId);
 
-
+    // Add a safety timeout to remove all spinners after 5 seconds
+    setTimeout(removeAllSpinners, 5000);
 
     // Store the floor's aspect ratio for device positioning
     if (floor.imageAspectRatio) {
@@ -352,18 +353,11 @@ async function showSelectedFloor(floor) {
     // Add loading indicator until image loads
     imageWrapper.classList.add('loading');
     imageWrapper.classList.remove('error');
-    
-    // Add loading spinner to image wrapper
-    let loadingIndicator = imageWrapper.querySelector('.loading-indicator');
-    if (!loadingIndicator) {
-        loadingIndicator = document.createElement('div');
-        loadingIndicator.className = 'loading-indicator';
-        loadingIndicator.innerHTML = `
-            <div class="spinner"></div>
-            <div class="loading-text">Loading floor plan...</div>
-        `;
-        imageWrapper.appendChild(loadingIndicator);
-    }
+    ensureSingleSpinner(); // Make sure we don't have multiple spinners
+    let loadingIndicator = document.createElement('div');
+    loadingIndicator.className = 'loading-indicator';
+    loadingIndicator.innerHTML = `<div class="spinner"></div>`;
+    imageWrapper.appendChild(loadingIndicator);
     
     // Add event listeners for image loading
     floorMapImage.onload = () => {
@@ -446,70 +440,43 @@ async function showSelectedFloor(floor) {
     
     // Handle image load errors
     floorMapImage.onerror = () => {
+        // Clean up and hide the image
         imageWrapper.classList.remove('loading');
         floorMapImage.style.visibility = 'hidden';
         
-        // Remove loading indicator on error
+        // Remove loading indicator
         const loadingIndicator = imageWrapper.querySelector('.loading-indicator');
         if (loadingIndicator) {
             loadingIndicator.remove();
         }
         
+        // Log the error
         Homey.api('POST', '/error', { message: 'Failed to load floor image' });
         
-        // Reset the image loaded flag since it failed
+        // Reset the image loaded flag
         window.floorImageLoaded = false;
         
-        // Dispatch an error event
-        document.dispatchEvent(new CustomEvent('floorImageError'));
-        
-        // Make sure the settings button is visible even if the image failed to load
-        addSettingsButton(true);
-        
-        // Add an error message to the image wrapper
-        const errorMessage = document.createElement('div');
-        errorMessage.className = 'error-message';
-        errorMessage.style.cssText = `
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: rgba(255, 255, 255, 0.9);
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            max-width: 80%;
-            z-index: 5;
-        `;
-        errorMessage.innerHTML = `
-            <h3 style="color: #e51e0f; margin: 0 0 10px 0;">Failed to load floor plan image</h3>
-            <p style="color: #333; margin: 0;">Click the settings button to select a different floor or try again.</p>
-        `;
-        imageWrapper.appendChild(errorMessage);
-        
-        // If the image fails to load, consider clearing the client cache for this URL
+        // Clear any corrupt cached version of this image
         if (imageSource) {
             try {
-                // Use normalized URL for consistent cache keys
                 const normalizedUrl = clientImageCache.normalizeUrl(imageSource);
                 const key = 'imgCache_' + normalizedUrl;
                 localStorage.removeItem(key);
-
                 
-                // For API image URLs, also try clearing by just the image ID
                 if (imageSource.includes('/api/image/')) {
                     const imageId = imageSource.split('/api/image/')[1]?.split('?')[0];
                     if (imageId) {
                         const altKey = 'imgCache_image-id-' + imageId;
                         localStorage.removeItem(altKey);
-
                     }
                 }
             } catch (e) {
                 Homey.api('POST', '/error', { message: `Cache removal error: ${e.message}` });
             }
         }
+        
+        // Just show error message instead of custom UI
+        showErrorMessage("Failed to load floor image. Please try selecting a different floor.");
     };
 
     // Determine the best image source
@@ -565,6 +532,7 @@ async function showSelectedFloor(floor) {
         // Make sure the image wrapper shows loading indicator while proxy is working
         imageWrapper.classList.add('loading');
         floorMapImage.style.visibility = 'hidden';
+        ensureSingleSpinner(); // Make sure we only have one spinner
         
         // Load via proxy
         Homey.api('GET', `/proxyImage?url=${encodedUrl}`)
@@ -674,16 +642,11 @@ async function showSelectedFloor(floor) {
             floorMapImage.style.visibility = 'hidden';
             
             // Add loading spinner if not already present
-            let loadingIndicator = imageWrapper.querySelector('.loading-indicator');
-            if (!loadingIndicator) {
-                loadingIndicator = document.createElement('div');
-                loadingIndicator.className = 'loading-indicator';
-                loadingIndicator.innerHTML = `
-                    <div class="spinner"></div>
-                    <div class="loading-text">Loading from cloud...</div>
-                `;
-                imageWrapper.appendChild(loadingIndicator);
-            }
+            ensureSingleSpinner(); // Remove any existing spinners first
+            let loadingIndicator = document.createElement('div');
+            loadingIndicator.className = 'loading-indicator';
+            loadingIndicator.innerHTML = `<div class="spinner"></div>`;
+            imageWrapper.appendChild(loadingIndicator);
             
             // Use the proxy for cloudUrl too
             const encodedUrl = encodeURIComponent(floor.cloudUrl);
@@ -791,42 +754,20 @@ async function showSelectedFloor(floor) {
     }
     
     function showImageError() {
-        Homey.api('POST', '/error', { message: 'All image sources failed' });
+        // Clean up and hide the image
         imageWrapper.classList.remove('loading');
-        // Don't add error class to avoid red background
-        // imageWrapper.classList.add('error');
         floorMapImage.style.visibility = 'hidden';
         
-        // Remove loading indicator on error
+        // Remove loading indicator
         const loadingIndicator = imageWrapper.querySelector('.loading-indicator');
         if (loadingIndicator) {
             loadingIndicator.remove();
         }
         
-        // Make sure settings button is visible with error state styling
-        addSettingsButton(true);
+        Homey.api('POST', '/error', { message: 'All image sources failed' });
         
-        // Add an error message to indicate what went wrong
-        const errorMessage = document.createElement('div');
-        errorMessage.className = 'error-message';
-        errorMessage.style.cssText = `
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: rgba(255, 255, 255, 0.9);
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            max-width: 80%;
-            z-index: 5;
-        `;
-        errorMessage.innerHTML = `
-            <h3 style="color: #e51e0f; margin: 0 0 10px 0;">Failed to load floor plan image</h3>
-            <p style="color: #333; margin: 0;">Click the settings button to select a different floor or try again.</p>
-        `;
-        imageWrapper.appendChild(errorMessage);
+        // Just show error message
+        showErrorMessage("Could not load the floor plan image from any source. Please try a different floor.");
     }
     
     // Set the image source if we found one through direct data or cache
@@ -860,6 +801,7 @@ async function showSelectedFloor(floor) {
     window.getCurrentFloor = () => floor;
 }
 
+// Update the showLoadingState function to use our simpler spinner
 function showLoadingState() {
     const container = document.getElementById('floorSelector');
     if (container) {
@@ -875,6 +817,7 @@ function showLoadingState() {
     const floorGrid = document.getElementById('floorGrid');
     if (floorGrid) {
         floorGrid.className = 'floor-grid';
+        ensureSingleSpinner(); // Make sure we have only one spinner
         floorGrid.innerHTML = `
             <div class="loading-indicator">
                 <div class="spinner"></div>
@@ -1206,7 +1149,7 @@ function cacheFloorImageIfNeeded(floor, floorMapImage) {
     }
 }
 
-// Add CSS style block for consistent spinner styling
+// First, update the spinner CSS to be simpler and cleaner
 const styleBlock = document.createElement('style');
 styleBlock.textContent = `
     .loading-indicator {
@@ -1214,18 +1157,7 @@ styleBlock.textContent = `
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 5;
-    }
-    
-    .loading-text {
-        margin-top: 10px;
-        color: #0076ff;
-        font-size: 14px;
-        font-weight: 500;
+        z-index: 1000;
     }
     
     .spinner {
@@ -1242,5 +1174,70 @@ styleBlock.textContent = `
     }
 `;
 
+// Then, update the loading indicator creation to be simpler
+// In showSelectedFloor function, where we add the spinner
+let loadingIndicator = imageWrapper.querySelector('.loading-indicator');
+if (!loadingIndicator) {
+    loadingIndicator = document.createElement('div');
+    loadingIndicator.className = 'loading-indicator';
+    loadingIndicator.innerHTML = `<div class="spinner"></div>`;
+    imageWrapper.appendChild(loadingIndicator);
+}
+
+// Also update in tryCloudUrl function
+loadingIndicator = document.createElement('div');
+loadingIndicator.className = 'loading-indicator';
+loadingIndicator.innerHTML = `<div class="spinner"></div>`;
+imageWrapper.appendChild(loadingIndicator);
+
+// And finally in showLoadingState
+floorGrid.innerHTML = `
+    <div class="loading-indicator">
+        <div class="spinner"></div>
+    </div>
+`;
+
 // Add the style block to the document head
 document.head.appendChild(styleBlock);
+
+// Add a function to remove all spinners
+function removeAllSpinners() {
+    const spinners = document.querySelectorAll('.loading-indicator, .spinner');
+    spinners.forEach(spinner => spinner.remove());
+    
+    const loadingElements = document.querySelectorAll('.loading');
+    loadingElements.forEach(el => el.classList.remove('loading'));
+    
+    // Also make sure the floor image is visible if it exists
+    const floorMapImage = document.getElementById('floorMapImage');
+    if (floorMapImage && floorMapImage.complete && floorMapImage.naturalWidth > 0) {
+        floorMapImage.style.visibility = 'visible';
+    }
+}
+
+// Add a global function to force reset and clear cache
+window.forceReset = function() {
+    // Clear cache
+    clientImageCache.clear();
+    
+    // Try to clear server cache
+    Homey.api('POST', '/clearImageCache').catch(() => {});
+    
+    // Remove all spinners
+    removeAllSpinners();
+    
+    // Reload the app
+    setTimeout(() => window.location.reload(), 500);
+    
+    return 'Clearing cache and reloading...';
+};
+
+// Also expose the clear cache function globally
+window.clearImageCache = clearImageCache;
+
+// Add this helper function for cleanup
+function ensureSingleSpinner() {
+    // First remove all existing spinners
+    const existingSpinners = document.querySelectorAll('.loading-indicator');
+    existingSpinners.forEach(spinner => spinner.remove());
+}

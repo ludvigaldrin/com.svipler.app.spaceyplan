@@ -130,431 +130,25 @@ const ruleManager = {
     },
 
     renderRuleConfig(ruleType, deviceOrRule) {
-        // Determine if we're getting a device or a rule
-        const isDevice = deviceOrRule && 'rules' in deviceOrRule;
-        const device = isDevice ? deviceOrRule : null;
-        const existingRule = isDevice 
-            ? device?.rules?.find(r => r.type === ruleType) 
-            : deviceOrRule;
-            
-        if (ruleType === 'allIcon') {
-            const html = `
-                <div class="rule-config-group">
-                    <div class="icon-search-container">
-                        <h3>Search Icons (${this.iconData?.length || 0} icons)</h3>
-                        <div class="search-input-group">
-                            <input type="text" 
-                                   id="iconSearchInput" 
-                                   class="homey-form-input" 
-                                   placeholder="Type to search Material Icons...">
-                        </div>
-                        <div id="iconSearchResults" class="icon-search-results" style="display: none;">
-                        </div>
-                    </div>
-                    
-                    <div id="selectedIconDisplay" class="selected-icon-container">
-                        <h3>Selected Icon</h3>
-                        <div class="selected-icon-box">
-                            ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.selectedIcon ? `
-                                <div class="selected-icon">
-                                    <span class="material-symbols-outlined">${device.rules.find(r => r.type === 'measureDisplay').config.selectedIcon}</span>
-                                    <span class="icon-name">${device.rules.find(r => r.type === 'measureDisplay').config.selectedIcon}</span>
-                                </div>
-                            ` : `
-                                <div class="no-icon-selected">
-                                    No icon selected. Search above to find an icon.
-                                </div>
-                            `}
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            // After rendering HTML, attach search handler
-            setTimeout(() => {
-                const searchInput = document.getElementById('iconSearchInput');
-                const searchResults = document.getElementById('iconSearchResults');
-                
-                if (searchInput && searchResults) {
-                    // Remove any existing listeners
-                    const newSearchInput = searchInput.cloneNode(true);
-                    searchInput.parentNode.replaceChild(newSearchInput, searchInput);
-                    
-                    let debounceTimeout;
-                    newSearchInput.addEventListener('input', (e) => {
-                        clearTimeout(debounceTimeout);
-                        debounceTimeout = setTimeout(async () => {
-                            const searchTerm = e.target.value.trim();
-                            
-                            // Clear existing content first
-                            searchResults.innerHTML = '';
-                            
-                            if (searchTerm.length < 2) {
-                                searchResults.style.display = 'none';
-                                return;
-                            }
-
-                            const results = await this.searchMaterialIcons(searchTerm);
-
-                            if (results.length === 0) {
-                                searchResults.innerHTML = '<div class="no-results">No icons found</div>';
-                                searchResults.style.display = 'block';
-                            } else {
-                                const html = results.map(iconName => `
-                                    <div class="icon-result" data-icon="${iconName}">
-                                        <span class="material-symbols-outlined">${iconName}</span>
-                                        <span class="icon-name">${iconName}</span>
-                                    </div>
-                                `).join('');
-                                
-                                searchResults.innerHTML = html;
-                                searchResults.style.display = 'block';
-                                
-                                // Attach click handlers immediately after updating HTML
-                                const iconResults = searchResults.querySelectorAll('.icon-result');
-                                iconResults.forEach(el => {
-                                    el.addEventListener('click', () => {
-                                        const iconName = el.dataset.icon;
-                                        const selectedIconDisplay = document.getElementById('selectedIconDisplay');
-                                        
-                                        // Update selected icon display
-                                        selectedIconDisplay.innerHTML = `
-                                            <h3>Selected Icon</h3>
-                                            <div class="selected-icon-box">
-                                                <div class="selected-icon">
-                                                    <span class="material-symbols-outlined">${iconName}</span>
-                                                    <span class="icon-name">${iconName}</span>
-                                                </div>
-                                            </div>
-                                        `;
-                                        
-                                        // Store the selected icon
-                                        this.selectedIcon = iconName;
-                                        
-                                        // Enable save button
-                                        const saveButton = document.getElementById('saveRule');
-                                        if (saveButton) {
-                                            saveButton.disabled = false;
-                                        }
-
-                                        // Hide search results after selection
-                                        searchResults.style.display = 'none';
-                                        searchResults.innerHTML = '';
-                                        searchInput.value = '';
-                                    });
-                                });
-                            }
-                        }, 300);
-                    });
-                }
-            }, 0);
-
-            return html;
-        } else if (ruleType === 'allColor') {
-            return `
-                <div class="rule-config-group">
-                    <div class="icon-settings">
-                        <div class="settings-header">
-                            <h3>Icon Settings</h3>
-                            <label class="switch">
-                                <input type="checkbox" id="showIcon" 
-                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIcon !== false ? 'checked' : ''}>
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                        <div class="color-input-group">
-                            <label>Icon Color</label>
-                            <input type="color" id="iconColor" 
-                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.iconColor || '#00ff00'}"
-                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIcon === false ? 'disabled' : ''}>
-                        </div>
-                    </div>
-
-                    <div class="cloud-settings">
-                        <div class="settings-header">
-                            <h3>Cloud Effect Settings</h3>
-                            <label class="switch">
-                                <input type="checkbox" id="showCloud" 
-                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloud !== false ? 'checked' : ''}>
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                        <div class="color-input-group">
-                            <label>Cloud Color</label>
-                            <input type="color" id="cloudColor" 
-                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.cloudColor || '#00ff00'}"
-                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloud === false ? 'disabled' : ''}>
-                        </div>
-                    </div>
-                </div>
-            `;
-        } else if (ruleType === 'onOffColor') {
-            return `
-                <div class="rule-config-group">
-                    <div class="icon-settings">
-                        <div class="settings-header">
-                            <h3>On - Icon Settings</h3>
-                            <label class="switch">
-                                <input type="checkbox" id="showIconOn" 
-                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIconOn !== false ? 'checked' : ''}>
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                        <div class="color-input-group">
-                            <label>Icon Color</label>
-                            <input type="color" id="iconColorOn" 
-                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.iconColorOn || '#ffeb3b'}"
-                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIconOn === false ? 'disabled' : ''}>
-                        </div>
-                        <div class="settings-note">
-                            Note: Not all icons allow for color change
-                        </div>
-                    </div>
-
-                    <div class="cloud-settings">
-                        <div class="settings-header">
-                            <h3>On - Cloud Effect Settings</h3>
-                            <label class="switch">
-                                <input type="checkbox" id="showCloudOn" 
-                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloudOn !== false ? 'checked' : ''}>
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                        <div class="color-input-group">
-                            <label>Cloud Color</label>
-                            <input type="color" id="cloudColorOn" 
-                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.cloudColorOn || '#ffeb3b'}"
-                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloudOn === false ? 'disabled' : ''}>
-                        </div>
-                    </div>
-
-                    <div class="icon-settings">
-                        <div class="settings-header">
-                            <h3>Off - Icon Settings</h3>
-                            <label class="switch">
-                                <input type="checkbox" id="showIconOff" 
-                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIconOff !== false ? 'checked' : ''}>
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                        <div class="color-input-group">
-                            <label>Icon Color</label>
-                            <input type="color" id="iconColorOff" 
-                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.iconColorOff || '#ffffff'}"
-                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIconOff === false ? 'disabled' : ''}>
-                        </div>
-                        <div class="settings-note">
-                            Note: Not all icons allow for color change
-                        </div>
-                    </div>
-
-                    <div class="cloud-settings">
-                        <div class="settings-header">
-                            <h3>Off - Cloud Effect Settings</h3>
-                            <label class="switch">
-                                <input type="checkbox" id="showCloudOff" 
-                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloudOff !== false ? 'checked' : ''}>
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                        <div class="color-input-group">
-                            <label>Cloud Color</label>
-                            <input type="color" id="cloudColorOff" 
-                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.cloudColorOff || '#ffffff'}"
-                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloudOff === false ? 'disabled' : ''}>
-                        </div>
-                    </div>
-                </div>
-            `;
-        } else if (ruleType === 'onOffImage') {
-            return `
-                <div class="image-rule-config">
-                    <div class="image-upload-group">
-                        <label>Image</label>
-                        <input type="file" id="ruleImage" accept="image/*" class="homey-form-input">
-                        <div id="ruleImagePreview" class="image-preview">
-                            ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.imageData ? `<img src="${device.rules.find(r => r.type === 'measureDisplay').config.imageData}">` : ''}
-                        </div>
-                    </div>
-                    <div class="visibility-options">
-                        <label>Show image when device is:</label>
-                        <select id="imageVisibility" class="homey-form-input">
-                            <option value="on" ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showOn ? 'selected' : ''}>On</option>
-                            <option value="off" ${!device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showOn ? 'selected' : ''}>Off</option>
-                        </select>
-                    </div>
-                </div>
-            `;
-        } else if (ruleType === 'measureDisplay') {
-            // Default values for a new rule
-            const showTemperature = existingRule?.config?.showTemperature !== false;
-            const temperatureColor = existingRule?.config?.temperatureColor || '#2196F3';
-            const showHumidity = existingRule?.config?.showHumidity !== false;
-            const humidityColor = existingRule?.config?.humidityColor || '#2196F3';
-            
-            console.log('DEBUG: Rendering measureDisplay with values:', {
-                showTemperature,
-                temperatureColor,
-                showHumidity,
-                humidityColor
-            });
-            
-            const html = `
-                <div class="rule-config-group">
-                    <div class="icon-settings temperature-settings">
-                        <div class="settings-header">
-                            <h3>Temperature Display</h3>
-                            <label class="switch">
-                                <input type="checkbox" id="showTemperature" ${showTemperature ? 'checked' : ''}>
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                        <div class="color-input-group">
-                            <label>Temperature Color</label>
-                            <input type="color" id="temperatureColor" 
-                                value="${temperatureColor}"
-                                ${!showTemperature ? 'disabled' : ''}>
-                        </div>
-                    </div>
-
-                    <div class="icon-settings humidity-settings">
-                        <div class="settings-header">
-                            <h3>Humidity Display</h3>
-                            <label class="switch">
-                                <input type="checkbox" id="showHumidity" ${showHumidity ? 'checked' : ''}>
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                        <div class="color-input-group">
-                            <label>Humidity Color</label>
-                            <input type="color" id="humidityColor" 
-                                value="${humidityColor}"
-                                ${!showHumidity ? 'disabled' : ''}>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            // After rendering, attach direct event listeners with setTimeout
-            setTimeout(() => {
-                const showTemperature = document.getElementById('showTemperature');
-                const temperatureColor = document.getElementById('temperatureColor');
-                const showHumidity = document.getElementById('showHumidity');
-                const humidityColor = document.getElementById('humidityColor');
-                
-                console.log('DEBUG: After rendering measureDisplay config, found temperature controls:', 
-                    showTemperature ? 'yes' : 'no', 
-                    temperatureColor ? 'yes' : 'no');
-                
-                if (showTemperature && temperatureColor) {
-                    // Clean up existing event listener if any
-                    const newShowTemp = showTemperature.cloneNode(true);
-                    showTemperature.parentNode.replaceChild(newShowTemp, showTemperature);
-                    
-                    // Add new event listener
-                    newShowTemp.addEventListener('change', (e) => {
-                        console.log(`DEBUG: Direct temperature checkbox change in renderRuleConfig: ${e.target.checked}`);
-                        temperatureColor.disabled = !e.target.checked;
-                        console.log(`DEBUG: Directly set temperature color disabled in renderRuleConfig: ${!e.target.checked}`);
-                    });
-                }
-                
-                if (showHumidity && humidityColor) {
-                    // Clean up existing event listener if any
-                    const newShowHumid = showHumidity.cloneNode(true);
-                    showHumidity.parentNode.replaceChild(newShowHumid, showHumidity);
-                    
-                    // Add new event listener
-                    newShowHumid.addEventListener('change', (e) => {
-                        console.log(`DEBUG: Direct humidity checkbox change in renderRuleConfig: ${e.target.checked}`);
-                        humidityColor.disabled = !e.target.checked;
-                        console.log(`DEBUG: Directly set humidity color disabled in renderRuleConfig: ${!e.target.checked}`);
-                    });
-                }
-            }, 100);
-            
-            return html;
-        } else if (ruleType === 'alarmColor') {
-            return `
-                <div class="rule-config-group">
-                    <div class="icon-settings">
-                        <div class="settings-header">
-                            <h3>Alarm Yes - Icon Settings</h3>
-                            <label class="switch">
-                                <input type="checkbox" id="showIconOn" 
-                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIconOn !== false ? 'checked' : ''}>
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                        <div class="color-input-group">
-                            <label>Icon Color</label>
-                            <input type="color" id="iconColorOn" 
-                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.iconColorOn || '#ff0000'}"
-                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIconOn === false ? 'disabled' : ''}>
-                        </div>
-                        <div class="settings-note">
-                            Note: Not all icons allow for color change
-                        </div>
-                    </div>
-
-                    <div class="cloud-settings">
-                        <div class="settings-header">
-                            <h3>Alarm Yes - Cloud Effect Settings</h3>
-                            <label class="switch">
-                                <input type="checkbox" id="showCloudOn" 
-                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloudOn !== false ? 'checked' : ''}>
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                        <div class="color-input-group">
-                            <label>Cloud Color</label>
-                            <input type="color" id="cloudColorOn" 
-                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.cloudColorOn || '#ff0000'}"
-                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloudOn === false ? 'disabled' : ''}>
-                        </div>
-                    </div>
-
-                    <div class="icon-settings">
-                        <div class="settings-header">
-                            <h3>Alarm No - Icon Settings</h3>
-                            <label class="switch">
-                                <input type="checkbox" id="showIconOff" 
-                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIconOff !== false ? 'checked' : ''}>
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                        <div class="color-input-group">
-                            <label>Icon Color</label>
-                            <input type="color" id="iconColorOff" 
-                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.iconColorOff || '#ffffff'}"
-                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showIconOff === false ? 'disabled' : ''}>
-                        </div>
-                        <div class="settings-note">
-                            Note: Not all icons allow for color change
-                        </div>
-                    </div>
-
-                    <div class="cloud-settings">
-                        <div class="settings-header">
-                            <h3>Alarm No - Cloud Effect Settings</h3>
-                            <label class="switch">
-                                <input type="checkbox" id="showCloudOff" 
-                                    ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloudOff !== false ? 'checked' : ''}>
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                        <div class="color-input-group">
-                            <label>Cloud Color</label>
-                            <input type="color" id="cloudColorOff" 
-                                value="${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.cloudColorOff || '#ffffff'}"
-                                ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.showCloudOff === false ? 'disabled' : ''}>
-                        </div>
-                    </div>
-                </div>
-            `;
+        // Determine if we're dealing with a device or a rule
+        let rule = null;
+        let device = null;
+        
+        if (deviceOrRule && deviceOrRule.rules) {
+            // We were passed a device
+            device = deviceOrRule;
+        } else if (deviceOrRule && deviceOrRule.id) {
+            // We were passed a rule
+            rule = deviceOrRule;
         }
         
-        return '<p>No configuration needed for this rule type.</p>';
+        if (!rule && device && this.currentRuleId) {
+            // Find the rule by ID from the device
+            rule = device.rules.find(r => r.id === this.currentRuleId);
+        }
+        
+        // Get the appropriate config HTML based on rule type
+        return this.getRuleConfigHTML(ruleType, rule);
     },
 
     async handleImageUpload(file) {
@@ -738,65 +332,49 @@ const ruleManager = {
     },
 
     editRule(deviceId, ruleId) {
-        const dialog = document.getElementById('ruleDialog');
-
         const floor = this.floorManager.floors.find(f => f.id === this.floorManager.currentFloorId);
-        if (!floor) return;
+        if (!floor) {
+            this.Homey.alert('Floor not found!');
+            return;
+        }
 
         const device = floor.devices.find(d => d.id === deviceId);
-        if (!device) return;
+        if (!device) {
+            this.Homey.alert('Device not found!');
+            return;
+        }
 
         const rule = device.rules.find(r => r.id === ruleId);
-        if (!rule) return;
+        if (!rule) {
+            this.Homey.alert('Rule not found!');
+            return;
+        }
 
-        // Store IDs and set edit mode
+        // Set current state
+        this.isEditing = true;
         this.currentDeviceId = deviceId;
         this.currentRuleId = ruleId;
-        this.isEditing = true;
 
-        // Update dialog elements
-        const titleElement = dialog.querySelector('#ruleDialogTitle');
-        const saveButton = dialog.querySelector('#saveRule');
+        // Get dialog elements
+        const dialog = document.getElementById('ruleDialog');
+        const titleEl = dialog.querySelector('#ruleDialogTitle');
         const typeSelect = dialog.querySelector('#ruleType');
         const configSection = dialog.querySelector('#ruleConfig');
-        const closeButton = dialog.querySelector('.modal-close-button');
-        const cancelButton = dialog.querySelector('#cancelRule');
 
-        // Setup close handlers
-        if (closeButton) {
-            closeButton.onclick = () => {
-                this.cleanupEventListeners();
-                dialog.style.display = 'none';
-            };
-        }
-        if (cancelButton) {
-            cancelButton.onclick = () => {
-                this.cleanupEventListeners();
-                dialog.style.display = 'none';
-            };
-        }
-
-        if (titleElement) titleElement.textContent = 'Edit Rule';
-        if (saveButton) {
-            saveButton.textContent = 'Save Changes';
-            saveButton.disabled = false;
-            saveButton.onclick = () => this.saveRule(rule.type);
-        }
-
-        // Set rule type
+        // Update dialog for editing
+        if (titleEl) titleEl.textContent = `Edit Rule: ${rule.name}`;
         if (typeSelect) {
-            typeSelect.innerHTML = `<option value="${rule.type}">${this.getRuleName(rule.type)}</option>`;
             typeSelect.value = rule.type;
-            typeSelect.disabled = true;
+            typeSelect.disabled = true;  // Don't allow changing type when editing
         }
 
-        configSection.innerHTML = this.renderRuleConfig(rule.type, rule);
-
-        // Attach event listeners for color-related rule types
-        if (rule.type === 'allIcon' || rule.type === 'allColor' || rule.type === 'onOffColor' || rule.type === 'alarmColor') {
+        // Render the appropriate config for this rule type
+        if (configSection) {
+            configSection.innerHTML = this.renderRuleConfig(rule.type, rule);
             this.attachRuleEventListeners();
         }
 
+        // Show the dialog
         dialog.style.display = 'flex';
     },
 
@@ -813,21 +391,15 @@ const ruleManager = {
                 const temperatureColor = document.getElementById('temperatureColor');
                 const showHumidity = document.getElementById('showHumidity');
                 const humidityColor = document.getElementById('humidityColor');
-                
-                console.log('DEBUG: After rendering measureDisplay config, found temperature controls:', 
-                    showTemperature ? 'yes' : 'no', 
-                    temperatureColor ? 'yes' : 'no');
-                
+
                 if (showTemperature && temperatureColor) {
                     showTemperature.addEventListener('change', (e) => {
-                        console.log(`DEBUG: Direct temperature event in onRuleTypeChange: ${e.target.checked}`);
                         temperatureColor.disabled = !e.target.checked;
                     });
                 }
                 
                 if (showHumidity && humidityColor) {
                     showHumidity.addEventListener('change', (e) => {
-                        console.log(`DEBUG: Direct humidity event in onRuleTypeChange: ${e.target.checked}`);
                         humidityColor.disabled = !e.target.checked;
                     });
                 }
@@ -906,6 +478,7 @@ const ruleManager = {
                 // Update existing rule
                 const ruleIndex = device.rules.findIndex(r => r.id === this.currentRuleId);
                 if (ruleIndex !== -1) {
+                    // Only update the config, preserve other properties
                     device.rules[ruleIndex] = {
                         ...device.rules[ruleIndex],
                         config: config
@@ -919,7 +492,7 @@ const ruleManager = {
                     name: this.getRuleName(type),
                     config: config
                 };
-
+                
                 device.rules.push(newRule);
             }
 
@@ -958,49 +531,49 @@ const ruleManager = {
     async getRuleConfig(type) {
         try {
             if (type === 'allIcon') {
-            const selectedIconElement = document.querySelector('.selected-icon .material-symbols-outlined');
-            if (!selectedIconElement) {
-                console.warn('No icon selected when trying to save');
-                return null;
-            }
+                const selectedIconElement = document.querySelector('.selected-icon .material-symbols-outlined');
+                if (!selectedIconElement) {
+                    console.warn('No icon selected when trying to save');
+                    return null;
+                }
 
-            const selectedIcon = selectedIconElement.textContent;
-            return {
-                selectedIcon
-            };
+                const selectedIcon = selectedIconElement.textContent;
+                return {
+                    selectedIcon
+                };
             } else if (type === 'allColor') {
-            const showIcon = document.getElementById('showIcon').checked;
-            const showCloud = document.getElementById('showCloud').checked;
-
-            return {
-                showIcon,
-                iconColor: showIcon ? document.getElementById('iconColor').value : null,
-                showCloud,
-                cloudColor: showCloud ? document.getElementById('cloudColor').value : null
-            };
+                const showIcon = document.getElementById('showIcon').checked;
+                const showCloud = document.getElementById('showCloud').checked;
+                
+                return {
+                    showIcon,
+                    iconColor: showIcon ? document.getElementById('iconColor').value : null,
+                    showCloud,
+                    cloudColor: showCloud ? document.getElementById('cloudColor').value : null
+                };
             } else if (type === 'onOffColor') {
-            const showIconOn = document.getElementById('showIconOn').checked;
-            const showCloudOn = document.getElementById('showCloudOn').checked;
-            const showIconOff = document.getElementById('showIconOff').checked;
-            const showCloudOff = document.getElementById('showCloudOff').checked;
+                const showIconOn = document.getElementById('showIconOn').checked;
+                const showCloudOn = document.getElementById('showCloudOn').checked;
+                const showIconOff = document.getElementById('showIconOff').checked;
+                const showCloudOff = document.getElementById('showCloudOff').checked;
 
-            return {
-                showIconOn,
-                iconColorOn: showIconOn ? document.getElementById('iconColorOn').value : null,
-                showCloudOn,
-                cloudColorOn: showCloudOn ? document.getElementById('cloudColorOn').value : null,
-                showIconOff,
-                iconColorOff: showIconOff ? document.getElementById('iconColorOff').value : null,
-                showCloudOff,
-                cloudColorOff: showCloudOff ? document.getElementById('cloudColorOff').value : null
-            };
+                return {
+                    showIconOn,
+                    iconColorOn: showIconOn ? document.getElementById('iconColorOn').value : null,
+                    showCloudOn,
+                    cloudColorOn: showCloudOn ? document.getElementById('cloudColorOn').value : null,
+                    showIconOff,
+                    iconColorOff: showIconOff ? document.getElementById('iconColorOff').value : null,
+                    showCloudOff,
+                    cloudColorOff: showCloudOff ? document.getElementById('cloudColorOff').value : null
+                };
             } else if (type === 'onOffImage') {
-            const imagePreview = document.getElementById('ruleImagePreview').querySelector('img');
-            const visibilitySelect = document.getElementById('imageVisibility');
-            return {
-                imageData: imagePreview ? imagePreview.src : null,
-                showOn: visibilitySelect.value === 'on'
-            };
+                const imagePreview = document.getElementById('ruleImagePreview').querySelector('img');
+                const visibilitySelect = document.getElementById('imageVisibility');
+                return {
+                    imageData: imagePreview ? imagePreview.src : null,
+                    showOn: visibilitySelect.value === 'on'
+                };
             } else if (type === 'measureDisplay') {
                 // Get elements
                 const showTemperatureEl = document.getElementById('showTemperature');
@@ -1098,47 +671,43 @@ const ruleManager = {
     },
 
     attachRuleEventListeners() {
-        const ruleDialog = document.getElementById('ruleDialog');
+        const ruleDialog = document.getElementById('rule-dialog');
         if (!ruleDialog) return;
 
-        // Clean up any existing event listeners
-        this.cleanupEventListeners();
-
-        // Get all checkboxes and color inputs
         const checkboxes = ruleDialog.querySelectorAll('input[type="checkbox"]');
         const colorInputs = ruleDialog.querySelectorAll('input[type="color"]');
-        const saveButton = ruleDialog.querySelector('#saveRule');
-
-        // Store references to elements we need to manage
-        this.dialogElements = {
-            container: ruleDialog.querySelector('.rule-config-group'),
-            checkboxes: checkboxes,
-            colorInputs: colorInputs,
-            saveButton: saveButton
-        };
-
-        // Create bound event handlers that we can remove later
-        this.boundHandlers = {
-            checkboxChange: this.handleCheckboxChange.bind(this),
-            colorInput: this.handleColorInput.bind(this)
-        };
-
-        // Attach new event listeners
-        checkboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', this.boundHandlers.checkboxChange);
-        });
-
-        colorInputs.forEach(input => {
-            input.addEventListener('input', this.boundHandlers.colorInput);
-        });
-
-        // Initial state update
-        this.updateColorInputStates();
         
-        // Make sure save button is enabled
-        if (saveButton) {
-            saveButton.disabled = false;
-        }
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                const settingsGroup = checkbox.closest('.settings-group');
+                const colorInput = settingsGroup.querySelector('input[type="color"]');
+                
+                if (colorInput) {
+                    colorInput.disabled = !checkbox.checked;
+                    
+                    if (!checkbox.checked) {
+                        if (colorInput.id === 'iconColor') {
+                            colorInput.value = '#00ff00';
+                        } else if (colorInput.id === 'cloudColor') {
+                            colorInput.value = '#00ff00';
+                        } else if (colorInput.id === 'contrastColor') {
+                            colorInput.value = '#ffffff';
+                        }
+                    }
+                }
+                
+                document.getElementById('save-rule-button').disabled = false;
+            });
+        });
+
+        colorInputs.forEach(colorInput => {
+            colorInput.addEventListener('input', () => {
+                document.getElementById('save-rule-button').disabled = false;
+            });
+        });
+
+        this.updateColorInputStates();
+        document.getElementById('save-rule-button').disabled = false;
     },
 
     cleanupEventListeners() {
@@ -1173,45 +742,6 @@ const ruleManager = {
         this.boundHandlers = null;
     },
 
-    handleCheckboxChange(event) {
-        const checkbox = event.target;
-        const settingsGroup = checkbox.closest('.icon-settings, .cloud-settings');
-        
-        // Debug logging
-        console.log(`DEBUG: Checkbox changed: ${checkbox.id}, checked: ${checkbox.checked}`);
-        
-        if (settingsGroup) {
-            const colorInput = settingsGroup.querySelector('input[type="color"]');
-            if (colorInput) {
-                // Immediately disable/enable the color input
-                colorInput.disabled = !checkbox.checked;
-                console.log(`DEBUG: Color input ${colorInput.id} disabled set to: ${!checkbox.checked}`);
-                
-                if (!checkbox.checked) {
-                    let newValue = '#ffffff';
-                    
-                    // Handle different color input types with appropriate defaults
-                    if (colorInput.id === 'iconColor' || colorInput.id === 'cloudColor') {
-                        newValue = '#00ff00';
-                    } else if (colorInput.id === 'iconColorOn' || colorInput.id === 'cloudColorOn') {
-                        newValue = '#ffeb3b';
-                    } else if (colorInput.id === 'temperatureColor') {
-                        newValue = '#2196F3';
-                    } else if (colorInput.id === 'humidityColor') {
-                        newValue = '#2196F3';
-                    }
-                    
-                    colorInput.value = newValue;
-                    console.log(`DEBUG: Color input ${colorInput.id} value reset to: ${newValue}`);
-                }
-            }
-        }
-
-        if (this.dialogElements && this.dialogElements.saveButton) {
-            this.dialogElements.saveButton.disabled = false;
-        }
-    },
-
     handleColorInput(event) {
         if (this.dialogElements.saveButton) {
             this.dialogElements.saveButton.disabled = false;
@@ -1219,33 +749,26 @@ const ruleManager = {
     },
 
     updateColorInputStates() {
-        if (!this.dialogElements) return;
+        const ruleDialog = document.getElementById('rule-dialog');
+        if (!ruleDialog) return;
 
-        const settingsGroups = document.querySelectorAll('.icon-settings, .cloud-settings');
-
+        const settingsGroups = ruleDialog.querySelectorAll('.settings-group');
+        
         settingsGroups.forEach(group => {
             const checkbox = group.querySelector('input[type="checkbox"]');
             const colorInput = group.querySelector('input[type="color"]');
-            
+
             if (checkbox && colorInput) {
-                // Directly set the disabled state based on checkbox
                 colorInput.disabled = !checkbox.checked;
                 
                 if (!checkbox.checked) {
-                    let newValue = '#ffffff';
-                    
-                    // Handle different color input types with appropriate defaults
-                    if (colorInput.id === 'iconColor' || colorInput.id === 'cloudColor') {
-                        newValue = '#00ff00';
-                    } else if (colorInput.id === 'iconColorOn' || colorInput.id === 'cloudColorOn') {
-                        newValue = '#ffeb3b';
-                    } else if (colorInput.id === 'temperatureColor') {
-                        newValue = '#2196F3';
-                    } else if (colorInput.id === 'humidityColor') {
-                        newValue = '#2196F3';
+                    if (colorInput.id === 'iconColor') {
+                        colorInput.value = '#00ff00';
+                    } else if (colorInput.id === 'cloudColor') {
+                        colorInput.value = '#00ff00';
+                    } else if (colorInput.id === 'contrastColor') {
+                        colorInput.value = '#ffffff';
                     }
-                    
-                    colorInput.value = newValue;
                 }
             }
         });

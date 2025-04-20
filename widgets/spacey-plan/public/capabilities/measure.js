@@ -64,6 +64,29 @@ const measureRenderer = {
         deviceEl.setAttribute('data-device-id', device.id);
         deviceEl.setAttribute('data-homey-id', device.homeyId);
         deviceEl.setAttribute('data-capability', this.id);
+        
+        // Enhanced measureCapabilities detection:
+        // First, check if device.measureCapabilities exists
+        if (!device.measureCapabilities) {
+            device.measureCapabilities = [];
+            
+            // Check if device has measureTypes array (from API)
+            if (device.measureTypes && Array.isArray(device.measureTypes)) {
+                device.measureCapabilities = device.measureTypes;
+                Homey.api('POST', '/log', { message: `Using measureTypes as capabilities: ${JSON.stringify(device.measureTypes)}` });
+            }
+            // Otherwise, check if device has capabilities array (from Homey)
+            else if (device.capabilities && Array.isArray(device.capabilities)) {
+                // Filter to get only measure_temperature and measure_humidity
+                device.capabilities.forEach(cap => {
+                    if (cap === 'measure_temperature' || cap === 'measure_humidity') {
+                        device.measureCapabilities.push(cap);
+                    }
+                });
+                Homey.api('POST', '/log', { message: `Extracted measureCapabilities from device.capabilities: ${JSON.stringify(device.measureCapabilities)}` });
+            }
+        }
+        
         deviceEl.setAttribute('data-device', JSON.stringify(device));
 
         // Store which measure capabilities this device supports
@@ -172,32 +195,122 @@ const measureRenderer = {
         try {
             // Get the device data
             const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
-            const measureCapabilities = deviceData.measureCapabilities || [];
+            
+            // Initialize measureCapabilities from various sources
+            let measureCapabilities = [];
+            
+            // First try deviceData.measureCapabilities
+            if (deviceData.measureCapabilities && Array.isArray(deviceData.measureCapabilities)) {
+                measureCapabilities = deviceData.measureCapabilities;
+                Homey.api('POST', '/log', { message: `Using measureCapabilities from device data: ${JSON.stringify(measureCapabilities)}` });
+            } 
+            // Then try deviceData.measureTypes (specific to this API)
+            else if (deviceData.measureTypes && Array.isArray(deviceData.measureTypes)) {
+                measureCapabilities = deviceData.measureTypes;
+                Homey.api('POST', '/log', { message: `Using measureTypes from device data: ${JSON.stringify(measureCapabilities)}` });
+            }
+            // Then try deviceData.capabilities (from Homey)
+            else if (deviceData.capabilities && Array.isArray(deviceData.capabilities)) {
+                // Filter only measure_temperature and measure_humidity
+                measureCapabilities = deviceData.capabilities.filter(cap => 
+                    cap === 'measure_temperature' || cap === 'measure_humidity'
+                );
+                Homey.api('POST', '/log', { message: `Extracted measureCapabilities from device.capabilities: ${JSON.stringify(measureCapabilities)}` });
+            }
+            
+            // If still empty, try to fetch capabilities from Homey API
+            if (measureCapabilities.length === 0) {
+                try {
+                    // Use Homey API to get device capabilities
+                    const device = await Homey.api('GET', `/devices/${deviceId}`);
+                    if (device && device.capabilities && Array.isArray(device.capabilities)) {
+                        measureCapabilities = device.capabilities.filter(cap => 
+                            cap === 'measure_temperature' || cap === 'measure_humidity'
+                        );
+                        Homey.api('POST', '/log', { message: `Got measureCapabilities from API: ${JSON.stringify(measureCapabilities)}` });
+                    }
+                } catch (err) {
+                    Homey.api('POST', '/error', { message: `Error fetching device capabilities: ${err.message}` });
+                }
+            }
+            
+            // Store updated measureCapabilities back to the element
+            deviceData.measureCapabilities = measureCapabilities;
+            deviceEl.setAttribute('data-device', JSON.stringify(deviceData));
+            deviceEl.setAttribute('data-measure-capabilities', JSON.stringify(measureCapabilities));
             
             // Store measurement values
             deviceEl.setAttribute('data-temperature', '');
             deviceEl.setAttribute('data-humidity', '');
             
-            // Subscribe to the device's measure capabilities
-            const subscribeDevices = [];
+            // Determine if we need to fetch individual capabilities or use combined
+            const hasTemperature = measureCapabilities.includes('measure_temperature');
+            const hasHumidity = measureCapabilities.includes('measure_humidity');
+            const hasBoth = hasTemperature && hasHumidity;
             
-            // Fetch initial values for each capability
-            for (const capability of measureCapabilities) {
-                try {
-                    const response = await Homey.api('GET', `/devices/${deviceId}/capabilities/${capability}`);
-                    if (response !== undefined) {
-                        if (capability === 'measure_temperature') {
-                            deviceEl.setAttribute('data-temperature', response);
-                        } else if (capability === 'measure_humidity') {
-                            deviceEl.setAttribute('data-humidity', response);
+            // Use the correct device ID format for the 'measure' capability
+            let subscribeDevices = [];
+            let tempValue, humidityValue;
+            
+            try {
+                if (hasBoth && deviceData.measureType === 'combined') {
+                    // For combined capability, use the combined format
+                    const combinedDeviceId = `${deviceId}-measure-combined`;
+                    Homey.api('POST', '/log', { message: `Using combined measure device ID: ${combinedDeviceId}` });
+                    
+                    // Fetch combined values
+                    const response = await Homey.api('GET', `/devices/${combinedDeviceId}/capabilities/measure`);
+                    
+                    if (response) {
+                        if (response.temperature && response.temperature.value !== undefined) {
+                            tempValue = response.temperature.value;
+                            deviceEl.setAttribute('data-temperature', tempValue);
+                            Homey.api('POST', '/log', { message: `Got combined temperature value: ${tempValue}` });
+                        }
+                        
+                        if (response.humidity && response.humidity.value !== undefined) {
+                            humidityValue = response.humidity.value;
+                            deviceEl.setAttribute('data-humidity', humidityValue);
+                            Homey.api('POST', '/log', { message: `Got combined humidity value: ${humidityValue}` });
                         }
                     }
                     
-                    // Add to subscription list
-                    subscribeDevices.push({ deviceId, capability });
-                } catch (error) {
-                    Homey.api('POST', '/error', { message: `Error fetching ${capability}: ${JSON.stringify(error)}` });
+                    // Subscribe to combined updates
+                    subscribeDevices.push({ deviceId: combinedDeviceId, capability: 'measure' });
+                } else {
+                    // Handle individual capabilities
+                    if (hasTemperature) {
+                        const tempDeviceId = `${deviceId}-measure-measure_temperature`;
+                        Homey.api('POST', '/log', { message: `Using temperature measure device ID: ${tempDeviceId}` });
+                        
+                        const response = await Homey.api('GET', `/devices/${tempDeviceId}/capabilities/measure`);
+                        if (response && response.value !== undefined) {
+                            tempValue = response.value;
+                            deviceEl.setAttribute('data-temperature', tempValue);
+                            Homey.api('POST', '/log', { message: `Got temperature value: ${tempValue}` });
+                        }
+                        
+                        // Subscribe to temperature updates
+                        subscribeDevices.push({ deviceId: tempDeviceId, capability: 'measure' });
+                    }
+                    
+                    if (hasHumidity) {
+                        const humidityDeviceId = `${deviceId}-measure-measure_humidity`;
+                        Homey.api('POST', '/log', { message: `Using humidity measure device ID: ${humidityDeviceId}` });
+                        
+                        const response = await Homey.api('GET', `/devices/${humidityDeviceId}/capabilities/measure`);
+                        if (response && response.value !== undefined) {
+                            humidityValue = response.value;
+                            deviceEl.setAttribute('data-humidity', humidityValue);
+                            Homey.api('POST', '/log', { message: `Got humidity value: ${humidityValue}` });
+                        }
+                        
+                        // Subscribe to humidity updates
+                        subscribeDevices.push({ deviceId: humidityDeviceId, capability: 'measure' });
+                    }
                 }
+            } catch (error) {
+                Homey.api('POST', '/error', { message: `Error fetching values: ${JSON.stringify(error)}` });
             }
             
             // Subscribe to updates for all capabilities
@@ -206,6 +319,7 @@ const measureRenderer = {
                     widgetId: widgetId,
                     devices: subscribeDevices
                 });
+                Homey.api('POST', '/log', { message: `Subscribed to devices: ${JSON.stringify(subscribeDevices)}` });
             }
 
         } catch (error) {
@@ -331,32 +445,144 @@ const measureRenderer = {
     handleDeviceUpdate(deviceEl, value, capability) {
         try {
             if (!deviceEl) return;
+            
+            Homey.api('POST', '/log', { message: `Handling device update: ${capability} = ${JSON.stringify(value)}` });
 
-            // Update the appropriate value based on capability
+            // Check if this is a direct capability update or data from the 'measure' capability
             if (capability === 'measure_temperature') {
                 deviceEl.setAttribute('data-temperature', value);
-            } else if (capability === 'measure_humidity') {
-                deviceEl.setAttribute('data-humidity', value);
-            }
-
-            // Update modal if it exists
-            const deviceId = deviceEl.getAttribute('data-device-id');
-            const modal = document.querySelector(`.device-modal[data-device-id="${deviceId}"]`);
-            if (modal) {
-                if (capability === 'measure_temperature') {
+                
+                // Update modal if it exists
+                const deviceId = deviceEl.getAttribute('data-device-id');
+                const modal = document.querySelector(`.device-modal[data-device-id="${deviceId}"]`);
+                if (modal) {
                     const tempValue = modal.querySelector('.temperature-value');
                     if (tempValue) {
                         tempValue.textContent = `${parseFloat(value).toFixed(1)}°C`;
                     }
-                } else if (capability === 'measure_humidity') {
+                }
+            } else if (capability === 'measure_humidity') {
+                deviceEl.setAttribute('data-humidity', value);
+                
+                // Update modal if it exists
+                const deviceId = deviceEl.getAttribute('data-device-id');
+                const modal = document.querySelector(`.device-modal[data-device-id="${deviceId}"]`);
+                if (modal) {
                     const humidityValue = modal.querySelector('.humidity-value');
                     if (humidityValue) {
                         humidityValue.textContent = `${parseFloat(value).toFixed(0)}%`;
                     }
                 }
+            } else if (capability === 'measure') {
+                // This is from the measure capability, could be combined or individual value
+                if (value && typeof value === 'object') {
+                    // Check if this is combined format (has temperature and humidity properties)
+                    if (value.temperature && value.temperature.value !== undefined) {
+                        deviceEl.setAttribute('data-temperature', value.temperature.value);
+                        
+                        // Update modal if it exists
+                        const deviceId = deviceEl.getAttribute('data-device-id');
+                        const modal = document.querySelector(`.device-modal[data-device-id="${deviceId}"]`);
+                        if (modal) {
+                            const tempValue = modal.querySelector('.temperature-value');
+                            if (tempValue) {
+                                tempValue.textContent = `${parseFloat(value.temperature.value).toFixed(1)}°C`;
+                            }
+                        }
+                    }
+                    
+                    if (value.humidity && value.humidity.value !== undefined) {
+                        deviceEl.setAttribute('data-humidity', value.humidity.value);
+                        
+                        // Update modal if it exists
+                        const deviceId = deviceEl.getAttribute('data-device-id');
+                        const modal = document.querySelector(`.device-modal[data-device-id="${deviceId}"]`);
+                        if (modal) {
+                            const humidityValue = modal.querySelector('.humidity-value');
+                            if (humidityValue) {
+                                humidityValue.textContent = `${parseFloat(value.humidity.value).toFixed(0)}%`;
+                            }
+                        }
+                    }
+                    
+                    // For individual values with measureType property
+                    if (value.measureType === 'measure_temperature' && value.value !== undefined) {
+                        deviceEl.setAttribute('data-temperature', value.value);
+                        
+                        // Update modal if it exists
+                        const deviceId = deviceEl.getAttribute('data-device-id');
+                        const modal = document.querySelector(`.device-modal[data-device-id="${deviceId}"]`);
+                        if (modal) {
+                            const tempValue = modal.querySelector('.temperature-value');
+                            if (tempValue) {
+                                tempValue.textContent = `${parseFloat(value.value).toFixed(1)}°C`;
+                            }
+                        }
+                    } else if (value.measureType === 'measure_humidity' && value.value !== undefined) {
+                        deviceEl.setAttribute('data-humidity', value.value);
+                        
+                        // Update modal if it exists
+                        const deviceId = deviceEl.getAttribute('data-device-id');
+                        const modal = document.querySelector(`.device-modal[data-device-id="${deviceId}"]`);
+                        if (modal) {
+                            const humidityValue = modal.querySelector('.humidity-value');
+                            if (humidityValue) {
+                                humidityValue.textContent = `${parseFloat(value.value).toFixed(0)}%`;
+                            }
+                        }
+                    }
+                }
             }
+
+            // Ensure settings button exists
+            this.ensureSettingsButton();
         } catch (error) {
             Homey.api('POST', '/error', { message: `Error in handleDeviceUpdate: ${JSON.stringify(error)}` });
+        }
+    },
+
+    // Add this new method to ensure the settings button exists
+    ensureSettingsButton() {
+        // Check if the settings button exists
+        const existingButton = document.querySelector('.settings-button');
+        if (!existingButton) {
+            // If not, create a new one
+            const button = document.createElement('button');
+            button.className = 'settings-button';
+            button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`;
+            
+            // Add the click event to show floor selector
+            button.addEventListener('click', async () => {
+                try {
+                    // Get all floors
+                    const floors = await Homey.api('GET', '/floors');
+                    
+                    if (!floors || floors.length === 0) {
+                        return;
+                    }
+                    
+                    // If modal exists, remove it first
+                    const existingModal = document.querySelector('.device-modal-overlay');
+                    if (existingModal) {
+                        existingModal.remove();
+                    }
+                    
+                    // Show the floor selector
+                    if (typeof showFloorSelector === 'function') {
+                        showFloorSelector(floors);
+                    } else {
+                        Homey.api('POST', '/error', { message: 'showFloorSelector function not found' });
+                    }
+                } catch (error) {
+                    Homey.api('POST', '/error', { message: `Error showing floor selector: ${JSON.stringify(error)}` });
+                }
+            });
+            
+            // Add the button to the container
+            const container = document.querySelector('.widget-container');
+            if (container) {
+                container.appendChild(button);
+            }
         }
     },
 
@@ -444,10 +670,57 @@ const measureRenderer = {
         
         // Parse measure capabilities
         const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
-        const measureCapabilities = deviceData.measureCapabilities || [];
         
-        const hasTemperature = measureCapabilities.includes('measure_temperature');
-        const hasHumidity = measureCapabilities.includes('measure_humidity');
+        // Debug log to help diagnose the issue
+        Homey.api('POST', '/log', { message: `Device data for ${name}: ${JSON.stringify(deviceData)}` });
+        
+        let measureCapabilities = [];
+        
+        // First try deviceData.measureCapabilities
+        if (deviceData.measureCapabilities && Array.isArray(deviceData.measureCapabilities) && deviceData.measureCapabilities.length > 0) {
+            measureCapabilities = deviceData.measureCapabilities;
+            Homey.api('POST', '/log', { message: `Using measureCapabilities from device data: ${JSON.stringify(measureCapabilities)}` });
+        }
+        // Then try deviceData.measureTypes (specific to this API)
+        else if (deviceData.measureTypes && Array.isArray(deviceData.measureTypes) && deviceData.measureTypes.length > 0) {
+            measureCapabilities = deviceData.measureTypes;
+            Homey.api('POST', '/log', { message: `Using measureTypes from device data: ${JSON.stringify(measureCapabilities)}` });
+        }
+        // Otherwise use empty array
+        else {
+            measureCapabilities = [];
+            Homey.api('POST', '/log', { message: `No capability sources found in device data` });
+        }
+        
+        // If measureCapabilities is empty, fallback to checking the values directly
+        let hasTemperature = measureCapabilities.includes('measure_temperature');
+        let hasHumidity = measureCapabilities.includes('measure_humidity');
+        
+        // If we don't have any capabilities but we have temperature/humidity values, use those instead
+        if (!hasTemperature && !hasHumidity) {
+            Homey.api('POST', '/log', { message: `No capabilities found, falling back to attribute values check` });
+            
+            // Check if we have temperature or humidity attributes set with values
+            if (temperature) {
+                hasTemperature = true;
+                // Add to measureCapabilities if not there
+                if (!measureCapabilities.includes('measure_temperature')) {
+                    measureCapabilities.push('measure_temperature');
+                }
+                Homey.api('POST', '/log', { message: `Detected temperature value: ${temperature}` });
+            }
+            
+            if (humidity) {
+                hasHumidity = true;
+                // Add to measureCapabilities if not there
+                if (!measureCapabilities.includes('measure_humidity')) {
+                    measureCapabilities.push('measure_humidity');
+                }
+                Homey.api('POST', '/log', { message: `Detected humidity value: ${humidity}` });
+            }
+        }
+        
+        Homey.api('POST', '/log', { message: `Final capability detection: Temperature=${hasTemperature}, Humidity=${hasHumidity}` });
 
         const overlay = document.createElement('div');
         overlay.className = 'device-modal-overlay';
@@ -464,51 +737,62 @@ const measureRenderer = {
             z-index: 1000;
         `;
 
-        // Create buttons for each available capability
-        const viewButtons = [];
-        const viewSections = [];
+        const modal = document.createElement('div');
+        modal.className = 'device-modal measure-modal';
+        modal.setAttribute('data-device-id', deviceId);
         
-        if (hasTemperature) {
-            viewButtons.push(`<button class="view-button active" data-view="temperature">Temperature</button>`);
-            viewSections.push(`
+        let modalHTML = `
+            <div class="modal-header">
+                <h2>${name}</h2>
+                <button class="close-button" aria-label="Close">×</button>
+            </div>`;
+            
+        if (hasTemperature && hasHumidity) {
+            // Only show tabs if we have both capabilities
+            modalHTML += `
+            <div class="dim-view-toggle">
+                <button class="view-button active" data-view="temperature">Temperature</button>
+                <button class="view-button" data-view="humidity">Humidity</button>
+            </div>
+            <div class="dim-views">
                 <div class="dim-view temperature-view active">
                     <div class="measure-display">
                         <span class="material-symbols-outlined">device_thermostat</span>
                         <div class="temperature-value">${temperature ? `${parseFloat(temperature).toFixed(1)}°C` : 'N/A'}</div>
                     </div>
                 </div>
-            `);
-        }
-        
-        if (hasHumidity) {
-            viewButtons.push(`<button class="view-button ${!hasTemperature ? 'active' : ''}" data-view="humidity">Humidity</button>`);
-            viewSections.push(`
-                <div class="dim-view humidity-view ${!hasTemperature ? 'active' : ''}">
+                <div class="dim-view humidity-view">
                     <div class="measure-display">
                         <span class="material-symbols-outlined">humidity_percentage</span>
                         <div class="humidity-value">${humidity ? `${parseFloat(humidity).toFixed(0)}%` : 'N/A'}</div>
                     </div>
                 </div>
-            `);
-        }
-
-        const modal = document.createElement('div');
-        modal.className = 'device-modal measure-modal';
-        modal.setAttribute('data-device-id', deviceId);
-        modal.innerHTML = `
-            <div class="modal-header">
-                <h2>${name}</h2>
-                <button class="close-button" aria-label="Close">×</button>
-            </div>
-            ${viewButtons.length > 1 ? `
-                <div class="dim-view-toggle">
-                    ${viewButtons.join('')}
-                </div>
-            ` : ''}
+            </div>`;
+        } else if (hasTemperature) {
+            // Only temperature
+            modalHTML += `
             <div class="dim-views">
-                ${viewSections.join('')}
-            </div>
-        `;
+                <div class="dim-view temperature-view active">
+                    <div class="measure-display">
+                        <span class="material-symbols-outlined">device_thermostat</span>
+                        <div class="temperature-value">${temperature ? `${parseFloat(temperature).toFixed(1)}°C` : 'N/A'}</div>
+                    </div>
+                </div>
+            </div>`;
+        } else if (hasHumidity) {
+            // Only humidity
+            modalHTML += `
+            <div class="dim-views">
+                <div class="dim-view humidity-view active">
+                    <div class="measure-display">
+                        <span class="material-symbols-outlined">humidity_percentage</span>
+                        <div class="humidity-value">${humidity ? `${parseFloat(humidity).toFixed(0)}%` : 'N/A'}</div>
+                    </div>
+                </div>
+            </div>`;
+        }
+        
+        modal.innerHTML = modalHTML;
 
         // Add styles if not present
         if (!document.getElementById('measureModalStyles')) {
@@ -622,10 +906,15 @@ const measureRenderer = {
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
 
+        // Ensure the settings button is still visible
+        this.ensureSettingsButton();
+
         // Close modal when clicking outside
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
                 overlay.remove();
+                // Re-check the settings button after modal is closed
+                this.ensureSettingsButton();
             }
         });
 
@@ -633,15 +922,17 @@ const measureRenderer = {
         const closeButton = modal.querySelector('.close-button');
         closeButton.addEventListener('click', () => {
             overlay.remove();
+            // Re-check the settings button after modal is closed
+            this.ensureSettingsButton();
         });
 
         // Add tab switching functionality if we have multiple capabilities
-        if (viewButtons.length > 1) {
-            const tabButtons = modal.querySelectorAll('.view-button');
-            tabButtons.forEach(button => {
+        if (hasTemperature && hasHumidity) {
+            const viewButtons = modal.querySelectorAll('.view-button');
+            viewButtons.forEach(button => {
                 button.addEventListener('click', () => {
                     // Deactivate all buttons and views
-                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    viewButtons.forEach(btn => btn.classList.remove('active'));
                     modal.querySelectorAll('.dim-view').forEach(view => view.classList.remove('active'));
                     
                     // Activate the clicked button and corresponding view
@@ -663,11 +954,44 @@ const measureRenderer = {
         window.Homey.removeAllListeners('realtime/device');
 
         window.Homey.on('realtime/device', (data) => {
-            if (data && (data.capability === 'measure_temperature' || data.capability === 'measure_humidity')) {
-                const deviceElements = document.querySelectorAll(`[data-device-id="${data.id}"]`);
-                deviceElements.forEach(deviceEl => {
-                    this.handleDeviceUpdate(deviceEl, data.value, data.capability);
-                });
+            if (data) {
+                Homey.api('POST', '/log', { message: `Received update event: ${JSON.stringify(data)}` });
+                
+                // Handle all possible capability update types
+                if (data.capability === 'measure_temperature' || 
+                    data.capability === 'measure_humidity' ||
+                    data.capability === 'measure') {
+                    
+                    // For measure capability, the device ID could be in format: deviceId-measure-measure_temperature
+                    // or deviceId-measure-measure_humidity or deviceId-measure-combined
+                    let actualDeviceId = data.id;
+                    
+                    // Handle special device ID formats for measure capability
+                    if (data.id.includes('-measure-')) {
+                        // Extract the base device ID
+                        actualDeviceId = data.id.split('-measure-')[0];
+                        Homey.api('POST', '/log', { message: `Extracted base device ID: ${actualDeviceId}` });
+                    }
+                    
+                    // Find all elements for this device
+                    const deviceElements = document.querySelectorAll(`[data-device-id="${actualDeviceId}"]`);
+                    
+                    if (deviceElements.length > 0) {
+                        Homey.api('POST', '/log', { message: `Found ${deviceElements.length} elements for device ${actualDeviceId}` });
+                        
+                        deviceElements.forEach(deviceEl => {
+                            this.handleDeviceUpdate(deviceEl, data.value, data.capability);
+                        });
+                    } else {
+                        Homey.api('POST', '/log', { message: `No device elements found for ${actualDeviceId}, trying original ID: ${data.id}` });
+                        
+                        // As a fallback, try the original ID
+                        const originalElements = document.querySelectorAll(`[data-device-id="${data.id}"]`);
+                        originalElements.forEach(deviceEl => {
+                            this.handleDeviceUpdate(deviceEl, data.value, data.capability);
+                        });
+                    }
+                }
             }
         });
     },

@@ -28,7 +28,6 @@ const clientImageCache = {
             if (url) {
                 const key = 'imgCache_' + this.normalizeUrl(url);
                 localStorage.setItem(key, dataUrl);
-                Homey.api('POST', '/log', { message: `Cached image in localStorage with key: ${key}` });
                 // After storing, output the entire cache
                 this.outputCache();
             }
@@ -41,23 +40,20 @@ const clientImageCache = {
     // Try to get an image from cache
     get: function(url) {
         if (!url) {
-            Homey.api('POST', '/log', { message: `Cache get: Empty URL provided` });
+            Homey.api('POST', '/error', { message: `Cache get: Empty URL provided` });
             return null;
         }
         
         try {
             const normalizedUrl = this.normalizeUrl(url);
             const key = 'imgCache_' + normalizedUrl;
-            Homey.api('POST', '/log', { message: `Cache get: Looking for key "${key}" in localStorage` });
             
             const cached = localStorage.getItem(key);
             
             if (cached) {
-                Homey.api('POST', '/log', { message: `Retrieved cached image with key: ${key} from localStorage` });
+              
                 return cached;
-            } else {
-                Homey.api('POST', '/log', { message: `Key "${key}" not found in localStorage` });
-            }
+            } 
             
             // For API image URLs, also try looking up by just the image ID
             if (url.includes('/api/image/') || url.includes('image-id-')) {
@@ -70,24 +66,18 @@ const clientImageCache = {
                 
                 if (imageId) {
                     const altKey = 'imgCache_image-id-' + imageId;
-                    Homey.api('POST', '/log', { message: `Cache get: Also looking for alternate key "${altKey}" in localStorage` });
+                  
                     
                     const altCached = localStorage.getItem(altKey);
                     if (altCached) {
-                        Homey.api('POST', '/log', { message: `Retrieved cached image with alternate key: ${altKey} from localStorage` });
                         return altCached;
-                    } else {
-                        Homey.api('POST', '/log', { message: `Alternate key "${altKey}" not found in localStorage` });
-                    }
-                } else {
-                    Homey.api('POST', '/log', { message: `Could not extract image ID from URL: ${url}` });
-                }
+                    } 
+                } 
             }
         } catch (e) {
             Homey.api('POST', '/error', { message: `Cache retrieval error: ${e.message}` });
         }
-        
-        Homey.api('POST', '/log', { message: `No cached image found for: ${url}` });
+       
         return null;
     },
     
@@ -106,7 +96,7 @@ const clientImageCache = {
             // Remove the keys in a separate loop to avoid index issues
             keysToRemove.forEach(key => localStorage.removeItem(key));
             
-            Homey.api('POST', '/log', { message: `Cleared ${keysToRemove.length} images from localStorage cache` });
+         
         } catch (e) {
             Homey.api('POST', '/error', { message: `Cache clear error: ${e.message}` });
         }
@@ -126,13 +116,7 @@ const clientImageCache = {
                 }
             }
             
-            if (cacheEntries.length > 0) {
-                Homey.api('POST', '/log', { 
-                    message: `CACHE CONTENTS (${cacheEntries.length} items): ${JSON.stringify(cacheEntries)}`
-                });
-            } else {
-                Homey.api('POST', '/log', { message: 'CACHE CONTENTS: Empty' });
-            }
+           
         } catch (e) {
             Homey.api('POST', '/error', { message: `Cache output error: ${e.message}` });
         }
@@ -315,9 +299,7 @@ async function showSelectedFloor(floor) {
     rendererManager = new CapabilityRendererManager();
     rendererManager.setWidgetId(widgetId);
 
-    // Check what's in the cache before we start loading anything
-    Homey.api('POST', '/log', { message: `===== CHECKING CACHE BEFORE LOADING FLOOR: ${floor.id} =====` });
-    clientImageCache.outputCache();
+
 
     // Store the floor's aspect ratio for device positioning
     if (floor.imageAspectRatio) {
@@ -376,30 +358,72 @@ async function showSelectedFloor(floor) {
         // Image has loaded successfully
         imageWrapper.classList.remove('loading');
         floorMapImage.style.visibility = 'visible';
-        Homey.api('POST', '/log', { message: 'Floor image loaded successfully - displaying image' });
         
         // Set a flag that the image is loaded
         window.floorImageLoaded = true;
+
         
         // Important: Don't render devices here - use a separate call
         // to ensure the browser has fully rendered the image first
         setTimeout(() => {
-            // Now that the image is loaded and rendered, render the devices
-            Homey.api('POST', '/log', { message: 'Image rendering complete, now rendering devices' });
-            renderDevicesAfterImageLoad(floor, devicesContainer);
+
             
-            // Dispatch an event for any other components that need to know the image is ready
-            document.dispatchEvent(new CustomEvent('floorImageReady', {
-                detail: { 
-                    imageWidth: floorMapImage.naturalWidth,
-                    imageHeight: floorMapImage.naturalHeight,
-                    aspectRatio: floorMapImage.naturalWidth / floorMapImage.naturalHeight
-                }
-            }));
+            // Make sure we have the devices container
+            let devContainer = document.getElementById('floorPlanDevices');
+            if (!devContainer) {
+                devContainer = document.createElement('div');
+                devContainer.id = 'floorPlanDevices';
+                imageWrapper.appendChild(devContainer);
+
+            }
             
-            // Store the image in cache if needed
-            cacheFloorImageIfNeeded(floor, floorMapImage);
-        }, 100); // Short delay to ensure the image is rendered
+            // Important: Clear existing devices first
+            devContainer.innerHTML = '';
+
+            
+            // Verify the floor data before rendering
+            if (floor && floor.devices && floor.devices.length > 0) {
+
+                
+                // Render each device
+                let renderedCount = 0;
+                const renderPromises = floor.devices.map(device => {
+                    try {
+                        return rendererManager.renderDevice(device, devContainer)
+                            .then(() => {
+                                renderedCount++;
+
+                            })
+                            .catch(err => {
+                                Homey.api('POST', '/error', { message: `DIRECT: Error rendering device ${device.name || device.id}: ${err.message}` });
+                            });
+                    } catch (err) {
+                        Homey.api('POST', '/error', { message: `DIRECT: Exception rendering device ${device.name || device.id}: ${err.message}` });
+                        return Promise.resolve(); // Continue with other devices
+                    }
+                });
+                
+                Promise.all(renderPromises)
+                    .then(() => {
+
+                        
+                        // Dispatch an event for any other components
+                        document.dispatchEvent(new CustomEvent('floorImageReady', {
+                            detail: { 
+                                imageWidth: floorMapImage.naturalWidth,
+                                imageHeight: floorMapImage.naturalHeight,
+                                aspectRatio: floorMapImage.naturalWidth / floorMapImage.naturalHeight
+                            }
+                        }));
+                        
+                        // Store the image in cache if needed
+                        cacheFloorImageIfNeeded(floor, floorMapImage);
+                    })
+                    .catch(err => {
+                        Homey.api('POST', '/error', { message: `DIRECT: Error in device rendering promises: ${err.message}` });
+                    });
+            }
+        }, 10); // Minimal delay for cached images
     };
     
     // Handle image load errors
@@ -446,7 +470,7 @@ async function showSelectedFloor(floor) {
                 const normalizedUrl = clientImageCache.normalizeUrl(imageSource);
                 const key = 'imgCache_' + normalizedUrl;
                 localStorage.removeItem(key);
-                Homey.api('POST', '/log', { message: `Cleared potentially corrupt image from localStorage with key: ${key}` });
+
                 
                 // For API image URLs, also try clearing by just the image ID
                 if (imageSource.includes('/api/image/')) {
@@ -454,7 +478,7 @@ async function showSelectedFloor(floor) {
                     if (imageId) {
                         const altKey = 'imgCache_image-id-' + imageId;
                         localStorage.removeItem(altKey);
-                        Homey.api('POST', '/log', { message: `Also cleared alternate key: ${altKey}` });
+
                     }
                 }
             } catch (e) {
@@ -469,21 +493,18 @@ async function showSelectedFloor(floor) {
     // 1. Use binary data if available (old style)
     if (floor.imageData) {
         imageSource = floor.imageData;
-        Homey.api('POST', '/log', { message: 'Using direct imageData' });
     } else if (floor.image) {
         imageSource = floor.image;
-        Homey.api('POST', '/log', { message: 'Using direct image property' });
     } 
     // 2. Check if localStorage cache has the imageId
     else if (floor.imageId) {
-        Homey.api('POST', '/log', { message: `Checking cache for image ID: ${floor.imageId}` });
         // Output all keys to see what we have
         try {
             const allKeys = [];
             for (let i = 0; i < localStorage.length; i++) {
                 allKeys.push(localStorage.key(i));
             }
-            Homey.api('POST', '/log', { message: `Available storage keys: ${JSON.stringify(allKeys)}` });
+
         } catch (e) {
             Homey.api('POST', '/error', { message: `Error listing keys: ${e.message}` });
         }
@@ -491,9 +512,9 @@ async function showSelectedFloor(floor) {
         const cachedImage = clientImageCache.get('image-id-' + floor.imageId);
         if (cachedImage) {
             imageSource = cachedImage;
-            Homey.api('POST', '/log', { message: `Using cached image by ID: ${floor.imageId}` });
+
         } else {
-            Homey.api('POST', '/log', { message: `NO CACHE FOUND for image ID: ${floor.imageId}` });
+
             // Check if we have any partial matches
             try {
                 let hasPartialMatch = false;
@@ -501,12 +522,9 @@ async function showSelectedFloor(floor) {
                     const key = localStorage.key(i);
                     if (key.includes(floor.imageId)) {
                         hasPartialMatch = true;
-                        Homey.api('POST', '/log', { message: `Found partial match: ${key}` });
                     }
                 }
-                if (!hasPartialMatch) {
-                    Homey.api('POST', '/log', { message: 'No partial matches found either' });
-                }
+              
             } catch (e) {
                 Homey.api('POST', '/error', { message: `Error checking partial matches: ${e.message}` });
             }
@@ -515,8 +533,7 @@ async function showSelectedFloor(floor) {
     
     // 3. If no cache exists, use localUrl with proxy
     if (!imageSource && floor.localUrl) {
-        Homey.api('POST', '/log', { message: `No cache available, fetching image via proxy: ${floor.localUrl}` });
-        
+
         // For all URLs, use the proxy to convert to data URL
         const encodedUrl = encodeURIComponent(floor.localUrl);
         
@@ -531,7 +548,6 @@ async function showSelectedFloor(floor) {
                     // Store in cache immediately after receiving
                     if (floor.imageId) {
                         clientImageCache.store('image-id-' + floor.imageId, result.dataUrl);
-                        Homey.api('POST', '/log', { message: `PROXY: Immediately cached image by ID: ${floor.imageId}` });
                     }
                     
                     // Clear any existing onload handler first
@@ -542,31 +558,68 @@ async function showSelectedFloor(floor) {
                         // Image has loaded successfully
                         imageWrapper.classList.remove('loading');
                         floorMapImage.style.visibility = 'visible';
-                        Homey.api('POST', '/log', { message: 'PROXY: Floor image loaded successfully - displaying image' });
+
                         
                         // Set a flag that the image is loaded
                         window.floorImageLoaded = true;
-                        
-                        // Let the DOM render the image first
+
+                        // Let the DOM render the image first, then render devices
                         setTimeout(() => {
-                            // Now render the devices
-                            Homey.api('POST', '/log', { message: 'PROXY: Image rendering complete, now rendering devices' });
-                            renderDevicesAfterImageLoad(floor, devicesContainer);
+
                             
-                            // Dispatch an event for any other components
-                            document.dispatchEvent(new CustomEvent('floorImageReady', {
-                                detail: { 
-                                    imageWidth: floorMapImage.naturalWidth,
-                                    imageHeight: floorMapImage.naturalHeight,
-                                    aspectRatio: floorMapImage.naturalWidth / floorMapImage.naturalHeight
-                                }
-                            }));
-                        }, 100);
+                            // Make sure we have the devices container
+                            let devContainer = document.getElementById('floorPlanDevices');
+                            if (!devContainer) {
+                                devContainer = document.createElement('div');
+                                devContainer.id = 'floorPlanDevices';
+                                imageWrapper.appendChild(devContainer);
+                            }
+                            
+                            // Important: Clear existing devices first
+                            devContainer.innerHTML = '';
+                            
+                            // Verify the floor data before rendering
+                            if (floor && floor.devices && floor.devices.length > 0) {
+                                
+                                // Render each device
+                                let renderedCount = 0;
+                                const renderPromises = floor.devices.map(device => {
+                                    try {
+                                        return rendererManager.renderDevice(device, devContainer)
+                                            .then(() => {
+                                                renderedCount++;
+
+                                            })
+                                            .catch(err => {
+                                                Homey.api('POST', '/error', { message: `PROXY: Error rendering device ${device.name || device.id}: ${err.message}` });
+                                            });
+                                    } catch (err) {
+                                        Homey.api('POST', '/error', { message: `PROXY: Exception rendering device ${device.name || device.id}: ${err.message}` });
+                                        return Promise.resolve(); // Continue with other devices
+                                    }
+                                });
+                                
+                                Promise.all(renderPromises)
+                                    .then(() => {
+
+                                        // Dispatch an event for any other components
+                                        document.dispatchEvent(new CustomEvent('floorImageReady', {
+                                            detail: { 
+                                                imageWidth: floorMapImage.naturalWidth,
+                                                imageHeight: floorMapImage.naturalHeight,
+                                                aspectRatio: floorMapImage.naturalWidth / floorMapImage.naturalHeight
+                                            }
+                                        }));
+                                    })
+                                    .catch(err => {
+                                        Homey.api('POST', '/error', { message: `PROXY: Error in device rendering promises: ${err.message}` });
+                                    });
+                            } 
+                        }, 250); // Longer delay to ensure the image is fully processed
                     };
                     
                     // Now set the src to start loading
                     floorMapImage.src = result.dataUrl;
-                    Homey.api('POST', '/log', { message: 'Successfully loaded image via proxy - waiting for onload event' });
                 } else {
                     // 4. If we get error from localUrl use cloudUrl
                     tryCloudUrl();
@@ -590,8 +643,7 @@ async function showSelectedFloor(floor) {
     
     function tryCloudUrl() {
         if (floor.cloudUrl) {
-            Homey.api('POST', '/log', { message: `Falling back to cloudUrl: ${floor.cloudUrl}` });
-            
+
             // Make sure the image wrapper shows loading indicator while proxy is working
             imageWrapper.classList.add('loading');
             floorMapImage.style.visibility = 'hidden';
@@ -605,7 +657,6 @@ async function showSelectedFloor(floor) {
                         // Store in cache immediately after receiving
                         if (floor.imageId) {
                             clientImageCache.store('image-id-' + floor.imageId, result.dataUrl);
-                            Homey.api('POST', '/log', { message: `CLOUD PROXY: Immediately cached image by ID: ${floor.imageId}` });
                         }
                         
                         // Clear any existing onload handler first
@@ -616,31 +667,73 @@ async function showSelectedFloor(floor) {
                             // Image has loaded successfully
                             imageWrapper.classList.remove('loading');
                             floorMapImage.style.visibility = 'visible';
-                            Homey.api('POST', '/log', { message: 'CLOUD PROXY: Floor image loaded successfully - displaying image' });
+
                             
                             // Set a flag that the image is loaded
                             window.floorImageLoaded = true;
                             
-                            // Let the DOM render the image first
+
+                            
+                            // Let the DOM render the image first, then render devices
                             setTimeout(() => {
-                                // Now render the devices
-                                Homey.api('POST', '/log', { message: 'CLOUD PROXY: Image rendering complete, now rendering devices' });
-                                renderDevicesAfterImageLoad(floor, devicesContainer);
+
                                 
-                                // Dispatch an event for any other components
-                                document.dispatchEvent(new CustomEvent('floorImageReady', {
-                                    detail: { 
-                                        imageWidth: floorMapImage.naturalWidth,
-                                        imageHeight: floorMapImage.naturalHeight,
-                                        aspectRatio: floorMapImage.naturalWidth / floorMapImage.naturalHeight
-                                    }
-                                }));
-                            }, 100);
+                                // Make sure we have the devices container
+                                let devContainer = document.getElementById('floorPlanDevices');
+                                if (!devContainer) {
+                                    devContainer = document.createElement('div');
+                                    devContainer.id = 'floorPlanDevices';
+                                    imageWrapper.appendChild(devContainer);
+
+                                }
+                                
+                                // Important: Clear existing devices first
+                                devContainer.innerHTML = '';
+
+                                
+                                // Verify the floor data before rendering
+                                if (floor && floor.devices && floor.devices.length > 0) {
+
+                                    
+                                    // Render each device
+                                    let renderedCount = 0;
+                                    const renderPromises = floor.devices.map(device => {
+                                        try {
+                                            return rendererManager.renderDevice(device, devContainer)
+                                                .then(() => {
+                                                    renderedCount++;
+
+                                                })
+                                                .catch(err => {
+                                                    Homey.api('POST', '/error', { message: `CLOUD PROXY: Error rendering device ${device.name || device.id}: ${err.message}` });
+                                                });
+                                        } catch (err) {
+                                            Homey.api('POST', '/error', { message: `CLOUD PROXY: Exception rendering device ${device.name || device.id}: ${err.message}` });
+                                            return Promise.resolve(); // Continue with other devices
+                                        }
+                                    });
+                                    
+                                    Promise.all(renderPromises)
+                                        .then(() => {
+
+                                            // Dispatch an event for any other components
+                                            document.dispatchEvent(new CustomEvent('floorImageReady', {
+                                                detail: { 
+                                                    imageWidth: floorMapImage.naturalWidth,
+                                                    imageHeight: floorMapImage.naturalHeight,
+                                                    aspectRatio: floorMapImage.naturalWidth / floorMapImage.naturalHeight
+                                                }
+                                            }));
+                                        })
+                                        .catch(err => {
+                                            Homey.api('POST', '/error', { message: `CLOUD PROXY: Error in device rendering promises: ${err.message}` });
+                                        });
+                                }
+                            }, 250); // Longer delay to ensure the image is fully processed
                         };
                         
                         // Now set the src to start loading
                         floorMapImage.src = result.dataUrl;
-                        Homey.api('POST', '/log', { message: 'Successfully loaded cloud image via proxy - waiting for onload event' });
                     } else {
                         showImageError();
                     }
@@ -691,7 +784,7 @@ async function showSelectedFloor(floor) {
     if (imageSource) {
         floorMapImage.src = imageSource;
     } else if (!floor.localUrl && !floor.cloudUrl) {
-        Homey.api('POST', '/log', { message: 'Floor data: ' + JSON.stringify(floor) });
+
         Homey.api('POST', '/error', { message: 'No image sources found for floor' });
         imageWrapper.classList.remove('loading');
         imageWrapper.classList.add('error');
@@ -973,11 +1066,11 @@ async function renderDevicesAfterImageLoad(floor, devicesContainer) {
     
     // Always clear existing devices
     devicesContainer.innerHTML = '';
-    Homey.api('POST', '/log', { message: 'Cleared existing devices before rendering' });
+
     
     // Make sure we have devices to render
     if (!floor || !floor.devices || !floor.devices.length) {
-        Homey.api('POST', '/log', { message: 'No devices to render on floor' });
+
         return;
     }
     
@@ -991,8 +1084,7 @@ async function renderDevicesAfterImageLoad(floor, devicesContainer) {
             Homey.api('POST', '/error', { message: `Error rendering device ${device.name || device.id}: ${err.message}` });
         }
     }
-    
-    Homey.api('POST', '/log', { message: `Rendered ${renderedCount} of ${floor.devices.length} devices successfully` });
+
 }
 
 // Helper function to clear image cache (can be called from console for debugging)
@@ -1003,7 +1095,7 @@ function clearImageCache() {
     // Clear server-side cache
     Homey.api('POST', '/clearImageCache')
         .then(result => {
-            Homey.api('POST', '/log', { message: `Server cache cleared: ${JSON.stringify(result)}` });
+
         })
         .catch(error => {
             Homey.api('POST', '/error', { message: `Failed to clear server cache: ${JSON.stringify(error)}` });
@@ -1025,7 +1117,7 @@ function cacheFloorImageIfNeeded(floor, floorMapImage) {
             
             // Don't re-cache if already cached
             if (clientImageCache.get(cacheKey)) {
-                Homey.api('POST', '/log', { message: `Image already cached with ID: ${floor.imageId}` });
+
                 return;
             }
             
@@ -1044,7 +1136,7 @@ function cacheFloorImageIfNeeded(floor, floorMapImage) {
                 
                 // Store by image ID (most reliable)
                 clientImageCache.store(cacheKey, dataUrl);
-                Homey.api('POST', '/log', { message: `Image cached with ID: ${floor.imageId}` });
+
                 
                 // If we have URLs, also cache by them
                 if (floor.localUrl) {

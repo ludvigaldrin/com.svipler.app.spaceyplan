@@ -96,9 +96,17 @@ const deviceManager = {
             const supported = deviceCapabilities.filter(cap =>
                 this.supportedCapabilities.includes(cap)
             );
+            
+            // Get unsupported capabilities
+            const unsupported = deviceCapabilities.filter(cap => 
+                !this.supportedCapabilities.includes(cap)
+            );
 
-            // Skip devices with no supported capabilities
-            if (supported.length === 0) return '';
+            // Skip devices with no capabilities at all
+            if (deviceCapabilities.length === 0) return '';
+            
+            // Skip devices with no supported capabilities only if we want to
+            // if (supported.length === 0) return '';
 
             // Get icon source - we don't have base64 yet at this stage
             let iconSrc = device.iconObj ? device.iconObj.url : '';
@@ -132,6 +140,13 @@ const deviceManager = {
                                         ${isAdded ? 'disabled' : ''}>
                                     ${isAdded ? 'Added' : 'Add'}
                                 </button>
+                            </div>`;
+            }).join('')}
+                    ${unsupported.map(capability => {
+                return `
+                            <div class="capability-row unsupported">
+                                <span class="capability-name">${capability}</span>
+                                <span class="unsupported-badge">Unsupported</span>
                             </div>`;
             }).join('')}
                 </div>
@@ -329,9 +344,6 @@ const deviceManager = {
             // Let floorManager handle UI updates with all devices
             floorManager.renderDevicesList(floor.devices);
             floorManager.renderFloorPlanDevices(floor);
-
-            // Close the dialog
-            document.getElementById('deviceDialog').style.display = 'none';
         } catch (err) {
             window.logError('Failed to save device:', err);
             throw new Error('Failed to save device: ' + err.message);

@@ -349,15 +349,33 @@ async function showSelectedFloor(floor) {
         imageWrapper.appendChild(floorMapImage);
     }
     
-    // Add loading placeholder until image loads
+    // Add loading indicator until image loads
     imageWrapper.classList.add('loading');
     imageWrapper.classList.remove('error');
+    
+    // Add loading spinner to image wrapper
+    let loadingIndicator = imageWrapper.querySelector('.loading-indicator');
+    if (!loadingIndicator) {
+        loadingIndicator = document.createElement('div');
+        loadingIndicator.className = 'loading-indicator';
+        loadingIndicator.innerHTML = `
+            <div class="spinner"></div>
+            <div class="loading-text">Loading floor plan...</div>
+        `;
+        imageWrapper.appendChild(loadingIndicator);
+    }
     
     // Add event listeners for image loading
     floorMapImage.onload = () => {
         // Image has loaded successfully
         imageWrapper.classList.remove('loading');
         floorMapImage.style.visibility = 'visible';
+        
+        // Remove loading indicator when loaded
+        const loadingIndicator = imageWrapper.querySelector('.loading-indicator');
+        if (loadingIndicator) {
+            loadingIndicator.remove();
+        }
         
         // Set a flag that the image is loaded
         window.floorImageLoaded = true;
@@ -430,6 +448,13 @@ async function showSelectedFloor(floor) {
     floorMapImage.onerror = () => {
         imageWrapper.classList.remove('loading');
         floorMapImage.style.visibility = 'hidden';
+        
+        // Remove loading indicator on error
+        const loadingIndicator = imageWrapper.querySelector('.loading-indicator');
+        if (loadingIndicator) {
+            loadingIndicator.remove();
+        }
+        
         Homey.api('POST', '/error', { message: 'Failed to load floor image' });
         
         // Reset the image loaded flag since it failed
@@ -648,6 +673,18 @@ async function showSelectedFloor(floor) {
             imageWrapper.classList.add('loading');
             floorMapImage.style.visibility = 'hidden';
             
+            // Add loading spinner if not already present
+            let loadingIndicator = imageWrapper.querySelector('.loading-indicator');
+            if (!loadingIndicator) {
+                loadingIndicator = document.createElement('div');
+                loadingIndicator.className = 'loading-indicator';
+                loadingIndicator.innerHTML = `
+                    <div class="spinner"></div>
+                    <div class="loading-text">Loading from cloud...</div>
+                `;
+                imageWrapper.appendChild(loadingIndicator);
+            }
+            
             // Use the proxy for cloudUrl too
             const encodedUrl = encodeURIComponent(floor.cloudUrl);
             
@@ -668,6 +705,12 @@ async function showSelectedFloor(floor) {
                             imageWrapper.classList.remove('loading');
                             floorMapImage.style.visibility = 'visible';
 
+                            
+                            // Remove loading indicator when loaded
+                            const loadingIndicator = imageWrapper.querySelector('.loading-indicator');
+                            if (loadingIndicator) {
+                                loadingIndicator.remove();
+                            }
                             
                             // Set a flag that the image is loaded
                             window.floorImageLoaded = true;
@@ -754,6 +797,12 @@ async function showSelectedFloor(floor) {
         // imageWrapper.classList.add('error');
         floorMapImage.style.visibility = 'hidden';
         
+        // Remove loading indicator on error
+        const loadingIndicator = imageWrapper.querySelector('.loading-indicator');
+        if (loadingIndicator) {
+            loadingIndicator.remove();
+        }
+        
         // Make sure settings button is visible with error state styling
         addSettingsButton(true);
         
@@ -827,7 +876,9 @@ function showLoadingState() {
     if (floorGrid) {
         floorGrid.className = 'floor-grid';
         floorGrid.innerHTML = `
-            <div class="spinner"></div>
+            <div class="loading-indicator">
+                <div class="spinner"></div>
+            </div>
         `;
     }
 }
@@ -1154,3 +1205,42 @@ function cacheFloorImageIfNeeded(floor, floorMapImage) {
         Homey.api('POST', '/error', { message: `Cache error (non-critical): ${e.message}` });
     }
 }
+
+// Add CSS style block for consistent spinner styling
+const styleBlock = document.createElement('style');
+styleBlock.textContent = `
+    .loading-indicator {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 5;
+    }
+    
+    .loading-text {
+        margin-top: 10px;
+        color: #0076ff;
+        font-size: 14px;
+        font-weight: 500;
+    }
+    
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid rgba(0, 118, 255, 0.2);
+        border-radius: 50%;
+        border-top-color: #0076ff;
+        animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+`;
+
+// Add the style block to the document head
+document.head.appendChild(styleBlock);

@@ -386,13 +386,13 @@ const sensorRenderer = {
                 }
             }
 
-            // Only process onOffColor if no allColor rule exists
-            const onOffColorRule = deviceData.rules?.find(r => r.type === 'onOffColor');
-            if (onOffColorRule?.config) {
-                const currentColor = value ? onOffColorRule.config.cloudColorOn : onOffColorRule.config.cloudColorOff;
-                const showCloud = value ? onOffColorRule.config.showCloudOn : onOffColorRule.config.showCloudOff;
-                const showIcon = value ? onOffColorRule.config.showIconOn : onOffColorRule.config.showIconOff;
-                const iconColor = value ? onOffColorRule.config.iconColorOn : onOffColorRule.config.iconColorOff;
+            // Only process alarmColor if no allColor rule exists
+            const alarmColorRule = deviceData.rules?.find(r => r.type === 'alarmColor');
+            if (alarmColorRule?.config) {
+                const currentColor = value ? alarmColorRule.config.cloudColorOn : alarmColorRule.config.cloudColorOff;
+                const showCloud = value ? alarmColorRule.config.showCloudOn : alarmColorRule.config.showCloudOff;
+                const showIcon = value ? alarmColorRule.config.showIconOn : alarmColorRule.config.showIconOff;
+                const iconColor = value ? alarmColorRule.config.iconColorOn : alarmColorRule.config.iconColorOff;
 
                 if (showCloud && currentColor) {
                     deviceEl.style.backgroundColor = `${currentColor}80`;
@@ -553,17 +553,17 @@ const sensorRenderer = {
                 }
             }
 
-            // Only process onOffColor if no allColor rule exists
-            const onOffColorRule = device.rules?.find(r => r.type === 'onOffColor');
-            if (!allColorRule && onOffColorRule?.config) {
-                const currentColor = currentState ? onOffColorRule.config.cloudColorOn : onOffColorRule.config.cloudColorOff;
-                const showCloud = currentState ? onOffColorRule.config.showCloudOn : onOffColorRule.config.showCloudOff;
-                const showIcon = currentState ? onOffColorRule.config.showIconOn : onOffColorRule.config.showIconOff;
-                const iconColor = currentState ? onOffColorRule.config.iconColorOn : onOffColorRule.config.iconColorOff;
+            // Only process alarmColor if no allColor rule exists
+            const alarmColorRule = device.rules?.find(r => r.type === 'alarmColor');
+            if (!allColorRule && alarmColorRule?.config) {
+                const currentColor = currentState ? alarmColorRule.config.cloudColorOn : alarmColorRule.config.cloudColorOff;
+                const showCloud = currentState ? alarmColorRule.config.showCloudOn : alarmColorRule.config.showCloudOff;
+                const showIcon = currentState ? alarmColorRule.config.showIconOn : alarmColorRule.config.showIconOff;
+                const iconColor = currentState ? alarmColorRule.config.iconColorOn : alarmColorRule.config.iconColorOff;
 
                 deviceEl.setAttribute('data-color-rule', 'true');
-                deviceEl.setAttribute('data-on-color', onOffColorRule.config.cloudColorOn);
-                deviceEl.setAttribute('data-off-color', onOffColorRule.config.cloudColorOff);
+                deviceEl.setAttribute('data-on-color', alarmColorRule.config.cloudColorOn);
+                deviceEl.setAttribute('data-off-color', alarmColorRule.config.cloudColorOff);
 
                 if (showCloud) {
                     deviceEl.style.backgroundColor = `${currentColor}80`;

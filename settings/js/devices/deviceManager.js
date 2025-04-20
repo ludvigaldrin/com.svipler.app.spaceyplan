@@ -448,8 +448,41 @@ const deviceManager = {
 
         // For measure_temperature and measure_humidity capabilities
         if (capability === 'measure_temperature' || capability === 'measure_humidity' || capability === 'measure_combined') {
-            // TODO: Add specific styling rules for measure capabilities once they're designed
-            // Rules for displaying temperature and humidity will be implemented later
+            // Add the Measure - Display Settings rule with correct defaults
+            const displayRuleConfig = {
+                // Default display behavior based on device capability:
+                // - Temperature-only devices: Show temperature ON by default
+                // - Humidity-only devices: Show humidity ON by default
+                // - Combined devices: Show temperature ON, humidity OFF by default
+                showTemperature: capability === 'measure_temperature' || capability === 'measure_combined',
+                showHumidity: capability === 'measure_humidity' && capability !== 'measure_combined',
+                
+                // Default colors for text display
+                temperatureColor: '#FF5722', // Orange for temperature
+                humidityColor: '#2196F3'     // Blue for humidity
+            };
+            
+            newDevice.rules.push({
+                id: generateUUID(),
+                name: 'Measure - Display Settings',
+                type: 'measureDisplay',
+                config: displayRuleConfig
+            });
+            
+            // Add All - Color Select rule with default settings off
+            const colorRuleConfig = {
+                showIcon: false,
+                iconColor: '#2196F3', // Default blue color if user turns it on
+                showCloud: false,
+                cloudColor: '#2196F3' // Default blue color if user turns it on
+            };
+            
+            newDevice.rules.push({
+                id: generateUUID(),
+                name: 'All - Color Select',
+                type: 'allColor',
+                config: colorRuleConfig
+            });
         }
 
         // Add new device to floor's devices array

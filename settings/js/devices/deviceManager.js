@@ -438,10 +438,10 @@ const deviceManager = {
                     cloudColorOn: '#ff0000',
 
                     // Off state settings (Alarm No)
-                    showIconOff: false,
-                    iconColorOff: '#ffffff',
+                    showIconOff: true,
+                    iconColorOff: '#474b59',
                     showCloudOff: false,
-                    cloudColorOff: '#ffffff'
+                    cloudColorOff: '#474b59'
                 }
             });
         }
@@ -471,10 +471,10 @@ const deviceManager = {
             
             // Add All - Color Select rule with default settings off
             const colorRuleConfig = {
-                showIcon: false,
-                iconColor: '#2196F3', // Default blue color if user turns it on
+                showIcon: true,
+                iconColor: '#0040bf', // Default blue color if user turns it on
                 showCloud: false,
-                cloudColor: '#2196F3' // Default blue color if user turns it on
+                cloudColor: '#0040bf' // Default blue color if user turns it on
             };
             
             newDevice.rules.push({

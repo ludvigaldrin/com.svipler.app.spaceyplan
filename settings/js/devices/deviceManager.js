@@ -115,8 +115,21 @@ const deviceManager = {
                 supported = supported.filter(cap => cap !== 'onoff');
             }
             
-            // Note: We keep both measure_temperature and measure_humidity visible
-            // when a device has both capabilities, as users might want to add either or both
+            // Special handling for temperature and humidity
+            const hasTemperature = supported.includes('measure_temperature');
+            const hasHumidity = supported.includes('measure_humidity');
+            
+            // If device has both temperature and humidity, replace them with a combined option
+            let displayCapabilities = [...supported];
+            
+            if (hasTemperature && hasHumidity) {
+                // Replace individual capabilities with a combined one
+                displayCapabilities = displayCapabilities.filter(cap => 
+                    cap !== 'measure_temperature' && cap !== 'measure_humidity'
+                );
+                // Add combined option
+                displayCapabilities.push('measure_combined');
+            }
             
             // Get unsupported capabilities
             const unsupported = deviceCapabilities.filter(cap => 
@@ -157,9 +170,14 @@ const deviceManager = {
                     ${zoneInfo}
                 </div>
                 <div class="capabilities-section">
-                    ${supported.map(capability => {
+                    ${displayCapabilities.map(capability => {
                 const displayName = this.getCapabilityDisplayName(capability);
-                const isAdded = this.isDeviceCapabilityAdded(device.id, capability);
+                
+                // For the combined capability, we need special handling for the isAdded check
+                const isAdded = capability === 'measure_combined' ?
+                    this.isDeviceCapabilityAdded(device.id, 'measure_combined') :
+                    this.isDeviceCapabilityAdded(device.id, capability);
+                
                 return `
                             <div class="capability-row">
                                 <span class="capability-name">${displayName}</span>
@@ -197,7 +215,7 @@ const deviceManager = {
                 }
                 
                 const deviceId = device.id;
-                const capability = supported[0]; // Assuming the first supported capability is selected
+                const capability = displayCapabilities[0]; // Assuming the first supported capability is selected
 
                 try {
                     // Disable button and show loading state
@@ -248,7 +266,8 @@ const deviceManager = {
             'alarm_contact': 'Sensor (Contact)',
             'alarm_motion': 'Sensor (Motion)',
             'measure_temperature': 'Temperature',
-            'measure_humidity': 'Humidity'
+            'measure_humidity': 'Humidity',
+            'measure_combined': 'Temperature & Humidity'
         };
         return displayNames[capabilityId] || capabilityId;
     },
@@ -262,9 +281,21 @@ const deviceManager = {
             return floor.devices.some(d => d.id === `${deviceId}-sensor-${capability}`);
         }
 
-        // For measure_temperature and measure_humidity, check measure-specific IDs
+        // For measure_temperature and measure_humidity, also consider combined option
         if (capability === 'measure_temperature' || capability === 'measure_humidity') {
-            return floor.devices.some(d => d.id === `${deviceId}-measure-${capability}`);
+            return floor.devices.some(d => 
+                d.id === `${deviceId}-measure-${capability}` || 
+                d.id === `${deviceId}-measure-combined`
+            );
+        }
+        
+        // For combined temperature & humidity
+        if (capability === 'measure_combined') {
+            return floor.devices.some(d => 
+                d.id === `${deviceId}-measure-combined` ||
+                (floor.devices.some(d1 => d1.id === `${deviceId}-measure-measure_temperature`) &&
+                 floor.devices.some(d2 => d2.id === `${deviceId}-measure-measure_humidity`))
+            );
         }
 
         // For onoff and dim, check the respective IDs
@@ -303,6 +334,9 @@ const deviceManager = {
         } else if (capability === 'measure_temperature' || capability === 'measure_humidity') {
             deviceId = `${device.id}-measure-${capability}`;
             deviceCapability = 'measure';
+        } else if (capability === 'measure_combined') {
+            deviceId = `${device.id}-measure-combined`;
+            deviceCapability = 'measure';
         } else {
             deviceId = device.id;
         }
@@ -323,6 +357,10 @@ const deviceManager = {
             newDevice.sensorType = capability;
         } else if (capability === 'measure_temperature' || capability === 'measure_humidity') {
             newDevice.measureType = capability;
+        } else if (capability === 'measure_combined') {
+            // For combined capability, mark it as combined and store both types
+            newDevice.measureType = 'combined';
+            newDevice.measureTypes = ['measure_temperature', 'measure_humidity'];
         }
 
         // Process icon if available
@@ -408,18 +446,10 @@ const deviceManager = {
             });
         }
 
-        // Add default color rule for measure_temperature and measure_humidity
-        if (capability === 'measure_temperature' || capability === 'measure_humidity') {
-            newDevice.rules.push({
-                id: generateUUID(),
-                name: 'Default Style',
-                type: 'measureStyle',
-                config: {
-                    iconColor: '#2196F3',
-                    showCloud: true,
-                    cloudColor: '#2196F3'
-                }
-            });
+        // For measure_temperature and measure_humidity capabilities
+        if (capability === 'measure_temperature' || capability === 'measure_humidity' || capability === 'measure_combined') {
+            // TODO: Add specific styling rules for measure capabilities once they're designed
+            // Rules for displaying temperature and humidity will be implemented later
         }
 
         // Add new device to floor's devices array

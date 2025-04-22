@@ -65,6 +65,21 @@
       "method": "POST",
       "path": "/floor-images/update",
       "public": false
+    },
+    "getFloorImageById": {
+      "method": "GET",
+      "path": "/floor-images/:imageId",
+      "public": false
+    },
+    "deleteFloorImage": {
+      "method": "DELETE",
+      "path": "/floor-images/:imageId",
+      "public": false
+    },
+    "saveFloorImage": {
+      "method": "POST",
+      "path": "/floor-images/save",
+      "public": false
     }
   },
   "widgets": {
@@ -120,6 +135,10 @@
         "proxyImage": {
           "method": "GET",
           "path": "/proxyImage"
+        },
+        "getFloorImage": {
+          "method": "GET",
+          "path": "/floorImage/:imageId"
         },
         "clearImageCache": {
           "method": "POST",

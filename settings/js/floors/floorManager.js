@@ -353,15 +353,18 @@ const floorManager = {
                     rules: Array.isArray(floor.rules) ? floor.rules : []
                 };
 
-                // Include image ID and URLs
+                // Include image ID and fileUrl
                 if (floor.imageId) {
                     newFloor.imageId = floor.imageId;
 
-                    // Include cloud and local URLs if they exist
+                    // Include fileUrl if it exists (new format)
+                    if (floor.fileUrl) newFloor.fileUrl = floor.fileUrl;
+                    
+                    // Include cloud and local URLs for backward compatibility
                     if (floor.cloudUrl) newFloor.cloudUrl = floor.cloudUrl;
                     if (floor.localUrl) newFloor.localUrl = floor.localUrl;
 
-                    // Only include imageData as a fallback if there's no imageUrl/imageId
+                    // Only include imageData as a fallback if there's no imageId
                 } else if (floor.imageData) {
                     newFloor.imageData = floor.imageData;
 
@@ -502,7 +505,7 @@ const floorManager = {
         }
     },
 
-    // Helper method to process image and save floor using Homey Images API
+    // Helper method to process image and save floor using userdata storage
     async processAndSaveFloorWithHomeyImages(file, floorName, saveButton, cancelButton, dialog) {
         try {
             // Disable buttons and show loading state
@@ -515,35 +518,28 @@ const floorManager = {
 
             try {
                 // Upload the image using the API endpoint
-
                 try {
                     const response = await this.Homey.api('POST', '/floor-images/upload', {
                         imageData: imageData
                     });
 
-
                     if (!response || !response.success) {
                         throw new Error(response?.error || 'Failed to upload image');
                     }
 
-                    // Determine URL based on environment
-                    const hostname = window.location.hostname;
-                    const isLocalEnvironment = hostname.includes('192.168.') ||
-                        hostname.includes('localhost') ||
-                        hostname.includes('.local');
-                    const imageUrl = isLocalEnvironment ? response.localUrl : response.cloudUrl;
+                    // Get the file URL from the response (new format)
+                    const fileUrl = response.fileUrl;
 
                     // Use the aspectRatio method to get dimensions
-                    const aspectRatio = await this.getImageAspectRatio(imageUrl);
+                    const aspectRatio = await this.getImageAspectRatio(fileUrl);
 
-                    // Create new floor object with Homey Image API data
+                    // Create new floor object with userdata image details
                     const newFloor = {
                         id: Date.now().toString(),
                         name: floorName,
                         imageId: response.imageId,
-                        // Store both cloud and local URLs from the API response
-                        cloudUrl: response.cloudUrl,
-                        localUrl: response.localUrl,
+                        // Store the file URL
+                        fileUrl: response.fileUrl,
                         devices: [],
                         imageAspectRatio: aspectRatio,
                         rules: [
@@ -602,7 +598,7 @@ const floorManager = {
                     throw new Error(`API call failed: ${apiError.message}`);
                 }
             } catch (err) {
-                window.logError('[PROCESS AND SAVE WITH HOMEY IMAGES] API failed:', err);
+                window.logError('[PROCESS AND SAVE WITH USERDATA] API failed:', err);
                 throw new Error('Failed to process image: ' + err.message);
             }
 
@@ -611,7 +607,7 @@ const floorManager = {
             cancelButton.disabled = false;
             saveButton.innerHTML = 'Create Floor';
         } catch (err) {
-            window.logError('[PROCESS AND SAVE WITH HOMEY IMAGES] Failed:', err);
+            window.logError('[PROCESS AND SAVE WITH USERDATA] Failed:', err);
             this.Homey.alert('Failed to save floor: ' + err.message);
             saveButton.disabled = false;
             cancelButton.disabled = false;
@@ -1667,29 +1663,23 @@ const floorManager = {
                     throw new Error(response?.error || 'Failed to process image');
                 }
 
-                // Remove old image references (no need to keep them)
-                // Homey will automatically clean up unused images eventually
-
-                // Determine URL based on environment
-                const hostname = window.location.hostname;
-                const isLocalEnvironment = hostname.includes('192.168.') ||
-                    hostname.includes('localhost') ||
-                    hostname.includes('.local');
-                const imageUrl = isLocalEnvironment ? response.localUrl : response.cloudUrl;
+                // Determine URL for aspect ratio calculation
+                const imageUrl = response.fileUrl;
 
                 // Get dimensions for aspect ratio
                 const aspectRatio = await this.getImageAspectRatio(imageUrl);
 
                 // Update floor with new image properties
                 floor.imageId = response.imageId;
-                // Store both cloud and local URLs from the API response
-                floor.cloudUrl = response.cloudUrl;
-                floor.localUrl = response.localUrl;
-                // Remove any legacy imageUrl
+                // Store file URL from the API response
+                floor.fileUrl = response.fileUrl;
+                // Remove any legacy URLs
+                if (floor.cloudUrl) delete floor.cloudUrl;
+                if (floor.localUrl) delete floor.localUrl;
                 if (floor.imageUrl) delete floor.imageUrl;
                 floor.imageAspectRatio = aspectRatio;
 
-                // Remove any base64 data if it exists (we're fully transitioning to Homey Images API)
+                // Remove any base64 data if it exists (we're fully transitioning to userdata images)
                 if (floor.imageData) {
                     delete floor.imageData;
                 }
@@ -1760,7 +1750,7 @@ const floorManager = {
 
         // Choose URL based on environment
         if (floor.imageId) {
-            return floor.cloudUrl;
+            return floor.fileUrl;
         }
 
         // Fall back to direct image data if available

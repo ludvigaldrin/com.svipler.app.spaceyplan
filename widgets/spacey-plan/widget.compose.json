@@ -51,6 +51,10 @@
       "method": "GET",
       "path": "/proxyImage"
     },
+    "getFloorImage": {
+      "method": "GET",
+      "path": "/floorImage/:imageId"
+    },
     "clearImageCache": {
       "method": "POST",
       "path": "/clearImageCache"

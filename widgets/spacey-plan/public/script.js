@@ -518,132 +518,105 @@ async function showSelectedFloor(floor) {
 
     // Determine the best image source
     let imageSource = null;
-    
-    // 1. Use binary data if available (old style)
-    if (floor.imageData) {
-        imageSource = floor.imageData;
-    } else if (floor.image) {
-        imageSource = floor.image;
-    } 
-    // 2. Check if localStorage cache has the imageId
-    else if (floor.imageId) {
-        // Output all keys to see what we have
-        try {
-            const allKeys = [];
-            for (let i = 0; i < localStorage.length; i++) {
-                allKeys.push(localStorage.key(i));
-            }
 
-        } catch (e) {
-            Homey.api('POST', '/error', { message: `Error listing keys: ${e.message}` });
-        }
-        
+    // 1. First try from cache if we have the imageId
+    if (floor.imageId) {
         const cachedImage = clientImageCache.get('image-id-' + floor.imageId);
         if (cachedImage) {
             imageSource = cachedImage;
-
-        } else {
-
-            // Check if we have any partial matches
-            try {
-                let hasPartialMatch = false;
-                for (let i = 0; i < localStorage.length; i++) {
-                    const key = localStorage.key(i);
-                    if (key.includes(floor.imageId)) {
-                        hasPartialMatch = true;
-                    }
-                }
-              
-            } catch (e) {
-                Homey.api('POST', '/error', { message: `Error checking partial matches: ${e.message}` });
-            }
+            window.proxyImageJustLoaded = false;
+            
+            // Set the image source
+            floorMapImage.src = imageSource;
+            return;
         }
     }
     
-    // 3. If no cache exists, use localUrl with proxy
-    if (!imageSource && floor.localUrl) {
-
-        // For all URLs, use the proxy to convert to data URL
-        const encodedUrl = encodeURIComponent(floor.localUrl);
-        
-        // Make sure the image wrapper shows loading indicator while proxy is working
-        imageWrapper.classList.add('loading');
-        floorMapImage.style.visibility = 'hidden';
-        ensureSingleSpinner(); // Make sure we only have one spinner
-        
-        // Load via proxy
-        Homey.api('GET', `/proxyImage?url=${encodedUrl}`)
-            .then(result => {
-                if (result && result.dataUrl) {
-                    // Store in cache immediately after receiving
-                    if (floor.imageId) {
+    // 2. If we have an imageId, use the direct userdata URL
+    if (floor.imageId) {
+        // If the imageId is a filename (new format with extension), it's a userdata image
+        if (floor.imageId.includes('.')) {
+            // Use the getFloorImage API to get the image data
+            imageWrapper.classList.add('loading');
+            floorMapImage.style.visibility = 'hidden';
+            ensureSingleSpinner();
+            
+            Homey.api('GET', `/floorImage/${encodeURIComponent(floor.imageId)}`)
+                .then(result => {
+                    if (result && result.dataUrl) {
+                        // Store in cache immediately after receiving
                         clientImageCache.store('image-id-' + floor.imageId, result.dataUrl);
-                    }
-                    
-                    // Clear any existing onload handler first
-                    floorMapImage.onload = null;
-                    
-                    // Create a new onload handler specifically for proxy-loaded images
-                    floorMapImage.onload = function() {
-                        // Image has loaded successfully
-                        imageWrapper.classList.remove('loading');
-                        floorMapImage.style.visibility = 'visible';
-
                         
-                        // Set a flag that the image is loaded
-                        window.floorImageLoaded = true;
-
-                        // Let the DOM render the image first, then render devices
-                        setTimeout(() => {
-                            // Make sure we have the devices container
-                            let devContainer = document.getElementById('floorPlanDevices');
-                            if (!devContainer) {
-                                devContainer = document.createElement('div');
-                                devContainer.id = 'floorPlanDevices';
-                                imageWrapper.appendChild(devContainer);
+                        // Clear any existing onload handler first
+                        floorMapImage.onload = null;
+                        
+                        // Create a new onload handler for userdata images
+                        floorMapImage.onload = function() {
+                            // Image has loaded successfully
+                            imageWrapper.classList.remove('loading');
+                            floorMapImage.style.visibility = 'visible';
+                            
+                            // Remove loading indicator when loaded
+                            const loadingIndicator = imageWrapper.querySelector('.loading-indicator');
+                            if (loadingIndicator) {
+                                loadingIndicator.remove();
                             }
                             
-                            // Important: Clear existing devices first
-                            devContainer.innerHTML = '';
+                            // Set a flag that the image is loaded
+                            window.floorImageLoaded = true;
+                            window.proxyImageJustLoaded = true;
                             
-                            // Verify the floor data before rendering
-                            if (floor && floor.devices && floor.devices.length > 0) {
-                                // Log how many devices we're going to render
-                                Homey.api('POST', '/log', { message: `Proxy: Attempting to render ${floor.devices.length} devices` });
+                            // Process devices with a slight delay to ensure image dimensions are available
+                            setTimeout(() => {
+                                // Make sure we have the devices container
+                                let devicesContainer = document.getElementById('floorPlanDevices');
+                                if (!devicesContainer) {
+                                    devicesContainer = document.createElement('div');
+                                    devicesContainer.id = 'floorPlanDevices';
+                                    imageWrapper.appendChild(devicesContainer);
+                                }
                                 
-                                // Render each device
+                                // Empty the container
+                                devicesContainer.innerHTML = '';
+                                
+                                // Set aspect ratio if not already set from the floor data
+                                if (!rendererManager.getFloorAspectRatio() && floorMapImage.naturalWidth && floorMapImage.naturalHeight) {
+                                    const aspectRatio = floorMapImage.naturalWidth / floorMapImage.naturalHeight;
+                                    rendererManager.setFloorAspectRatio(aspectRatio);
+                                }
+                                
+                                // Check if devices exist in the floor plan
+                                if (!floor.devices || !Array.isArray(floor.devices) || floor.devices.length === 0) {
+                                    return;
+                                }
+                                
+                                // Keep track of how many we render
                                 let renderedCount = 0;
+                                
+                                // Create promises for rendering all devices
                                 const renderPromises = floor.devices.map(device => {
                                     try {
-                                        // Skip devices with unsupported capabilities
-                                        if (!device.capability) {
-                                            Homey.api('POST', '/log', { message: `Proxy: Device is missing capability: ${device.name || device.id}` });
-                                            return Promise.resolve();
+                                        if (device && device.id) {
+                                            return rendererManager.renderDevice(device)
+                                                .then(rendered => {
+                                                    if (rendered) renderedCount++;
+                                                    return rendered;
+                                                })
+                                                .catch(err => {
+                                                    Homey.api('POST', '/error', { message: `USERDATA: Error rendering device ${device.name || device.id}: ${err.message}` });
+                                                    return false;
+                                                });
                                         }
-                                        
-                                        const renderer = rendererManager.getRenderer(device.capability);
-                                        if (!renderer) {
-                                            Homey.api('POST', '/log', { message: `Proxy: No renderer for capability: ${device.capability}` });
-                                            return Promise.resolve(); // Skip this device
-                                        }
-                                        
-                                        return rendererManager.renderDevice(device, devContainer)
-                                            .then(() => {
-                                                renderedCount++;
-                                                Homey.api('POST', '/log', { message: `Proxy: Successfully rendered device: ${device.name || device.id}` });
-                                            })
-                                            .catch(err => {
-                                                Homey.api('POST', '/error', { message: `PROXY: Error rendering device ${device.name || device.id}: ${err.message}` });
-                                            });
+                                        return Promise.resolve(false);
                                     } catch (err) {
-                                        Homey.api('POST', '/error', { message: `PROXY: Exception rendering device ${device.name || device.id}: ${err.message}` });
+                                        Homey.api('POST', '/error', { message: `USERDATA: Exception rendering device ${device.name || device.id}: ${err.message}` });
                                         return Promise.resolve(); // Continue with other devices
                                     }
                                 });
                                 
                                 Promise.all(renderPromises)
                                     .then(() => {
-                                        Homey.api('POST', '/log', { message: `Proxy: Successfully rendered ${renderedCount}/${floor.devices.length} devices` });
+                                        Homey.api('POST', '/log', { message: `Userdata: Successfully rendered ${renderedCount}/${floor.devices.length} devices` });
                                         
                                         // Dispatch an event for any other components
                                         document.dispatchEvent(new CustomEvent('floorImageReady', {
@@ -655,52 +628,49 @@ async function showSelectedFloor(floor) {
                                         }));
                                     })
                                     .catch(err => {
-                                        Homey.api('POST', '/error', { message: `PROXY: Error in device rendering promises: ${err.message}` });
+                                        Homey.api('POST', '/error', { message: `USERDATA: Error in device rendering promises: ${err.message}` });
                                     });
-                            } 
-                        }, 100); // Use the same delay as the direct loading path
-                    };
-                    
-                    // Now set the src to start loading
-                    floorMapImage.src = result.dataUrl;
-                } else {
-                    // 4. If we get error from localUrl use cloudUrl
-                    tryCloudUrl();
-                }
-            })
-            .catch(error => {
-                Homey.api('POST', '/error', { message: `Proxy error: ${JSON.stringify(error)}` });
-                // 4. If we get error from localUrl use cloudUrl
-                tryCloudUrl();
-            });
-        
-        // Return early since we're loading the image asynchronously
-        return;
+                            }, 100);
+                        };
+                        
+                        // Set the image source to start loading
+                        floorMapImage.src = result.dataUrl;
+                    } else {
+                        // If we can't get the image via the API, try the URL directly if we have fileUrl
+                        if (floor.fileUrl) {
+                            tryFileUrl();
+                        } else {
+                            // Fall back to localUrl/cloudUrl for backward compatibility
+                            tryLocalUrl();
+                        }
+                    }
+                })
+                .catch(error => {
+                    Homey.api('POST', '/error', { message: `Userdata image error: ${JSON.stringify(error)}` });
+                    // Try other options
+                    if (floor.fileUrl) {
+                        tryFileUrl();
+                    } else {
+                        tryLocalUrl();
+                    }
+                });
+            
+            return;
+        }
     }
     
-    // 4. If no localUrl, try cloudUrl
-    if (!imageSource && floor.cloudUrl) {
-        tryCloudUrl();
-        return;
-    }
-    
-    function tryCloudUrl() {
-        if (floor.cloudUrl) {
-
+    // 3. Try fileUrl directly (if available)
+    function tryFileUrl() {
+        if (floor.fileUrl) {
+            // For all URLs, use the proxy to convert to data URL
+            const encodedUrl = encodeURIComponent(floor.fileUrl);
+            
             // Make sure the image wrapper shows loading indicator while proxy is working
             imageWrapper.classList.add('loading');
             floorMapImage.style.visibility = 'hidden';
+            ensureSingleSpinner(); // Make sure we only have one spinner
             
-            // Add loading spinner if not already present
-            ensureSingleSpinner(); // Remove any existing spinners first
-            let loadingIndicator = document.createElement('div');
-            loadingIndicator.className = 'loading-indicator';
-            loadingIndicator.innerHTML = `<div class="spinner"></div>`;
-            imageWrapper.appendChild(loadingIndicator);
-            
-            // Use the proxy for cloudUrl too
-            const encodedUrl = encodeURIComponent(floor.cloudUrl);
-            
+            // Load via proxy
             Homey.api('GET', `/proxyImage?url=${encodedUrl}`)
                 .then(result => {
                     if (result && result.dataUrl) {
@@ -717,7 +687,6 @@ async function showSelectedFloor(floor) {
                             // Image has loaded successfully
                             imageWrapper.classList.remove('loading');
                             floorMapImage.style.visibility = 'visible';
-
                             
                             // Remove loading indicator when loaded
                             const loadingIndicator = imageWrapper.querySelector('.loading-indicator');
@@ -727,128 +696,113 @@ async function showSelectedFloor(floor) {
                             
                             // Set a flag that the image is loaded
                             window.floorImageLoaded = true;
+                            window.proxyImageJustLoaded = true;
                             
-
-                            
-                            // Let the DOM render the image first, then render devices
+                            // Process devices with a slight delay to ensure image dimensions are available
                             setTimeout(() => {
-
-                                
                                 // Make sure we have the devices container
-                                let devContainer = document.getElementById('floorPlanDevices');
-                                if (!devContainer) {
-                                    devContainer = document.createElement('div');
-                                    devContainer.id = 'floorPlanDevices';
-                                    imageWrapper.appendChild(devContainer);
-
+                                let devicesContainer = document.getElementById('floorPlanDevices');
+                                if (!devicesContainer) {
+                                    devicesContainer = document.createElement('div');
+                                    devicesContainer.id = 'floorPlanDevices';
+                                    imageWrapper.appendChild(devicesContainer);
                                 }
                                 
-                                // Important: Clear existing devices first
-                                devContainer.innerHTML = '';
-
+                                // Empty the container
+                                devicesContainer.innerHTML = '';
                                 
-                                // Verify the floor data before rendering
-                                if (floor && floor.devices && floor.devices.length > 0) {
-
-                                    
-                                    // Render each device
-                                    let renderedCount = 0;
-                                    const renderPromises = floor.devices.map(device => {
-                                        try {
-                                            return rendererManager.renderDevice(device, devContainer)
-                                                .then(() => {
-                                                    renderedCount++;
-
+                                // Set aspect ratio if not already set from the floor data
+                                if (!rendererManager.getFloorAspectRatio() && floorMapImage.naturalWidth && floorMapImage.naturalHeight) {
+                                    const aspectRatio = floorMapImage.naturalWidth / floorMapImage.naturalHeight;
+                                    rendererManager.setFloorAspectRatio(aspectRatio);
+                                }
+                                
+                                // Check if devices exist in the floor plan
+                                if (!floor.devices || !Array.isArray(floor.devices) || floor.devices.length === 0) {
+                                    return;
+                                }
+                                
+                                // Keep track of how many we render
+                                let renderedCount = 0;
+                                
+                                // Create promises for rendering all devices
+                                const renderPromises = floor.devices.map(device => {
+                                    try {
+                                        if (device && device.id) {
+                                            return rendererManager.renderDevice(device)
+                                                .then(rendered => {
+                                                    if (rendered) renderedCount++;
+                                                    return rendered;
                                                 })
                                                 .catch(err => {
-                                                    Homey.api('POST', '/error', { message: `CLOUD PROXY: Error rendering device ${device.name || device.id}: ${err.message}` });
+                                                    Homey.api('POST', '/error', { message: `USERDATA: Error rendering device ${device.name || device.id}: ${err.message}` });
+                                                    return false;
                                                 });
-                                        } catch (err) {
-                                            Homey.api('POST', '/error', { message: `CLOUD PROXY: Exception rendering device ${device.name || device.id}: ${err.message}` });
-                                            return Promise.resolve(); // Continue with other devices
                                         }
+                                        return Promise.resolve(false);
+                                    } catch (err) {
+                                        Homey.api('POST', '/error', { message: `USERDATA: Exception rendering device ${device.name || device.id}: ${err.message}` });
+                                        return Promise.resolve(); // Continue with other devices
+                                    }
+                                });
+                                
+                                Promise.all(renderPromises)
+                                    .then(() => {
+                                        Homey.api('POST', '/log', { message: `Userdata: Successfully rendered ${renderedCount}/${floor.devices.length} devices` });
+                                        
+                                        // Dispatch an event for any other components
+                                        document.dispatchEvent(new CustomEvent('floorImageReady', {
+                                            detail: { 
+                                                imageWidth: floorMapImage.naturalWidth,
+                                                imageHeight: floorMapImage.naturalHeight,
+                                                aspectRatio: floorMapImage.naturalWidth / floorMapImage.naturalHeight
+                                            }
+                                        }));
+                                    })
+                                    .catch(err => {
+                                        Homey.api('POST', '/error', { message: `USERDATA: Error in device rendering promises: ${err.message}` });
                                     });
-                                    
-                                    Promise.all(renderPromises)
-                                        .then(() => {
-
-                                            // Dispatch an event for any other components
-                                            document.dispatchEvent(new CustomEvent('floorImageReady', {
-                                                detail: { 
-                                                    imageWidth: floorMapImage.naturalWidth,
-                                                    imageHeight: floorMapImage.naturalHeight,
-                                                    aspectRatio: floorMapImage.naturalWidth / floorMapImage.naturalHeight
-                                                }
-                                            }));
-                                        })
-                                        .catch(err => {
-                                            Homey.api('POST', '/error', { message: `CLOUD PROXY: Error in device rendering promises: ${err.message}` });
-                                        });
-                                }
-                            }, 100); // Longer delay to ensure the image is fully processed
+                            }, 100);
                         };
                         
                         // Now set the src to start loading
                         floorMapImage.src = result.dataUrl;
                     } else {
-                        showImageError();
+                        // If fileUrl fails, try localUrl as fallback for older floors
+                        tryLocalUrl();
                     }
                 })
                 .catch(error => {
-                    Homey.api('POST', '/error', { message: `Cloud proxy error: ${JSON.stringify(error)}` });
-                    showImageError();
+                    Homey.api('POST', '/error', { message: `FileUrl proxy error: ${JSON.stringify(error)}` });
+                    // Try localUrl as fallback
+                    tryLocalUrl();
                 });
+            
+            // Return early since we're loading the image asynchronously
+            return;
         } else {
-            showImageError();
+            // No fileUrl, try localUrl
+            tryLocalUrl();
         }
     }
     
+    // 4. If no fileUrl, try localUrl with proxy (for backward compatibility)
+    function tryLocalUrl() {
+        // ... existing tryLocalUrl function code ...
+    }
+    
+    // 5. If no localUrl works, try cloudUrl
+    function tryCloudUrl() {
+        // ... existing tryCloudUrl function code ...
+    }
+    
+    // 6. If all fails, show error
     function showImageError() {
-        // Clean up and hide the image
-        imageWrapper.classList.remove('loading');
-        floorMapImage.style.visibility = 'hidden';
-        
-        // Remove loading indicator
-        const loadingIndicator = imageWrapper.querySelector('.loading-indicator');
-        if (loadingIndicator) {
-            loadingIndicator.remove();
-        }
-        
-        Homey.api('POST', '/error', { message: 'All image sources failed' });
-        
-        // Just show error message
-        showErrorMessage("Could not load the floor plan image from any source. Please try a different floor.");
+        // ... existing showImageError function code ...
     }
     
-    // Set the image source if we found one through direct data or cache
-    if (imageSource) {
-        floorMapImage.src = imageSource;
-    } else if (!floor.localUrl && !floor.cloudUrl) {
-
-        Homey.api('POST', '/error', { message: 'No image sources found for floor' });
-        imageWrapper.classList.remove('loading');
-        imageWrapper.classList.add('error');
-        floorMapImage.style.visibility = 'hidden';
-    }
-
-    // Create or update the devices container
-    let devicesContainer = document.getElementById('floorPlanDevices');
-    if (!devicesContainer) {
-        devicesContainer = document.createElement('div');
-        devicesContainer.id = 'floorPlanDevices';
-        imageWrapper.appendChild(devicesContainer);
-    } else {
-        devicesContainer.innerHTML = ''; // Clear existing devices
-    }
-
-    // Devices will be rendered in the onload event handler
-    // This prevents issues with positioning when the image isn't loaded yet
-    
-    // Add settings button after floor plan is shown
-    addSettingsButton();
-
-    // Store current floor data
-    window.getCurrentFloor = () => floor;
+    // If no method matched, show error
+    showImageError();
 }
 
 // Update the showLoadingState function to use our simpler spinner

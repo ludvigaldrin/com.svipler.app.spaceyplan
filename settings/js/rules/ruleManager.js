@@ -268,7 +268,7 @@ const ruleManager = {
                         <div class="color-input-group">
                             <label>Icon Color</label>
                             <input type="color" id="iconColor" 
-                                value="${existingRule?.config?.iconColor || '#00ff00'}"
+                                value="${existingRule?.config?.iconColor || '#333332'}"
                                 ${existingRule?.config?.showIcon === false ? 'disabled' : ''}>
                         </div>
                     </div>
@@ -285,7 +285,7 @@ const ruleManager = {
                         <div class="color-input-group">
                             <label>Cloud Color</label>
                             <input type="color" id="cloudColor" 
-                                value="${existingRule?.config?.cloudColor || '#00ff00'}"
+                                value="${existingRule?.config?.cloudColor || '#FFFFFF'}"
                                 ${existingRule?.config?.showCloud === false ? 'disabled' : ''}>
                         </div>
                     </div>
@@ -343,7 +343,7 @@ const ruleManager = {
                         <div class="color-input-group">
                             <label>Icon Color</label>
                             <input type="color" id="iconColorOff" 
-                                value="${existingRule?.config?.iconColorOff || '#ffffff'}"
+                                value="${existingRule?.config?.iconColorOff || '#333332'}"
                                 ${existingRule?.config?.showIconOff === false ? 'disabled' : ''}>
                         </div>
                         <div class="settings-note">
@@ -391,9 +391,9 @@ const ruleManager = {
         } else if (ruleType === 'measureDisplay') {
             // Default values for a new rule
             const showTemperature = existingRule?.config?.showTemperature !== false;
-            const temperatureColor = existingRule?.config?.temperatureColor || '#2196F3';
+            const temperatureColor = existingRule?.config?.temperatureColor || '#0000FF';
             const showHumidity = existingRule?.config?.showHumidity !== false;
-            const humidityColor = existingRule?.config?.humidityColor || '#2196F3';
+            const humidityColor = existingRule?.config?.humidityColor || '#0000FF';
 
 
             const html = `
@@ -518,7 +518,7 @@ const ruleManager = {
                         <div class="color-input-group">
                             <label>Icon Color</label>
                             <input type="color" id="iconColorOff" 
-                                value="${existingRule?.config?.iconColorOff || '#ffffff'}"
+                                value="${existingRule?.config?.iconColorOff || '#333332'}"
                                 ${existingRule?.config?.showIconOff === false ? 'disabled' : ''}>
                         </div>
                         <div class="settings-note">
@@ -531,7 +531,7 @@ const ruleManager = {
                             <h3>Alarm No - Cloud Effect Settings</h3>
                             <label class="switch">
                                 <input type="checkbox" id="showCloudOff" 
-                                    ${existingRule?.config?.showCloudOff !== false ? 'checked' : ''}>
+                                    ${existingRule?.config?.showCloudOff === true ? 'checked' : ''}>
                                 <span class="slider round"></span>
                             </label>
                         </div>
@@ -539,7 +539,7 @@ const ruleManager = {
                             <label>Cloud Color</label>
                             <input type="color" id="cloudColorOff" 
                                 value="${existingRule?.config?.cloudColorOff || '#ffffff'}"
-                                ${existingRule?.config?.showCloudOff === false ? 'disabled' : ''}>
+                                ${existingRule?.config?.showCloudOff !== true ? 'disabled' : ''}>
                         </div>
                     </div>
                 </div>
@@ -955,7 +955,6 @@ const ruleManager = {
                     }
 
                     device.rules.push(newRule);
-
                 }
             } else {
                 // Create new rule with UUID
@@ -972,7 +971,6 @@ const ruleManager = {
                 }
 
                 device.rules.push(newRule);
-
             }
 
             // Save and update UI
@@ -1256,18 +1254,26 @@ const ruleManager = {
 
                 if (!checkbox.checked) {
                     let newValue = '#ffffff';
-
-                    // Handle different color input types with appropriate defaults
-                    if (colorInput.id === 'iconColor' || colorInput.id === 'cloudColor') {
-                        newValue = '#00ff00';
-                    } else if (colorInput.id === 'iconColorOn' || colorInput.id === 'cloudColorOn') {
-                        newValue = '#ffeb3b';
-                    } else if (colorInput.id === 'temperatureColor') {
-                        newValue = '#2196F3';
-                    } else if (colorInput.id === 'humidityColor') {
-                        newValue = '#2196F3';
+                    
+                    // Get the rule dialog to determine rule type
+                    const ruleDialog = document.getElementById('ruleDialog');
+                    const ruleType = ruleDialog?.querySelector('#ruleType')?.value;
+                    const isAlarmRule = ruleType === 'alarmColor';
+                    
+                    // Special cases for specific inputs based on rule type
+                    if (colorInput.id === 'iconColorOff') {
+                        newValue = '#333332';
+                    } else if (isAlarmRule && colorInput.id === 'iconColorOn') {
+                        newValue = '#ff0000'; // Red for alarm rules
+                    } else if (isAlarmRule && colorInput.id === 'cloudColorOn') {
+                        newValue = '#ff0000'; // Red for alarm rules
+                    } else if (!isAlarmRule && colorInput.id === 'iconColorOn') {
+                        newValue = '#ffeb3b'; // Yellow for on/off rules
+                    } else if (!isAlarmRule && colorInput.id === 'cloudColorOn') {
+                        newValue = '#ffeb3b'; // Yellow for on/off rules
                     }
-
+                    
+                    // Set the color value
                     colorInput.value = newValue;
                 }
             }
@@ -1288,6 +1294,11 @@ const ruleManager = {
         if (!this.dialogElements) return;
 
         const settingsGroups = document.querySelectorAll('.icon-settings, .cloud-settings');
+        
+        // Get the rule dialog to determine rule type
+        const ruleDialog = document.getElementById('ruleDialog');
+        const ruleType = ruleDialog?.querySelector('#ruleType')?.value;
+        const isAlarmRule = ruleType === 'alarmColor';
 
         settingsGroups.forEach(group => {
             const checkbox = group.querySelector('input[type="checkbox"]');
@@ -1299,18 +1310,21 @@ const ruleManager = {
 
                 if (!checkbox.checked) {
                     let newValue = '#ffffff';
-
-                    // Handle different color input types with appropriate defaults
-                    if (colorInput.id === 'iconColor' || colorInput.id === 'cloudColor') {
-                        newValue = '#00ff00';
-                    } else if (colorInput.id === 'iconColorOn' || colorInput.id === 'cloudColorOn') {
-                        newValue = '#ffeb3b';
-                    } else if (colorInput.id === 'temperatureColor') {
-                        newValue = '#2196F3';
-                    } else if (colorInput.id === 'humidityColor') {
-                        newValue = '#2196F3';
+                    
+                    // Special cases for specific inputs based on rule type
+                    if (colorInput.id === 'iconColorOff') {
+                        newValue = '#333332';
+                    } else if (isAlarmRule && colorInput.id === 'iconColorOn') {
+                        newValue = '#ff0000'; // Red for alarm rules
+                    } else if (isAlarmRule && colorInput.id === 'cloudColorOn') {
+                        newValue = '#ff0000'; // Red for alarm rules
+                    } else if (!isAlarmRule && colorInput.id === 'iconColorOn') {
+                        newValue = '#ffeb3b'; // Yellow for on/off rules
+                    } else if (!isAlarmRule && colorInput.id === 'cloudColorOn') {
+                        newValue = '#ffeb3b'; // Yellow for on/off rules
                     }
-
+                    
+                    // Set the color value
                     colorInput.value = newValue;
                 }
             }
@@ -1401,16 +1415,9 @@ const ruleManager = {
             });
         }
 
-        // Save rule button
-        document.addEventListener('click', (e) => {
-            if (e.target.id === 'saveRule') {
-                const typeSelect = document.getElementById('ruleType');
-                if (typeSelect && typeSelect.value) {
-                    this.saveRule(typeSelect.value);
-                }
-            }
-        });
-
+        // Remove global save rule button listener to prevent double saving
+        // The save button already has onclick handlers set in addRule and editRule functions
+        
         // Delete rule button
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('delete-rule-btn')) {

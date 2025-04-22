@@ -560,7 +560,7 @@ const floorManager = {
 
                                     // Off state settings
                                     showIconOff: true,
-                                    iconColorOff: '#ffffff',
+                                    iconColorOff: '#333332',
                                     showCloudOff: true,
                                     cloudColorOff: '#ffffff'
                                 }
@@ -577,10 +577,10 @@ const floorManager = {
                                     cloudColorOn: '#ff0000',
 
                                     // Off state settings (Alarm No)
-                                    showIconOff: false,
-                                    iconColorOff: '#ffffff',
+                                    showIconOff: true,
+                                    iconColorOff: '#333332',
                                     showCloudOff: false,
-                                    cloudColorOff: '#ffffff'
+                                    cloudColorOff: '#FFFFFF'
                                 }
                             }
                         ]

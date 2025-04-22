@@ -417,7 +417,7 @@ const deviceManager = {
 
                     // Off state settings
                     showIconOff: true,
-                    iconColorOff: '#ffffff',
+                    iconColorOff: '#333332',
                     showCloudOff: true,
                     cloudColorOff: '#ffffff'
                 }
@@ -439,9 +439,9 @@ const deviceManager = {
 
                     // Off state settings (Alarm No)
                     showIconOff: true,
-                    iconColorOff: '#474b59',
+                    iconColorOff: '#333332',
                     showCloudOff: false,
-                    cloudColorOff: '#474b59'
+                    cloudColorOff: '#FFFFFF'
                 }
             });
         }
@@ -458,8 +458,8 @@ const deviceManager = {
                 showHumidity: capability === 'measure_humidity' && capability !== 'measure_combined',
                 
                 // Default colors for text display
-                temperatureColor: '#FF5722', // Orange for temperature
-                humidityColor: '#2196F3'     // Blue for humidity
+                temperatureColor: '#0000FF',
+                humidityColor: '#0000FF'
             };
             
             newDevice.rules.push({
@@ -472,9 +472,9 @@ const deviceManager = {
             // Add All - Color Select rule with default settings off
             const colorRuleConfig = {
                 showIcon: true,
-                iconColor: '#0040bf', // Default blue color if user turns it on
+                iconColor: '#333332', 
                 showCloud: false,
-                cloudColor: '#0040bf' // Default blue color if user turns it on
+                cloudColor: '#FFFFFF' 
             };
             
             newDevice.rules.push({

@@ -46,5 +46,8 @@
   },
   "0.1.4": {
     "en": "Fixed double rules and changed default colors"
+  },
+  "0.1.5": {
+    "en": "Changed how floor plan images are saved. Using Userdata instead. Also fixed some other stuff."
   }
 }

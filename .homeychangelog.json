@@ -49,5 +49,8 @@
   },
   "0.1.5": {
     "en": "Changed how floor plan images are saved. Using Userdata instead. Also fixed some other stuff."
+  },
+  "0.1.6": {
+    "en": "Bugfixes"
   }
 }

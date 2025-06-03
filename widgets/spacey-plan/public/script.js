@@ -146,7 +146,9 @@ const clientImageCache = {
 /** INIT */
 
 async function onHomeyReady(_Homey) {
+   
     Homey = _Homey;
+    Homey.api('POST', '/log', { message: 'Init started: onHomeyReady' });
     Homey.ready();
 
     // Initialize a global flag to track image loading

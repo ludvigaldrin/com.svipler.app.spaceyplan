@@ -11,7 +11,6 @@ const sensorRenderer = {
             top: 0;
             width: 28px;
             height: 28px;
-            cursor: pointer;
             z-index: 300;
             border-radius: 50%;
             display: flex;
@@ -21,24 +20,8 @@ const sensorRenderer = {
             opacity: 0;
             background: rgba(255, 255, 255, 0.35);
             box-shadow: 0 0 8px 1px rgba(255, 255, 255, 0.45);
+            pointer-events: none;
         `;
-
-        // Add a clickable overlay that extends beyond the visible icon for easier tapping
-        const clickableOverlay = document.createElement('div');
-        clickableOverlay.className = 'clickable-overlay';
-        clickableOverlay.style.cssText = `
-            position: absolute;
-            width: 70px;
-            height: 70px;
-            border-radius: 50%;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 299;
-            cursor: pointer;
-            background-color: rgba(255, 255, 255, 0.01);
-        `;
-        deviceEl.appendChild(clickableOverlay);
 
         // Add device icon styles if not already present
         if (!document.getElementById('deviceIconStyles')) {
@@ -82,10 +65,22 @@ const sensorRenderer = {
                 img.src = device.iconObj.url;
             }
             img.className = 'device-icon';
-            iconWrapper.appendChild(img);
+            img.style.pointerEvents = 'auto';
+            img.style.cursor = 'pointer';
+            img.style.userSelect = 'none';
+            img.style.webkitUserSelect = 'none';
+            img.style.webkitTouchCallout = 'none';
+            
+            // Defensive check before appendChild
+            if (iconWrapper && img) {
+                iconWrapper.appendChild(img);
+            }
         }
 
-        deviceEl.appendChild(iconWrapper);
+        // Defensive check before appendChild
+        if (deviceEl && iconWrapper) {
+            deviceEl.appendChild(iconWrapper);
+        }
 
         const positionDevice = () => {
             return new Promise((resolve) => {
@@ -210,112 +205,19 @@ const sensorRenderer = {
     },
 
     initializeInteractions(deviceEl) {
-        // Check if deviceEl is a valid DOM element
         if (!deviceEl || !deviceEl.addEventListener) {
-            Homey.api('POST', '/error', { message: 'Invalid device element provided to initializeInteractions' });
             return;
         }
 
-        let touchStartTime;
-        let longPressTimer;
-        let touchMoved = false;
-        let touchStartX = 0;
-        let touchStartY = 0;
-        const TOUCH_TOLERANCE = 15; // Pixels of movement allowed before considering it a drag
-
-        // Function to handle touch start for both the device element and overlay
-        const handleTouchStart = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            touchStartTime = Date.now();
-            touchMoved = false;
-            
-            // Store initial touch position
-            if (e.touches && e.touches[0]) {
-                touchStartX = e.touches[0].clientX;
-                touchStartY = e.touches[0].clientY;
-            }
-
-            // Add visual feedback
-            deviceEl.style.transform = this.addScaleTransform(deviceEl, 1.2);
-            deviceEl.style.opacity = '0.8';
-
-            longPressTimer = setTimeout(() => {
-                if (!touchMoved) {
-                    // Reset visual feedback before showing modal
-                    deviceEl.style.transform = this.removeScaleTransform(deviceEl);
-                    deviceEl.style.opacity = '1';
-                    this.showDeviceModal(deviceEl);
-                }
-            }, 500);
-        };
-
-        // Function to handle touch move for both the device element and overlay
-        const handleTouchMove = (e) => {
-            e.stopPropagation();
-            
-            // Check if movement exceeds tolerance
-            if (e.touches && e.touches[0]) {
-                const diffX = Math.abs(e.touches[0].clientX - touchStartX);
-                const diffY = Math.abs(e.touches[0].clientY - touchStartY);
-                
-                // Only consider it moved if it exceeds our tolerance
-                if (diffX > TOUCH_TOLERANCE || diffY > TOUCH_TOLERANCE) {
-                    touchMoved = true;
-                    if (longPressTimer) {
-                        clearTimeout(longPressTimer);
-                        longPressTimer = null;
-                    }
-                }
-            }
-        };
-
-        // Function to handle touch end for both the device element and overlay
-        const handleTouchEnd = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            // Reset visual feedback
-            deviceEl.style.transform = this.removeScaleTransform(deviceEl);
-            deviceEl.style.opacity = '1';
-
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-
-            // No action on touch end for sensors - only long press shows modal
-            touchMoved = false;
-        };
-
-        // Function to handle click for both the device element and overlay
-        const handleClick = (e) => {
-            if (e) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-            // No action on click for sensors - only long press shows modal
-        };
-
-        // Add event listeners to the device element
-        deviceEl.addEventListener('touchstart', handleTouchStart, { passive: false });
-        deviceEl.addEventListener('touchmove', handleTouchMove);
-        deviceEl.addEventListener('touchend', handleTouchEnd, { passive: false });
-        deviceEl.addEventListener('click', handleClick, { passive: false });
-
-        // Add event listeners to the clickable overlay
-        const overlay = deviceEl.querySelector('.clickable-overlay');
-        if (overlay) {
-            overlay.addEventListener('touchstart', handleTouchStart, { passive: false });
-            overlay.addEventListener('touchmove', handleTouchMove);
-            overlay.addEventListener('touchend', handleTouchEnd, { passive: false });
-            overlay.addEventListener('click', handleClick, { passive: false });
+        const icon = deviceEl.querySelector('.device-icon, .material-symbols-outlined');
+        if (icon) {
+            this.attachIconEvents(icon, deviceEl);
         }
     },
 
     async handleClick(deviceEl) {
-        // For sensors, no action on click - only long press shows modal
+        // For sensor devices, show modal on click
+        this.showDeviceModal(deviceEl);
     },
 
     handleDeviceUpdate(deviceEl, value, capability) {
@@ -429,10 +331,6 @@ const sensorRenderer = {
                 if (powerButton) {
                     powerButton.classList.toggle('on', value);
                 }
-
-
-
-
             }
         } catch (error) {
             Homey.api('POST', '/error', { message: `Error in handleDeviceUpdate: ${JSON.stringify(error)}` });
@@ -463,7 +361,14 @@ const sensorRenderer = {
                     const iconSpan = document.createElement('span');
                     iconSpan.className = 'material-symbols-outlined';
                     iconSpan.textContent = allIconRule.config.selectedIcon;
-                    iconWrapper.appendChild(iconSpan);
+                    
+                    // Defensive check before appendChild
+                    if (iconWrapper && iconSpan) {
+                        iconWrapper.appendChild(iconSpan);
+                        
+                        // Attach events to the newly created default icon
+                        this.attachIconEvents(iconSpan, deviceEl);
+                    }
 
                     // Make sure icon wrapper is visible
                     iconWrapper.style.display = 'flex';
@@ -721,28 +626,12 @@ const sensorRenderer = {
         });
     },
 
-
-
-
-
-
-
-
-
     handleExternalUpdate(deviceEl, value, capability) {
         try {
-
-
-
-
-
             deviceEl.setAttribute('data-state', value);
             deviceEl.classList.toggle('on', value);
 
-
-
             const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
-
 
             deviceData.state = value;  // Update the stored state
             deviceEl.setAttribute('data-device', JSON.stringify(deviceData));
@@ -820,9 +709,200 @@ const sensorRenderer = {
         const currentTransform = element.style.transform;
         // Remove scale transform if it exists
         return currentTransform.replace(/\s*scale\([^)]+\)/, '');
-    }
-}
+    },
 
+    // Helper function to attach events to an icon
+    attachIconEvents(icon, deviceEl) {
+        if (!icon) return;
+        
+        // Touch/Mouse event variables
+        let touchStartTime = 0;
+        let touchMoved = false;
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let longPressTimer = null;
+        const TOUCH_TOLERANCE = 10;
+        
+        let mouseDownTime = 0;
+        let mouseMoved = false;
+        let mouseDownX = 0;
+        let mouseDownY = 0;
+
+        // Function to handle touch start
+        const handleTouchStart = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            touchStartTime = Date.now();
+            touchMoved = false;
+
+            // Store initial touch position
+            if (e.touches && e.touches[0]) {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            }
+
+            // Add visual feedback
+            deviceEl.style.transform = this.addScaleTransform(deviceEl, 1.2);
+            deviceEl.style.opacity = '0.8';
+
+            longPressTimer = setTimeout(() => {
+                if (!touchMoved) {
+                    // Reset visual feedback before showing modal
+                    deviceEl.style.transform = this.removeScaleTransform(deviceEl);
+                    deviceEl.style.opacity = '1';
+                    this.showDeviceModal(deviceEl);
+                } else {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+            }, 500);
+        };
+
+        // Function to handle touch move
+        const handleTouchMove = (e) => {
+            if (e.touches && e.touches[0]) {
+                const moveX = Math.abs(e.touches[0].clientX - touchStartX);
+                const moveY = Math.abs(e.touches[0].clientY - touchStartY);
+
+                if (moveX > TOUCH_TOLERANCE || moveY > TOUCH_TOLERANCE) {
+                    touchMoved = true;
+                    if (longPressTimer) {
+                        clearTimeout(longPressTimer);
+                        longPressTimer = null;
+                    }
+                }
+            }
+        };
+
+        // Function to handle touch end
+        const handleTouchEnd = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const pressDuration = Date.now() - touchStartTime;
+
+            // Clear long press timer
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+
+            // Reset visual feedback
+            deviceEl.style.transform = this.removeScaleTransform(deviceEl);
+            deviceEl.style.opacity = '1';
+
+            // Handle short tap (not long press)
+            if (!touchMoved && pressDuration < 500) {
+                this.handleClick(deviceEl);
+            }
+
+            touchStartTime = 0;
+            touchMoved = false;
+        };
+
+        // Function to handle click (fallback for non-touch devices)
+        const handleClick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.handleClick(deviceEl);
+        };
+
+        // Function to handle mouse down
+        const handleMouseDown = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            mouseDownTime = Date.now();
+            mouseMoved = false;
+            mouseDownX = e.clientX;
+            mouseDownY = e.clientY;
+
+            // Add visual feedback
+            deviceEl.style.transform = this.addScaleTransform(deviceEl, 1.2);
+            deviceEl.style.opacity = '0.8';
+
+            longPressTimer = setTimeout(() => {
+                if (!mouseMoved) {
+                    // Reset visual feedback before showing modal
+                    deviceEl.style.transform = this.removeScaleTransform(deviceEl);
+                    deviceEl.style.opacity = '1';
+                    this.showDeviceModal(deviceEl);
+                } else {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+            }, 500);
+        };
+
+        // Function to handle mouse move
+        const handleMouseMove = (e) => {
+            if (mouseDownTime > 0) {
+                const moveThreshold = 10;
+                const deltaX = Math.abs(e.clientX - mouseDownX);
+                const deltaY = Math.abs(e.clientY - mouseDownY);
+
+                if (deltaX > moveThreshold || deltaY > moveThreshold) {
+                    mouseMoved = true;
+                    if (longPressTimer) {
+                        clearTimeout(longPressTimer);
+                        longPressTimer = null;
+                    }
+                }
+            }
+        };
+
+        // Function to handle mouse up
+        const handleMouseUp = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const pressDuration = Date.now() - mouseDownTime;
+
+            // Clear long press timer
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+
+            // Reset visual feedback
+            deviceEl.style.transform = this.removeScaleTransform(deviceEl);
+            deviceEl.style.opacity = '1';
+
+            // Handle short click (not long press)
+            if (!mouseMoved && pressDuration < 500) {
+                this.handleClick(deviceEl);
+            }
+
+            mouseDownTime = 0;
+            mouseMoved = false;
+        };
+
+        // Attach all event listeners
+        icon.addEventListener('touchstart', handleTouchStart, { passive: false });
+        icon.addEventListener('touchmove', handleTouchMove, { passive: false });
+        icon.addEventListener('touchend', handleTouchEnd, { passive: false });
+        icon.addEventListener('click', handleClick, { passive: false });
+        icon.addEventListener('contextmenu', (e) => e.preventDefault());
+        
+        icon.addEventListener('mousedown', handleMouseDown, { passive: false });
+        icon.addEventListener('mousemove', handleMouseMove, { passive: false });
+        icon.addEventListener('mouseup', handleMouseUp, { passive: false });
+        
+        // Make sure icons are clickable
+        icon.style.pointerEvents = 'auto';
+        icon.style.cursor = 'pointer';
+        icon.style.userSelect = 'none';
+        icon.style.webkitUserSelect = 'none';
+        icon.style.webkitTouchCallout = 'none';
+        
+        // For img elements, prevent drag behavior that might interfere
+        if (icon.tagName.toLowerCase() === 'img') {
+            icon.draggable = false;
+            icon.addEventListener('dragstart', (e) => e.preventDefault());
+        }
+    },
+}
 
 window.capabilityRenderers = window.capabilityRenderers || {};
 window.capabilityRenderers.sensor = sensorRenderer;

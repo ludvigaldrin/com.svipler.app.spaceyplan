@@ -1,5 +1,6 @@
 const onOffRenderer = {
     id: 'onoff',
+    lastClickTimes: new Map(), // Track last click time per device
 
     createDeviceElement(device, position) {
         const deviceEl = document.createElement('div');
@@ -409,6 +410,16 @@ const onOffRenderer = {
     async handleClick(deviceEl) {
         try {
             const deviceId = deviceEl.getAttribute('data-homey-id');
+            const now = Date.now();
+            const lastClickTime = this.lastClickTimes.get(deviceId) || 0;
+            
+            // Prevent double-clicks within 300ms
+            if (now - lastClickTime < 300) {
+                return;
+            }
+            
+            this.lastClickTimes.set(deviceId, now);
+            
             const currentState = deviceEl.getAttribute('data-state') === 'true';
             const newState = !currentState;
             // Update visual state immediately

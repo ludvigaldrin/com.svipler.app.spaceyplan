@@ -222,7 +222,6 @@ const measureRenderer = {
                     cap === 'measure_temperature' || cap === 'measure_humidity'
                 );
             }
-
             // If still empty, try to fetch capabilities from Homey API
             if (measureCapabilities.length === 0) {
                 try {

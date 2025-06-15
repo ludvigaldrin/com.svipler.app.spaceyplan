@@ -48,25 +48,10 @@ const measureRenderer = {
         deviceEl.setAttribute('data-homey-id', device.homeyId);
         deviceEl.setAttribute('data-capability', this.id);
 
-        // Enhanced measureCapabilities detection:
-        // First, check if device.measureCapabilities exists
-        if (!device.measureCapabilities) {
-            device.measureCapabilities = [];
-
-            // Check if device has measureTypes array (from API)
-            if (device.measureTypes && Array.isArray(device.measureTypes)) {
-                device.measureCapabilities = device.measureTypes;
-
-            }
-            // Otherwise, check if device has capabilities array (from Homey)
-            else if (device.capabilities && Array.isArray(device.capabilities)) {
-                // Filter to get only measure_temperature and measure_humidity
-                device.capabilities.forEach(cap => {
-                    if (cap === 'measure_temperature' || cap === 'measure_humidity') {
-                        device.measureCapabilities.push(cap);
-                    }
-                });
-            }
+        if (device.measureType && device.measureType === 'combined'){
+            device.measureCapabilities = device.measureTypes;
+        } else if (device.measureType){
+            device.measureCapabilities = [device.measureType];
         }
 
         deviceEl.setAttribute('data-device', JSON.stringify(device));

@@ -158,10 +158,10 @@ const ruleManager = {
                     <div id="selectedIconDisplay" class="selected-icon-container">
                         <h3>Selected Icon</h3>
                         <div class="selected-icon-box">
-                            ${device?.rules?.find(r => r.type === 'measureDisplay')?.config?.selectedIcon ? `
+                            ${existingRule?.config?.selectedIcon ? `
                                 <div class="selected-icon">
-                                    <span class="material-symbols-outlined">${device.rules.find(r => r.type === 'measureDisplay').config.selectedIcon}</span>
-                                    <span class="icon-name">${device.rules.find(r => r.type === 'measureDisplay').config.selectedIcon}</span>
+                                    <span class="material-symbols-outlined">${existingRule.config.selectedIcon}</span>
+                                    <span class="icon-name">${existingRule.config.selectedIcon}</span>
                                 </div>
                             ` : `
                                 <div class="no-icon-selected">

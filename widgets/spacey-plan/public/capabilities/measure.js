@@ -48,9 +48,9 @@ const measureRenderer = {
         deviceEl.setAttribute('data-homey-id', device.homeyId);
         deviceEl.setAttribute('data-capability', this.id);
 
-        if (device.measureType && device.measureType === 'combined'){
+        if (device.measureType && device.measureType === 'combined') {
             device.measureCapabilities = device.measureTypes;
-        } else if (device.measureType){
+        } else if (device.measureType) {
             device.measureCapabilities = [device.measureType];
         }
 
@@ -79,7 +79,7 @@ const measureRenderer = {
             img.style.userSelect = 'none';
             img.style.webkitUserSelect = 'none';
             img.style.webkitTouchCallout = 'none';
-            
+
             // Defensive check before appendChild
             if (iconWrapper && img) {
                 iconWrapper.appendChild(img);
@@ -109,7 +109,7 @@ const measureRenderer = {
 
         const value = device.measure !== undefined ? device.measure : 0;
         valueDisplay.textContent = `${Math.round(value)}`;
-        
+
         // Defensive check before appendChild  
         if (iconWrapper && valueDisplay) {
             iconWrapper.appendChild(valueDisplay);
@@ -267,6 +267,12 @@ const measureRenderer = {
                         if (response.temperature && response.temperature.value !== undefined) {
                             tempValue = response.temperature.value;
                             deviceEl.setAttribute('data-temperature', tempValue);
+
+                            // Update the value display circle
+                            const valueDisplay = deviceEl.querySelector('.value-display');
+                            if (valueDisplay) {
+                                valueDisplay.textContent = `${Math.round(tempValue)}`;
+                            }
                         }
 
                         if (response.humidity && response.humidity.value !== undefined) {
@@ -286,6 +292,15 @@ const measureRenderer = {
                         if (response && response.value !== undefined) {
                             tempValue = response.value;
                             deviceEl.setAttribute('data-temperature', tempValue);
+
+                            // Update the value display circle
+                            const valueDisplay = deviceEl.querySelector('.value-display');
+                            if (valueDisplay) {
+                                valueDisplay.textContent = `${Math.round(tempValue)}`;
+                            }
+                            if (valueDisplay) {
+                                valueDisplay.textContent = `${Math.round(tempValue)}`;
+                            }
                         }
 
                         // Subscribe to temperature updates
@@ -342,9 +357,17 @@ const measureRenderer = {
         try {
             if (!deviceEl) return;
 
+            // Debug log for all updates
+
             // Check if this is a direct capability update or data from the 'measure' capability
             if (capability === 'measure_temperature') {
                 deviceEl.setAttribute('data-temperature', value);
+
+                // Update the value display circle
+                const valueDisplay = deviceEl.querySelector('.value-display');
+                if (valueDisplay) {
+                    valueDisplay.textContent = `${Math.round(value)}`;
+                }
 
                 // Update modal if it exists
                 const deviceId = deviceEl.getAttribute('data-device-id');
@@ -374,6 +397,12 @@ const measureRenderer = {
                     if (value.temperature && value.temperature.value !== undefined) {
                         deviceEl.setAttribute('data-temperature', value.temperature.value);
 
+                        // Update the value display circle
+                        const valueDisplay = deviceEl.querySelector('.value-display');
+                        if (valueDisplay) {
+                            valueDisplay.textContent = `${Math.round(value.temperature.value)}`;
+                        }
+
                         // Update modal if it exists
                         const deviceId = deviceEl.getAttribute('data-device-id');
                         const modal = document.querySelector(`.device-modal[data-device-id="${deviceId}"]`);
@@ -402,6 +431,12 @@ const measureRenderer = {
                     // For individual values with measureType property
                     if (value.measureType === 'measure_temperature' && value.value !== undefined) {
                         deviceEl.setAttribute('data-temperature', value.value);
+
+                        // Update the value display circle
+                        const valueDisplay = deviceEl.querySelector('.value-display');
+                        if (valueDisplay) {
+                            valueDisplay.textContent = `${Math.round(value.value)}`;
+                        }
 
                         // Update modal if it exists
                         const deviceId = deviceEl.getAttribute('data-device-id');
@@ -505,7 +540,7 @@ const measureRenderer = {
                     iconSpan.textContent = allIconRule.config.selectedIcon;
                     if (iconWrapper && iconSpan) {
                         iconWrapper.appendChild(iconSpan);
-                        
+
                         // Attach events to the newly created default icon
                         this.attachIconEvents(iconSpan, deviceEl);
                     }
@@ -923,7 +958,7 @@ const measureRenderer = {
 
     attachIconEvents(icon, deviceEl) {
         if (!icon) return;
-        
+
         // Touch/Mouse event variables
         let touchStartTime = 0;
         let touchMoved = false;
@@ -931,7 +966,7 @@ const measureRenderer = {
         let touchStartY = 0;
         let longPressTimer = null;
         const TOUCH_TOLERANCE = 10;
-        
+
         let mouseDownTime = 0;
         let mouseMoved = false;
         let mouseDownX = 0;
@@ -1093,18 +1128,18 @@ const measureRenderer = {
         icon.addEventListener('touchend', handleTouchEnd, { passive: false });
         icon.addEventListener('click', handleClick, { passive: false });
         icon.addEventListener('contextmenu', (e) => e.preventDefault());
-        
+
         icon.addEventListener('mousedown', handleMouseDown, { passive: false });
         icon.addEventListener('mousemove', handleMouseMove, { passive: false });
         icon.addEventListener('mouseup', handleMouseUp, { passive: false });
-        
+
         // Make sure icons are clickable
         icon.style.pointerEvents = 'auto';
         icon.style.cursor = 'pointer';
         icon.style.userSelect = 'none';
         icon.style.webkitUserSelect = 'none';
         icon.style.webkitTouchCallout = 'none';
-        
+
         // For img elements, prevent drag behavior that might interfere
         if (icon.tagName.toLowerCase() === 'img') {
             icon.draggable = false;

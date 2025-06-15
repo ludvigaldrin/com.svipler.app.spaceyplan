@@ -52,5 +52,8 @@
   },
   "0.1.6": {
     "en": "Bugfixes"
+  },
+  "0.1.7": {
+    "en": "Fixed temperature display, fixed Select Icon in Settings, Fixed a debounce on pressing "
   }
 }

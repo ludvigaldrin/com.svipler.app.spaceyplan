@@ -206,10 +206,22 @@
     pointer-events: none;
 }
 
+.floor-plan-device .measure-marker-icon {
+    font-family: 'Material Symbols Outlined';
+    font-size: 16px;
+    color: #333;
+    pointer-events: none;
+    line-height: 1;
+}
+
 .floor-plan-device.dragging {
     transform: translate(-50%, -50%) scale(1.1);
     z-index: 1000;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    /* No transition while actively dragging: the 0.2s "all" transition above
+       otherwise animates every transform update, so the icon visibly lags
+       behind the cursor/finger instead of following it instantly. */
+    transition: none !important;
 }
 
 .floor-device-wrapper {

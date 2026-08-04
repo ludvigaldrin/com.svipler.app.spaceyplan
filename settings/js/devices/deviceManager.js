@@ -1,7 +1,7 @@
 const deviceManager = {
     Homey: null,
     currentFloorId: null,
-    supportedCapabilities: ['onoff', 'dim', 'alarm_motion', 'alarm_contact', 'measure_temperature', 'measure_humidity'],
+    supportedCapabilities: ['onoff', 'dim', 'alarm_motion', 'alarm_contact', 'alarm_smoke', 'alarm_co', 'alarm_water', 'alarm_heat', 'alarm_tamper', 'alarm_presence', 'alarm_intrusion', 'alarm_generic', 'measure_temperature', 'measure_humidity', 'locked', 'windowcoverings_set', 'speaker_playing'],
     devices: [], // Cache for devices
 
     async initialize() {
@@ -104,9 +104,13 @@ const deviceManager = {
         const html = sortedDevices.map(device => {
             const deviceCapabilities = device.capabilities || [];
             
-            // Filter supported capabilities with special handling for dim/onoff
+            // Filter supported capabilities with special handling for dim/onoff.
+            // Any measure_* or alarm_* capability is supported generically, in
+            // addition to the fixed whitelist (onoff, dim, locks, covers, etc.)
             let supported = deviceCapabilities.filter(cap =>
-                this.supportedCapabilities.includes(cap)
+                this.supportedCapabilities.includes(cap) ||
+                cap.indexOf('measure_') === 0 ||
+                cap.indexOf('alarm_') === 0
             );
             
             // If device has both 'dim' and 'onoff', hide the 'onoff' capability
@@ -132,8 +136,10 @@ const deviceManager = {
             }
             
             // Get unsupported capabilities
-            const unsupported = deviceCapabilities.filter(cap => 
-                !this.supportedCapabilities.includes(cap)
+            const unsupported = deviceCapabilities.filter(cap =>
+                !this.supportedCapabilities.includes(cap) &&
+                cap.indexOf('measure_') !== 0 &&
+                cap.indexOf('alarm_') !== 0
             );
 
             // Skip devices with no capabilities at all
@@ -265,19 +271,72 @@ const deviceManager = {
             'onoff': 'On/Off',
             'alarm_contact': 'Sensor (Contact)',
             'alarm_motion': 'Sensor (Motion)',
+            'alarm_smoke': 'Sensor (Smoke)',
+            'alarm_co': 'Sensor (CO)',
+            'alarm_water': 'Sensor (Water)',
+            'alarm_heat': 'Sensor (Heat)',
+            'alarm_tamper': 'Sensor (Tamper)',
+            'alarm_presence': 'Sensor (Presence)',
+            'alarm_intrusion': 'Sensor (Intrusion)',
+            'alarm_generic': 'Sensor (Generic Alarm)',
             'measure_temperature': 'Temperature',
             'measure_humidity': 'Humidity',
-            'measure_combined': 'Temperature & Humidity'
+            'measure_combined': 'Temperature & Humidity',
+            'locked': 'Lock (Locked/Unlocked)',
+            'windowcoverings_set': 'Cover (Position)',
+            'speaker_playing': 'Speaker (Play/Volume)'
         };
-        return displayNames[capabilityId] || capabilityId;
+        if (displayNames[capabilityId]) {
+            return displayNames[capabilityId];
+        }
+
+        // Generic fallback for any other measure_* capability Homey exposes
+        // (power, luminance, co2, pressure, wind, rain, pm25, ...) so new
+        // sensor types work without needing an explicit entry above.
+        if (capabilityId.indexOf('measure_') === 0) {
+            return this.humanizeMeasureType(capabilityId);
+        }
+
+        // Same idea for alarm_* types not in the fixed list above (e.g. a
+        // mold alarm from a community driver: "alarm_mold" -> "Sensor (Mold)")
+        if (capabilityId.indexOf('alarm_') === 0) {
+            const words = capabilityId.replace('alarm_', '').split('_');
+            const humanized = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            return `Sensor (${humanized})`;
+        }
+
+        return capabilityId;
+    },
+
+    // Turns e.g. "measure_co2" into "CO2", "measure_wind_strength" into
+    // "Wind Strength". A small override list covers common abbreviations
+    // that a naive capitalize-each-word pass would get wrong.
+    humanizeMeasureType(capabilityId) {
+        const overrides = {
+            'measure_co2': 'CO2',
+            'measure_co': 'CO',
+            'measure_pm25': 'PM2.5',
+            'measure_uv': 'UV Index',
+            'measure_voc': 'VOC',
+            'measure_ph': 'pH',
+            'measure_rain': 'Rain'
+        };
+        if (overrides[capabilityId]) {
+            return overrides[capabilityId];
+        }
+
+        const words = capabilityId.replace('measure_', '').split('_');
+        return words
+            .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(' ');
     },
 
     isDeviceCapabilityAdded(deviceId, capability) {
         const floor = floorManager.floors.find(f => f.id === this.currentFloorId);
         if (!floor || !floor.devices) return false;
 
-        // For alarm_motion and alarm_contact, check sensor-specific IDs
-        if (capability === 'alarm_motion' || capability === 'alarm_contact') {
+        // For any alarm capability, check sensor-specific IDs
+        if (capability.indexOf('alarm_') === 0) {
             return floor.devices.some(d => d.id === `${deviceId}-sensor-${capability}`);
         }
 
@@ -287,6 +346,11 @@ const deviceManager = {
                 d.id === `${deviceId}-measure-${capability}` || 
                 d.id === `${deviceId}-measure-combined`
             );
+        }
+
+        // For any other measure_* capability, check the generic measure ID
+        if (capability.indexOf('measure_') === 0) {
+            return floor.devices.some(d => d.id === `${deviceId}-measure-${capability}`);
         }
         
         // For combined temperature & humidity
@@ -310,6 +374,21 @@ const deviceManager = {
             return floor.devices.some(d => d.id === `${deviceId}-dim`);
         }
 
+        // For locks
+        if (capability === 'locked') {
+            return floor.devices.some(d => d.id === `${deviceId}-lock`);
+        }
+
+        // For window coverings
+        if (capability === 'windowcoverings_set') {
+            return floor.devices.some(d => d.id === `${deviceId}-cover`);
+        }
+
+        // For speakers
+        if (capability === 'speaker_playing') {
+            return floor.devices.some(d => d.id === `${deviceId}-speaker`);
+        }
+
         // For other capabilities
         return floor.devices.some(d => d.id === deviceId);
     },
@@ -328,15 +407,24 @@ const deviceManager = {
             deviceId = `${device.id}-dim`;
         } else if (capability === 'onoff') {
             deviceId = `${device.id}-onoff`;
-        } else if (capability === 'alarm_motion' || capability === 'alarm_contact') {
+        } else if (capability.indexOf('alarm_') === 0) {
             deviceId = `${device.id}-sensor-${capability}`;
             deviceCapability = 'sensor';
-        } else if (capability === 'measure_temperature' || capability === 'measure_humidity') {
-            deviceId = `${device.id}-measure-${capability}`;
-            deviceCapability = 'measure';
         } else if (capability === 'measure_combined') {
             deviceId = `${device.id}-measure-combined`;
             deviceCapability = 'measure';
+        } else if (capability.indexOf('measure_') === 0) {
+            deviceId = `${device.id}-measure-${capability}`;
+            deviceCapability = 'measure';
+        } else if (capability === 'locked') {
+            deviceId = `${device.id}-lock`;
+            deviceCapability = 'lock';
+        } else if (capability === 'windowcoverings_set') {
+            deviceId = `${device.id}-cover`;
+            deviceCapability = 'windowcovering';
+        } else if (capability === 'speaker_playing') {
+            deviceId = `${device.id}-speaker`;
+            deviceCapability = 'speaker';
         } else {
             deviceId = device.id;
         }
@@ -353,14 +441,14 @@ const deviceManager = {
         };
 
         // Add special type info for sensors and measures
-        if (capability === 'alarm_motion' || capability === 'alarm_contact') {
+        if (capability.indexOf('alarm_') === 0) {
             newDevice.sensorType = capability;
-        } else if (capability === 'measure_temperature' || capability === 'measure_humidity') {
-            newDevice.measureType = capability;
         } else if (capability === 'measure_combined') {
             // For combined capability, mark it as combined and store both types
             newDevice.measureType = 'combined';
             newDevice.measureTypes = ['measure_temperature', 'measure_humidity'];
+        } else if (capability.indexOf('measure_') === 0) {
+            newDevice.measureType = capability;
         }
 
         // Process icon if available
@@ -424,8 +512,74 @@ const deviceManager = {
             });
         }
 
-        // Add default color rule for alarm_contact and alarm_motion capabilities
-        if (capability === 'alarm_contact' || capability === 'alarm_motion') {
+        // Add default color rule for locks: green = locked, red = unlocked
+        if (capability === 'locked') {
+            newDevice.rules.push({
+                id: generateUUID(),
+                name: 'On/Off - Color Switcher',
+                type: 'onOffColor',
+                config: {
+                    // Locked state settings
+                    showIconOn: true,
+                    iconColorOn: '#ffffff',
+                    showCloudOn: true,
+                    cloudColorOn: '#2ecc71',
+
+                    // Unlocked state settings
+                    showIconOff: true,
+                    iconColorOff: '#ffffff',
+                    showCloudOff: true,
+                    cloudColorOff: '#e74c3c'
+                }
+            });
+        }
+
+        // Add default color rule for window coverings: blue = open, grey = closed
+        if (capability === 'windowcoverings_set') {
+            newDevice.rules.push({
+                id: generateUUID(),
+                name: 'On/Off - Color Switcher',
+                type: 'onOffColor',
+                config: {
+                    // Open state settings (position > 0)
+                    showIconOn: true,
+                    iconColorOn: '#ffffff',
+                    showCloudOn: true,
+                    cloudColorOn: '#3498db',
+
+                    // Closed state settings (position === 0)
+                    showIconOff: true,
+                    iconColorOff: '#333332',
+                    showCloudOff: true,
+                    cloudColorOff: '#dcdcdc'
+                }
+            });
+        }
+
+        // Add default color rule for speakers: purple = playing, neutral = paused
+        if (capability === 'speaker_playing') {
+            newDevice.rules.push({
+                id: generateUUID(),
+                name: 'On/Off - Color Switcher',
+                type: 'onOffColor',
+                config: {
+                    // Playing state settings
+                    showIconOn: true,
+                    iconColorOn: '#ffffff',
+                    showCloudOn: true,
+                    cloudColorOn: '#8e44ad',
+
+                    // Paused state settings
+                    showIconOff: true,
+                    iconColorOff: '#333332',
+                    showCloudOff: false,
+                    cloudColorOff: '#ffffff'
+                }
+            });
+        }
+
+        // Add default color rule for all alarm capabilities
+        if (capability.indexOf('alarm_') === 0) {
             newDevice.rules.push({
                 id: generateUUID(),
                 name: 'Alarm - Color Switcher',
@@ -482,6 +636,21 @@ const deviceManager = {
                 name: 'All - Color Select',
                 type: 'allColor',
                 config: colorRuleConfig
+            });
+        } else if (capability.indexOf('measure_') === 0) {
+            // Generic measure type: only one value to show, so no
+            // measureDisplay toggle needed — just the same subtle default
+            // icon styling used for temperature/humidity devices.
+            newDevice.rules.push({
+                id: generateUUID(),
+                name: 'All - Color Select',
+                type: 'allColor',
+                config: {
+                    showIcon: true,
+                    iconColor: '#333332',
+                    showCloud: false,
+                    cloudColor: '#FFFFFF'
+                }
             });
         }
 

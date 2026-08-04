@@ -31,6 +31,10 @@
       "method": "GET",
       "path": "/floors/:floorId/devices"
     },
+    "getFloorProblems": {
+      "method": "GET",
+      "path": "/floors/:floorId/problems"
+    },
     "getSelectedFloors": {
       "method": "GET",
       "path": "/selectedFloors"

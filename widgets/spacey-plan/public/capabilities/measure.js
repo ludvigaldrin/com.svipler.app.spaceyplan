@@ -65,54 +65,59 @@ const measureRenderer = {
         iconWrapper.className = 'icon-wrapper';
 
         // Add icon if available
-        if (device.iconObj) {
-            const img = document.createElement('img');
-            // Use base64 data if available, otherwise fall back to URL
-            if (device.iconObj.base64) {
-                img.src = device.iconObj.base64;
-            } else if (device.iconObj.url) {
-                img.src = device.iconObj.url;
-            }
-            img.className = 'device-icon';
-            img.style.pointerEvents = 'auto';
-            img.style.cursor = 'pointer';
-            img.style.userSelect = 'none';
-            img.style.webkitUserSelect = 'none';
-            img.style.webkitTouchCallout = 'none';
-
-            // Defensive check before appendChild
-            if (iconWrapper && img) {
-                iconWrapper.appendChild(img);
-            }
+        // Use a clear, type-specific icon (thermometer, bolt, humidity drop, ...)
+        // instead of the device's own photo icon. A generic device photo
+        // doesn't communicate what quantity is being measured; the icon does.
+        const measureIconType = device.measureType === 'combined' ? 'combined' : device.measureType;
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'material-symbols-outlined';
+        iconSpan.textContent = this.getMeasureIcon(measureIconType);
+        iconSpan.style.pointerEvents = 'auto';
+        iconSpan.style.cursor = 'pointer';
+        iconSpan.style.userSelect = 'none';
+        iconSpan.style.webkitUserSelect = 'none';
+        iconSpan.style.webkitTouchCallout = 'none';
+        if (iconWrapper && iconSpan) {
+            iconWrapper.appendChild(iconSpan);
         }
 
-        // Add value display with circle background
-        const valueDisplay = document.createElement('div');
-        valueDisplay.className = 'value-display';
-        valueDisplay.style.cssText = `
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            background: white;
-            border: 2px solid #333;
-            border-radius: 50%;
-            width: 18px;
-            height: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 8px;
-            font-weight: bold;
-            color: #333;
-            z-index: 302;
-        `;
+        // Always-visible value label below the icon, so the reading is
+        // visible without tapping — no more guessing what a bare number means.
+        const valueLabel = document.createElement('div');
+        valueLabel.className = 'measure-value-label';
+        const initialValue = device.measure !== undefined ? device.measure : undefined;
+        valueLabel.textContent = this.formatMeasureLabel(initialValue, measureIconType, device.measureUnit);
+        if (deviceEl && valueLabel) {
+            deviceEl.appendChild(valueLabel);
+        }
 
-        const value = device.measure !== undefined ? device.measure : 0;
-        valueDisplay.textContent = `${Math.round(value)}`;
-
-        // Defensive check before appendChild  
-        if (iconWrapper && valueDisplay) {
-            iconWrapper.appendChild(valueDisplay);
+        if (!document.getElementById('measureValueLabelStyles')) {
+            const labelStyles = document.createElement('style');
+            labelStyles.id = 'measureValueLabelStyles';
+            labelStyles.textContent = `
+                .measure-device .icon-wrapper .material-symbols-outlined {
+                    font-size: 22px;
+                }
+                .measure-value-label {
+                    position: absolute;
+                    top: 30px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: rgba(255, 255, 255, 0.92);
+                    color: #1C1C1E;
+                    font-size: 10px;
+                    font-weight: 700;
+                    padding: 2px 6px;
+                    border-radius: 8px;
+                    white-space: nowrap;
+                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+                    pointer-events: none;
+                    z-index: 301;
+                }
+            `;
+            if (document.head && labelStyles) {
+                document.head.appendChild(labelStyles);
+            }
         }
 
         // Defensive check before appendChild
@@ -204,6 +209,16 @@ const measureRenderer = {
             // Get the device data
             const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
 
+            // Any measure_* type other than temperature/humidity/combined takes
+            // a simple generic path: fetch its value+unit and display it,
+            // without the temperature/humidity-specific dual-value handling below.
+            if (deviceData.measureType &&
+                deviceData.measureType !== 'combined' &&
+                deviceData.measureType !== 'measure_temperature' &&
+                deviceData.measureType !== 'measure_humidity') {
+                return await this.initializeGenericMeasureState(deviceEl, deviceId, widgetId, deviceData.measureType);
+            }
+
             // Initialize measureCapabilities from various sources
             let measureCapabilities = [];
 
@@ -268,10 +283,10 @@ const measureRenderer = {
                             tempValue = response.temperature.value;
                             deviceEl.setAttribute('data-temperature', tempValue);
 
-                            // Update the value display circle
-                            const valueDisplay = deviceEl.querySelector('.value-display');
+                            // Update the always-visible value label
+                            const valueDisplay = deviceEl.querySelector('.measure-value-label');
                             if (valueDisplay) {
-                                valueDisplay.textContent = `${Math.round(tempValue)}`;
+                                valueDisplay.textContent = this.formatMeasureLabel(tempValue, 'combined');
                             }
                         }
 
@@ -293,13 +308,10 @@ const measureRenderer = {
                             tempValue = response.value;
                             deviceEl.setAttribute('data-temperature', tempValue);
 
-                            // Update the value display circle
-                            const valueDisplay = deviceEl.querySelector('.value-display');
+                            // Update the always-visible value label
+                            const valueDisplay = deviceEl.querySelector('.measure-value-label');
                             if (valueDisplay) {
-                                valueDisplay.textContent = `${Math.round(tempValue)}`;
-                            }
-                            if (valueDisplay) {
-                                valueDisplay.textContent = `${Math.round(tempValue)}`;
+                                valueDisplay.textContent = this.formatMeasureLabel(tempValue, 'measure_temperature');
                             }
                         }
 
@@ -314,6 +326,15 @@ const measureRenderer = {
                         if (response && response.value !== undefined) {
                             humidityValue = response.value;
                             deviceEl.setAttribute('data-humidity', humidityValue);
+
+                            // Only drive the label from humidity when there's no
+                            // temperature reading also being shown for this device.
+                            if (!hasTemperature) {
+                                const valueDisplay = deviceEl.querySelector('.measure-value-label');
+                                if (valueDisplay) {
+                                    valueDisplay.textContent = this.formatMeasureLabel(humidityValue, 'measure_humidity');
+                                }
+                            }
                         }
 
                         // Subscribe to humidity updates
@@ -337,6 +358,106 @@ const measureRenderer = {
         }
     },
 
+    // Generic path for any measure_* type that isn't temperature/humidity/combined.
+    async initializeGenericMeasureState(deviceEl, deviceId, widgetId, measureType) {
+        try {
+            const measureDeviceId = `${deviceId}-measure-${measureType}`;
+            const response = await Homey.api('GET', `/devices/${measureDeviceId}/capabilities/measure`);
+
+            if (response && response.value !== undefined && response.value !== null) {
+                deviceEl.setAttribute('data-value', response.value);
+                deviceEl.setAttribute('data-unit', response.unit || '');
+
+                const valueDisplay = deviceEl.querySelector('.measure-value-label');
+                if (valueDisplay) {
+                    valueDisplay.textContent = this.formatMeasureLabel(response.value, measureType, response.unit);
+                    valueDisplay.title = `${response.value}${response.unit || ''}`;
+                }
+
+                const deviceData = JSON.parse(deviceEl.getAttribute('data-device'));
+                deviceData.measure = response.value;
+                deviceEl.setAttribute('data-device', JSON.stringify(deviceData));
+            }
+
+            await Homey.api('POST', `/subscribeToDevices`, {
+                widgetId: widgetId,
+                devices: [{ deviceId: measureDeviceId, capability: 'measure' }]
+            });
+        } catch (error) {
+            Homey.api('POST', '/error', { message: `Error in generic measure initializeState: ${JSON.stringify(error)}` });
+        }
+    },
+
+    // Icon/label lookup for generic measure types, used by the modal and the
+    // "add device" list. A small override table for common Homey sensor
+    // types, falling back to a generic icon and a humanized label.
+    GENERIC_MEASURE_META: {
+        'measure_temperature': { icon: 'device_thermostat', label: 'Temperature' },
+        'measure_humidity': { icon: 'humidity_percentage', label: 'Humidity' },
+        'combined': { icon: 'device_thermostat', label: 'Temperature & Humidity' },
+        'measure_power': { icon: 'bolt', label: 'Power' },
+        'measure_luminance': { icon: 'light_mode', label: 'Luminance' },
+        'measure_co2': { icon: 'co2', label: 'CO2' },
+        'measure_co': { icon: 'co2', label: 'CO' },
+        'measure_pressure': { icon: 'speed', label: 'Pressure' },
+        'measure_wind_strength': { icon: 'air', label: 'Wind Strength' },
+        'measure_rain': { icon: 'rainy', label: 'Rain' },
+        'measure_pm25': { icon: 'masks', label: 'PM2.5' },
+        'measure_uv': { icon: 'wb_sunny', label: 'UV Index' },
+        'measure_battery': { icon: 'battery_full', label: 'Battery' },
+        'measure_noise': { icon: 'volume_up', label: 'Noise' },
+        'measure_water': { icon: 'water_drop', label: 'Water' },
+        'measure_gust_strength': { icon: 'air', label: 'Gust Strength' }
+    },
+
+    getMeasureIcon(measureType) {
+        return this.GENERIC_MEASURE_META[measureType]?.icon || 'sensors';
+    },
+
+    getMeasureLabel(measureType) {
+        if (this.GENERIC_MEASURE_META[measureType]) {
+            return this.GENERIC_MEASURE_META[measureType].label;
+        }
+        const words = (measureType || '').replace('measure_', '').split('_');
+        return words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    },
+
+    // Formats the always-visible label shown below the icon on the floor
+    // plan, e.g. "26.1°C", "56%", "1024W". Falls back to "…" while a value
+    // hasn't loaded yet.
+    formatMeasureLabel(value, measureType, unit) {
+        if (value === undefined || value === null || value === '') {
+            return '…';
+        }
+        const num = parseFloat(value);
+        if (Number.isNaN(num)) {
+            return '…';
+        }
+
+        if (measureType === 'measure_temperature' || measureType === 'combined') {
+            return `${num.toFixed(1)}°C`;
+        }
+        if (measureType === 'measure_humidity') {
+            return `${Math.round(num)}%`;
+        }
+
+        const resolvedUnit = unit !== undefined ? unit : '';
+        // Whole-number units (W, ppm, lux, ...) read cleaner rounded;
+        // fractional-prone ones (pressure, PM2.5, wind) keep one decimal.
+        const oneDecimalTypes = ['measure_pressure', 'measure_pm25', 'measure_wind_strength', 'measure_gust_strength', 'measure_rain'];
+        const formatted = oneDecimalTypes.includes(measureType) ? num.toFixed(1) : Math.round(num);
+        return `${formatted}${resolvedUnit}`;
+    },
+
+    // Backward-compatible aliases used elsewhere in this file
+    getGenericMeasureIcon(measureType) {
+        return this.getMeasureIcon(measureType);
+    },
+
+    getGenericMeasureLabel(measureType) {
+        return this.getMeasureLabel(measureType);
+    },
+
     initializeInteractions(deviceEl) {
         if (!deviceEl || !deviceEl.addEventListener) {
             return;
@@ -357,16 +478,17 @@ const measureRenderer = {
         try {
             if (!deviceEl) return;
 
-            // Debug log for all updates
+            const deviceDataForType = JSON.parse(deviceEl.getAttribute('data-device') || '{}');
+            const isCombinedDevice = deviceDataForType.measureType === 'combined';
 
             // Check if this is a direct capability update or data from the 'measure' capability
             if (capability === 'measure_temperature') {
                 deviceEl.setAttribute('data-temperature', value);
 
-                // Update the value display circle
-                const valueDisplay = deviceEl.querySelector('.value-display');
+                // Update the always-visible value label
+                const valueDisplay = deviceEl.querySelector('.measure-value-label');
                 if (valueDisplay) {
-                    valueDisplay.textContent = `${Math.round(value)}`;
+                    valueDisplay.textContent = this.formatMeasureLabel(value, 'measure_temperature');
                 }
 
                 // Update modal if it exists
@@ -380,6 +502,15 @@ const measureRenderer = {
                 }
             } else if (capability === 'measure_humidity') {
                 deviceEl.setAttribute('data-humidity', value);
+
+                // Only drive the label from humidity when this isn't a
+                // combined device (where temperature stays the primary label).
+                if (!isCombinedDevice) {
+                    const valueDisplay = deviceEl.querySelector('.measure-value-label');
+                    if (valueDisplay) {
+                        valueDisplay.textContent = this.formatMeasureLabel(value, 'measure_humidity');
+                    }
+                }
 
                 // Update modal if it exists
                 const deviceId = deviceEl.getAttribute('data-device-id');
@@ -397,10 +528,10 @@ const measureRenderer = {
                     if (value.temperature && value.temperature.value !== undefined) {
                         deviceEl.setAttribute('data-temperature', value.temperature.value);
 
-                        // Update the value display circle
-                        const valueDisplay = deviceEl.querySelector('.value-display');
+                        // Update the always-visible value label
+                        const valueDisplay = deviceEl.querySelector('.measure-value-label');
                         if (valueDisplay) {
-                            valueDisplay.textContent = `${Math.round(value.temperature.value)}`;
+                            valueDisplay.textContent = this.formatMeasureLabel(value.temperature.value, 'combined');
                         }
 
                         // Update modal if it exists
@@ -432,10 +563,10 @@ const measureRenderer = {
                     if (value.measureType === 'measure_temperature' && value.value !== undefined) {
                         deviceEl.setAttribute('data-temperature', value.value);
 
-                        // Update the value display circle
-                        const valueDisplay = deviceEl.querySelector('.value-display');
+                        // Update the always-visible value label
+                        const valueDisplay = deviceEl.querySelector('.measure-value-label');
                         if (valueDisplay) {
-                            valueDisplay.textContent = `${Math.round(value.value)}`;
+                            valueDisplay.textContent = this.formatMeasureLabel(value.value, 'measure_temperature');
                         }
 
                         // Update modal if it exists
@@ -450,6 +581,11 @@ const measureRenderer = {
                     } else if (value.measureType === 'measure_humidity' && value.value !== undefined) {
                         deviceEl.setAttribute('data-humidity', value.value);
 
+                        const valueDisplay = deviceEl.querySelector('.measure-value-label');
+                        if (valueDisplay) {
+                            valueDisplay.textContent = this.formatMeasureLabel(value.value, 'measure_humidity');
+                        }
+
                         // Update modal if it exists
                         const deviceId = deviceEl.getAttribute('data-device-id');
                         const modal = document.querySelector(`.device-modal[data-device-id="${deviceId}"]`);
@@ -457,6 +593,25 @@ const measureRenderer = {
                             const humidityValue = modal.querySelector('.humidity-value');
                             if (humidityValue) {
                                 humidityValue.textContent = `${parseFloat(value.value).toFixed(0)}%`;
+                            }
+                        }
+                    } else if (value.measureType && value.value !== undefined) {
+                        // Generic single-value measure type (power, luminance, co2, ...)
+                        deviceEl.setAttribute('data-value', value.value);
+                        deviceEl.setAttribute('data-unit', value.unit || '');
+
+                        const valueDisplay = deviceEl.querySelector('.measure-value-label');
+                        if (valueDisplay) {
+                            valueDisplay.textContent = this.formatMeasureLabel(value.value, value.measureType, value.unit);
+                            valueDisplay.title = `${value.value}${value.unit || ''}`;
+                        }
+
+                        const deviceId = deviceEl.getAttribute('data-device-id');
+                        const modal = document.querySelector(`.device-modal[data-device-id="${deviceId}"]`);
+                        if (modal) {
+                            const genericValueEl = modal.querySelector('.generic-value');
+                            if (genericValueEl) {
+                                genericValueEl.textContent = `${parseFloat(value.value).toFixed(1)}${value.unit || ''}`;
                             }
                         }
                     }
@@ -718,6 +873,23 @@ const measureRenderer = {
                     </div>
                 </div>
             </div>`;
+        } else if (deviceData.measureType) {
+            // Generic single-value measure type (power, luminance, co2, ...)
+            const genericValue = deviceEl.getAttribute('data-value');
+            const genericUnit = deviceEl.getAttribute('data-unit') || '';
+            const genericIcon = this.getGenericMeasureIcon(deviceData.measureType);
+            const genericLabel = this.getGenericMeasureLabel(deviceData.measureType);
+
+            modalHTML += `
+            <div class="dim-views">
+                <div class="dim-view generic-view active">
+                    <div class="measure-display">
+                        <span class="material-symbols-outlined">${genericIcon}</span>
+                        <div class="generic-value">${genericValue !== null && genericValue !== '' ? `${parseFloat(genericValue).toFixed(1)}${genericUnit}` : 'N/A'}</div>
+                    </div>
+                    <div class="generic-label">${genericLabel}</div>
+                </div>
+            </div>`;
         }
 
         modal.innerHTML = modalHTML;
@@ -821,10 +993,17 @@ const measureRenderer = {
                     color: #0076ff;
                 }
 
-                .temperature-value, .humidity-value {
+                .temperature-value, .humidity-value, .generic-value {
                     font-size: 32px;
                     font-weight: bold;
                     color: #1C1C1E;
+                }
+
+                .generic-label {
+                    font-size: 13px;
+                    color: #8A8A8E;
+                    margin-top: 4px;
+                    text-align: center;
                 }
             `;
             document.head.appendChild(styles);

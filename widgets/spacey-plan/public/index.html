@@ -16,6 +16,20 @@
       </div>
 
       <div id="floorPlanContainer" class="floor-plan-container" style="display: none;">
+        <div id="roomStatus" class="room-status" style="display: none;">
+          <button type="button" id="roomStatusButton" class="room-status-button">
+            <span class="material-symbols-outlined">warning</span>
+            <span id="roomStatusCount"></span>
+          </button>
+          <div id="roomStatusMenu" class="room-status-menu"></div>
+        </div>
+        <div id="floorSwitcher" class="floor-switcher" style="display: none;">
+          <button type="button" id="floorSwitcherButton" class="floor-switcher-button">
+            <span id="floorSwitcherLabel"></span>
+            <span class="material-symbols-outlined">expand_more</span>
+          </button>
+          <div id="floorSwitcherMenu" class="floor-switcher-menu"></div>
+        </div>
         <div id="imageWrapper" class="image-wrapper">
           <img id="floorMapImage" class="floor-map" src="" alt="Floor Plan">
           <div id="floorPlanDevices"></div>
@@ -29,6 +43,9 @@
   <script type="text/javascript" src="capabilities/dim.js"></script>
   <script type="text/javascript" src="capabilities/sensor.js"></script>
   <script type="text/javascript" src="capabilities/measure.js"></script>
+  <script type="text/javascript" src="capabilities/lock.js"></script>
+  <script type="text/javascript" src="capabilities/windowcovering.js"></script>
+  <script type="text/javascript" src="capabilities/speaker.js"></script>
   <script type="text/javascript" src="CapabilityRendererManager.js"></script>
   <script type="text/javascript" src="script.js"></script>
 </body>

@@ -164,7 +164,14 @@ const sensorRenderer = {
     async initializeState(deviceEl, deviceId, widgetId) {
         try {
             const sensorType = deviceEl.getAttribute('data-sensor-type');
-            const response = await Homey.api('GET', `/devices/${deviceId}/capabilities/sensor`);
+
+            // Use the explicit -sensor-<type> id format so the backend knows
+            // exactly which alarm capability to read (devices can have several)
+            const stateDeviceId = (sensorType && sensorType.indexOf('alarm_') === 0)
+                ? `${deviceId}-sensor-${sensorType}`
+                : deviceId;
+
+            const response = await Homey.api('GET', `/devices/${stateDeviceId}/capabilities/sensor`);
 
             if (response !== undefined) {
                 const onoff = response;
@@ -470,8 +477,21 @@ const sensorRenderer = {
         const sensorType = deviceEl.getAttribute('data-sensor-type');
 
         // Determine label and icon based on sensor type
-        const sensorLabel = sensorType === 'alarm_contact' ? 'Contact' : 'Motion';
-        const sensorIcon = sensorType === 'alarm_contact' ? 'door_open' : 'motion_sensor_alert';
+        const sensorMeta = {
+            'alarm_contact': { label: 'Contact', icon: 'door_open' },
+            'alarm_motion': { label: 'Motion', icon: 'motion_sensor_alert' },
+            'alarm_smoke': { label: 'Smoke', icon: 'detector_smoke' },
+            'alarm_co': { label: 'CO', icon: 'detector_co' },
+            'alarm_water': { label: 'Water', icon: 'water_damage' },
+            'alarm_heat': { label: 'Heat', icon: 'mode_heat' },
+            'alarm_tamper': { label: 'Tamper', icon: 'warning' },
+            'alarm_presence': { label: 'Presence', icon: 'person' },
+            'alarm_intrusion': { label: 'Intrusion', icon: 'shield' },
+            'alarm_generic': { label: 'Alarm', icon: 'notifications_active' }
+        };
+        const meta = sensorMeta[sensorType] || { label: 'Sensor', icon: 'sensors' };
+        const sensorLabel = meta.label;
+        const sensorIcon = meta.icon;
 
         const overlay = document.createElement('div');
         overlay.className = 'device-modal-overlay';

@@ -1,0 +1,13 @@
+{
+  "id": "spaceyplan_speaker_button",
+  "title": { "en": "A Flow-button was pressed" },
+  "titleFormatted": { "en": "A Flow-button was pressed" },
+  "tokens": [
+    {
+      "name": "speaker",
+      "type": "string",
+      "title": { "en": "Device" },
+      "example": "Living Room"
+    }
+  ]
+}

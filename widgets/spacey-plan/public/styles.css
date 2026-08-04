@@ -190,6 +190,146 @@ body {
     align-items: center;
     justify-content: center;  /* Center vertically */
     padding: 0;
+    position: relative;
+}
+
+.floor-switcher {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 1000;
+}
+
+.floor-switcher-button {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border: none;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    max-width: 140px;
+}
+
+.floor-switcher-button #floorSwitcherLabel {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.floor-switcher-button .material-symbols-outlined {
+    font-size: 16px;
+}
+
+.floor-switcher-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 140px;
+    max-height: 220px;
+    overflow-y: auto;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+    flex-direction: column;
+}
+
+.floor-switcher-menu.open {
+    display: flex;
+}
+
+.floor-switcher-option {
+    padding: 9px 12px;
+    border: none;
+    background: none;
+    text-align: left;
+    font-size: 13px;
+    color: #333;
+    cursor: pointer;
+}
+
+.floor-switcher-option:hover {
+    background: #f0f0f0;
+}
+
+.floor-switcher-option.active {
+    font-weight: 700;
+    color: #8e44ad;
+}
+
+.room-status {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 1000;
+}
+
+.room-status-button {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border: none;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    background: #e74c3c;
+    color: #fff;
+}
+
+.room-status-button .material-symbols-outlined {
+    font-size: 16px;
+}
+
+.room-status-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 220px;
+    max-width: 280px;
+    max-height: 260px;
+    overflow-y: auto;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+    flex-direction: column;
+    padding: 6px 0;
+}
+
+.room-status-menu.open {
+    display: flex;
+}
+
+.room-status-group {
+    padding: 6px 12px;
+}
+
+.room-status-room-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.room-status-problem {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #555;
+    padding: 3px 0;
+}
+
+.room-status-problem .material-symbols-outlined {
+    font-size: 14px;
+    color: #e74c3c;
 }
 
 .image-wrapper {

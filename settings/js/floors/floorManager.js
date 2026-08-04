@@ -4,6 +4,49 @@ const floorManager = {
     currentFloorId: null,
     ruleManager: null,
 
+    // Mirrors the icon lookup in widgets/spacey-plan/public/capabilities/measure.js
+    // (kept in sync manually — settings and widget run in separate script
+    // contexts and can't share a module here) so the editor preview shows
+    // the same icon the dashboard will actually use for measure devices.
+    MEASURE_ICON_MAP: {
+        'measure_temperature': 'device_thermostat',
+        'measure_humidity': 'humidity_percentage',
+        'combined': 'device_thermostat',
+        'measure_power': 'bolt',
+        'measure_luminance': 'light_mode',
+        'measure_co2': 'co2',
+        'measure_co': 'co2',
+        'measure_pressure': 'speed',
+        'measure_wind_strength': 'air',
+        'measure_gust_strength': 'air',
+        'measure_rain': 'rainy',
+        'measure_pm25': 'masks',
+        'measure_uv': 'wb_sunny',
+        'measure_battery': 'battery_full',
+        'measure_noise': 'volume_up',
+        'measure_water': 'water_drop'
+    },
+
+    // Returns the HTML for a device's marker icon: the device's own photo
+    // icon for most capabilities, but the semantic type icon (thermometer,
+    // bolt, ...) for measure devices — matching what the dashboard widget
+    // shows, instead of a generic/default device photo that doesn't convey
+    // what's being measured.
+    getDeviceIconHTML(device, altText) {
+        if (device.capability === 'measure') {
+            const iconName = this.MEASURE_ICON_MAP[device.measureType] || 'sensors';
+            return `<span class="material-symbols-outlined measure-marker-icon">${iconName}</span>`;
+        }
+
+        let iconSrc = 'default-icon.png';
+        if (device.iconObj?.base64) {
+            iconSrc = device.iconObj.base64;
+        } else if (device.iconObj?.url) {
+            iconSrc = device.iconObj.url;
+        }
+        return `<img src="${iconSrc}" alt="${altText || device.name}">`;
+    },
+
     async initialize(Homey) {
         this.Homey = Homey;
         this.floors = [];
@@ -752,13 +795,9 @@ const floorManager = {
                 capabilityText = device.sensorType === 'alarm_motion' ? 'Motion' : 'Contact';
             }
 
-            // Get icon source - use base64 if available
-            let iconSrc = 'default-icon.png';
-            if (device.iconObj?.base64) {
-                iconSrc = device.iconObj.base64;
-            } else if (device.iconObj?.url) {
-                iconSrc = device.iconObj.url;
-            }
+            // Get icon source - use base64 if available, or the semantic
+            // type icon for measure devices
+            const iconHTML = this.getDeviceIconHTML(device);
 
             return `
                 <div class="floor-device-wrapper">
@@ -770,7 +809,7 @@ const floorManager = {
                         </button>
                         <div class="floor-device-info" data-device-id="${device.id}">
                             <div class="device-icon-small">
-                                <img src="${iconSrc}" alt="${device.name}">
+                                ${iconHTML}
                             </div>
                             <span style="cursor: pointer;">${device.name} (${capabilityText})</span>
                         </div>
@@ -952,17 +991,9 @@ const floorManager = {
             deviceEl.style.top = '0';
             deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
 
-            // Use base64 data if available, otherwise fall back to URL
-            let iconSrc = 'default-icon.png';
-            if (device.iconObj?.base64) {
-                iconSrc = device.iconObj.base64;
-            } else if (device.iconObj?.url) {
-                iconSrc = device.iconObj.url;
-            }
-
-            deviceEl.innerHTML = `
-                <img src="${iconSrc}" alt="${device.name}">
-            `;
+            // Use the semantic type icon for measure devices, the device's
+            // own photo icon otherwise (see getDeviceIconHTML)
+            deviceEl.innerHTML = this.getDeviceIconHTML(device);
 
             // Add drag handlers
             deviceEl.addEventListener('touchstart', this.handleDragStart.bind(this), { passive: false });
@@ -1279,17 +1310,9 @@ const floorManager = {
 
             deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
 
-            // Use base64 data if available, otherwise fall back to URL
-            let iconSrc = 'default-icon.png';
-            if (device.iconObj?.base64) {
-                iconSrc = device.iconObj.base64;
-            } else if (device.iconObj?.url) {
-                iconSrc = device.iconObj.url;
-            }
-
-            deviceEl.innerHTML = `
-                <img src="${iconSrc}" alt="${device.name}">
-            `;
+            // Use the semantic type icon for measure devices, the device's
+            // own photo icon otherwise (see getDeviceIconHTML)
+            deviceEl.innerHTML = this.getDeviceIconHTML(device);
 
             // Add drag handlers
             deviceEl.addEventListener('touchstart', this.handleDragStart.bind(this), { passive: false });
@@ -1354,12 +1377,20 @@ const floorManager = {
         this.dragStartTime = Date.now();
         this.isDragging = false;
 
+        // Cache the layout rects once, instead of calling getBoundingClientRect()
+        // on every mousemove/touchmove — repeated calls force a browser reflow
+        // on each event and make dragging feel sluggish, especially on tablets.
+        const wrapperEl = document.getElementById('imageWrapper');
+        const floorMapImageEl = document.getElementById('floorMapImage');
+        this.dragWrapperRect = wrapperEl ? wrapperEl.getBoundingClientRect() : null;
+        this.dragImageRect = floorMapImageEl ? floorMapImageEl.getBoundingClientRect() : null;
+
         // Add document-level event listeners
         if (!e.touches) {
             document.addEventListener('mousemove', this.boundHandleDragMove);
             document.addEventListener('mouseup', this.boundHandleDragEnd);
         } else {
-            document.addEventListener('touchmove', this.boundHandleDragMove, { passive: true });
+            document.addEventListener('touchmove', this.boundHandleDragMove, { passive: false });
             document.addEventListener('touchend', this.boundHandleDragEnd);
         }
     },
@@ -1398,7 +1429,7 @@ const floorManager = {
         }
 
         const wrapper = document.getElementById('imageWrapper');
-        const wrapperRect = wrapper.getBoundingClientRect();
+        const wrapperRect = this.dragWrapperRect || wrapper.getBoundingClientRect();
 
         // Get the floor map image
         const floorMapImage = document.getElementById('floorMapImage');
@@ -1407,8 +1438,8 @@ const floorManager = {
         const currentFloor = this.floors.find(f => f.id === this.currentFloorId);
         const imageAspectRatio = currentFloor?.imageAspectRatio || (floorMapImage.naturalWidth / floorMapImage.naturalHeight);
 
-        // Get the actual displayed dimensions of the image
-        const imageRect = floorMapImage.getBoundingClientRect();
+        // Get the actual displayed dimensions of the image (cached at drag start)
+        const imageRect = this.dragImageRect || floorMapImage.getBoundingClientRect();
 
         // Calculate new position relative to wrapper
         let x = event.clientX - wrapperRect.left - this.dragOffset.x;
@@ -1526,6 +1557,8 @@ const floorManager = {
         this.currentDragPosition = null;
         this.initialTouchPos = null;
         this.isDragging = false;
+        this.dragWrapperRect = null;
+        this.dragImageRect = null;
 
         // Remove event listeners using the bound handlers
         document.removeEventListener('mousemove', this.boundHandleDragMove);

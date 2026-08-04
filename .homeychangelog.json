@@ -55,5 +55,65 @@
   },
   "0.1.7": {
     "en": "Fixed temperature display, fixed Select Icon in Settings, Fixed a debounce on pressing "
+  },
+  "0.1.8": {
+    "en": "Added Lock support (locked/unlocked state, tap to lock, unlock with confirmation, low battery badge). Fixed a subscription cleanup bug."
+  },
+  "0.1.9": {
+    "en": "Added support for all alarm sensor types: smoke, CO, water, heat, tamper, presence, intrusion and generic alarms. Sensor state lookups are now type-explicit, fixing devices with multiple alarm capabilities."
+  },
+  "0.1.10": {
+    "en": "Fixed: locks now use the device's own selected icon and the same rendering pipeline as On/Off devices, so the icon stays clearly visible in both states. Added the 'On/Off - Color Switcher' rule to locks, so colors are now user-configurable like other devices (default: green = locked, red = unlocked)."
+  },
+  "0.1.11": {
+    "en": "Fixed sluggish device dragging on the floor plan: the drag position was animated by a CSS transition on every move instead of updating instantly, and layout was re-measured on every mousemove/touchmove. Dragging now follows the cursor/finger immediately."
+  },
+  "0.1.12": {
+    "en": "Fixed: dragging a device downward on iPhone could trigger the edit sheet's swipe-to-dismiss gesture. The touchmove listener was registered as passive, which silently disabled the code's attempt to block that native gesture during a drag."
+  },
+  "0.1.13": {
+    "en": "Added support for window coverings (blinds/shades): shows position on the floor plan, tap to fully open or close, long-press for a precise position slider (0-100%). Uses the same icon and Color Switcher rule system as other devices."
+  },
+  "0.1.14": {
+    "en": "Fixed: dragging the cover position slider on iPhone could trigger the edit sheet's swipe-to-dismiss gesture, same root cause as the earlier floor plan drag fix (a passive touch listener silently disabled preventDefault)."
+  },
+  "0.1.15": {
+    "en": "Improved long-press to open the cover position slider: press feedback is now instant instead of delayed by a CSS transition, movement tolerance while holding is more forgiving, and a brief scale animation confirms the long-press registered."
+  },
+  "0.1.16": {
+    "en": "Fixed the cover long-press sometimes not opening the position slider despite holding long enough: touchmove was still passive so iOS could occasionally hand the gesture to native scrolling mid-hold (touchcancel), leaving the long-press timer stuck. touchmove is now actively blocked and touchcancel is handled; the confirmation animation no longer adds an extra delay before the slider opens."
+  },
+  "0.1.17": {
+    "en": "Added support for any measure_* sensor value (power, luminance, CO2, pressure, PM2.5, UV, noise, battery, etc.), not just temperature and humidity. Values and units are shown on the floor plan and in the device detail view; units are taken from Homey where available."
+  },
+  "0.1.18": {
+    "en": "Sensor readings (temperature, humidity, power, CO2, ...) now show a clear type icon plus the value directly on the floor plan, instead of a small unlabeled number badge. Also: any alarm_* capability (e.g. a mold alarm) can now be added, not just the fixed list of common alarm types."
+  },
+  "0.1.19": {
+    "en": "Fixed: the dashboard settings button (to switch floors) could fail to appear entirely on floors without a temperature/humidity/etc. sensor device, since it was only ever created as a side effect of that device type's code. It now always appears after a floor renders. Also made it bigger and touch-friendly (was a tiny 15px target relying on a hover effect that doesn't work on tablets). Additionally, the floor editor now shows the same type icon (thermometer, bolt, wind, ...) for sensor devices as the dashboard, instead of a generic device photo."
+  },
+  "0.1.20": {
+    "en": "Reverted the 0.1.19 changes to the floor plan's internal settings/floor-switcher button (size, styling, forced re-add) — that wasn't the settings icon the user meant, and the floor plan should stay uncluttered."
+  },
+  "0.1.21": {
+    "en": "Added support for speakers (Sonos, HomePod, etc.): shows volume on the floor plan, tap to play/pause, long-press for a volume slider plus next/previous track buttons."
+  },
+  "0.1.22": {
+    "en": "Added a per-speaker Flow preset: in a speaker's device settings, pick one Flow (e.g. \"Play Radio Energy\") to run. It then shows as a one-tap button in that speaker's long-press screen on the dashboard."
+  },
+  "0.1.23": {
+    "en": "Fixed the speaker Flow preset not actually running: the API method used to trigger it doesn't exist in the current Homey API and silently failed; now uses the correct method for regular Flows and a separate one for Advanced Flows. Also: Advanced Flows (typically the ones organized into folders) weren't fetched at all before, so they never showed up in the picker; and the Flow picker is now a searchable list instead of a plain dropdown, for accounts with many Flows."
+  },
+  "0.1.24": {
+    "en": "Changed the speaker Flow button to work around a hard Homey platform restriction (apps cannot trigger a user's existing Flow directly). It now fires the app's own Flow trigger card (\"A speaker Flow-button was pressed\") -- create a Flow in Homey starting with that trigger to define what the button does. Also added the current track/artist to the speaker's long-press screen."
+  },
+  "0.1.25": {
+    "en": "Fixed: the speaker Flow trigger card was defined the wrong way (a raw \"flow\" key in .homeycompose/app.json) and got silently dropped when building the app, so it never actually appeared in Homey's Flow editor. Moved it to the correct Homey Compose location; the trigger card now builds and installs correctly."
+  },
+  "0.1.26": {
+    "en": "New: Flow-button (Run Flow) now also available for window coverings/awnings, not just speakers. New: floor switcher (top-right) to change between floors without leaving the widget. New: Room Status overlay (top-left) showing active alarms and open windows grouped by room, when there are any."
+  },
+  "0.1.27": {
+    "en": "Fixed: the new floor-switcher and room-status buttons didn't react to taps. Cause: an invisible full-size layer used for device placement (z-index 300) was sitting above them and swallowing the touches. Also made the tap handling more robust (touchend in addition to click, matching the rest of the widget)."
   }
 }

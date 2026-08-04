@@ -87,6 +87,17 @@ module.exports = {
     }
   },
 
+  // Get active alarms/problems (open windows, active alarms) for devices
+  // placed on a specific floor, grouped by room
+  async getFloorProblems({ homey, params }) {
+    try {
+      return await homey.app.getFloorProblems(params.floorId);
+    } catch (error) {
+      homey.app.error('Widget API - getFloorProblems error:', error);
+      throw error;
+    }
+  },
+
   // Get all widget-to-floor mappings
   async getSelectedFloors({ homey }) {
     try {

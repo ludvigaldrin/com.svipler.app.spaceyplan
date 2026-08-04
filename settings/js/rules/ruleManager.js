@@ -12,7 +12,8 @@ const ruleManager = {
         onOffColor: { name: 'On/Off - Color Switcher', allowMultiple: false },
         onOffImage: { name: 'On/Off - Image Switcher', allowMultiple: false },
         measureDisplay: { name: 'Measure - Display Settings', allowMultiple: false },
-        alarmColor: { name: 'Alarm - Color Switcher', allowMultiple: false }
+        alarmColor: { name: 'Alarm - Color Switcher', allowMultiple: false },
+        flowTrigger: { name: 'Flow Trigger', allowMultiple: false }
     },
 
     init(floorManager, Homey) {
@@ -544,6 +545,28 @@ const ruleManager = {
                     </div>
                 </div>
             `;
+        } else if (ruleType === 'flowTrigger') {
+            const buttonLabel = existingRule?.config?.buttonLabel || '';
+            const cardTitle = 'A Flow-button was pressed';
+
+            return `
+                <div class="rule-config-group">
+                    <label>Button label</label>
+                    <input type="text"
+                           id="flowButtonLabel"
+                           class="homey-form-input"
+                           placeholder="e.g. Play Radio Energy"
+                           value="${buttonLabel}">
+                    <div class="settings-note">
+                        Homey apps aren't allowed to start an existing Flow directly, so this
+                        works the other way around: tapping this button fires the Flow trigger
+                        card <strong>"${cardTitle}"</strong>. In the Homey Flow editor, create a
+                        Flow starting with that trigger and add whatever action you want. If you
+                        have more than one device with this button enabled, use the "Device"
+                        token in a condition to tell them apart.
+                    </div>
+                </div>
+            `;
         }
 
         return '<p>No configuration needed for this rule type.</p>';
@@ -679,15 +702,35 @@ const ruleManager = {
             validRuleTypes.push('onOffColor', 'onOffImage');
         }
 
-        // Rules specific to measure capabilities
-        if (device.capability === 'measure') {
+        // Rules specific to locks (locked/unlocked behaves like an on/off state)
+        if (device.capability === 'lock') {
+            validRuleTypes.push('onOffColor', 'onOffImage');
+        }
+
+        // Rules specific to window coverings (open/closed behaves like an on/off state)
+        if (device.capability === 'windowcovering') {
+            validRuleTypes.push('onOffColor', 'onOffImage', 'flowTrigger');
+        }
+
+        // Rules specific to speakers (playing/paused behaves like an on/off state)
+        if (device.capability === 'speaker') {
+            validRuleTypes.push('onOffColor', 'onOffImage', 'flowTrigger');
+        }
+
+        // Rules specific to measure capabilities: the "Measure - Display
+        // Settings" rule is a temperature/humidity-specific show/hide toggle,
+        // so it only applies to those — generic single-value measure types
+        // (power, co2, ...) only have "All - Icon/Color Select" available.
+        if (device.capability === 'measure' &&
+            (device.measureType === 'measure_temperature' ||
+             device.measureType === 'measure_humidity' ||
+             device.measureType === 'combined')) {
             validRuleTypes.push('measureDisplay');
         }
 
         // Rules specific to alarm/sensor capabilities
         if (device.capability === 'sensor' ||
-            (device.sensorType &&
-                (device.sensorType === 'alarm_motion' || device.sensorType === 'alarm_contact'))) {
+            (device.sensorType && device.sensorType.indexOf('alarm_') === 0)) {
             validRuleTypes.push('alarmColor');
         }
 
@@ -1104,6 +1147,13 @@ const ruleManager = {
                     iconColorOff: showIconOff ? document.getElementById('iconColorOff').value : null,
                     showCloudOff,
                     cloudColorOff: showCloudOff ? document.getElementById('cloudColorOff').value : null
+                };
+            } else if (type === 'flowTrigger') {
+                const labelInput = document.getElementById('flowButtonLabel');
+                const buttonLabel = labelInput ? labelInput.value.trim() : '';
+
+                return {
+                    buttonLabel: buttonLabel || 'Run Flow'
                 };
             }
 

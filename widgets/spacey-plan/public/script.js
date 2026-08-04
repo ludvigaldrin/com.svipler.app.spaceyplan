@@ -2,6 +2,9 @@ let Homey; // Store Homey instance
 let currentDevices = [];
 let rendererManager; // Add this at the top
 let widgetId;
+let allFloors = []; // All floors available to the floor switcher
+let currentFloorId = null;
+let roomStatusInterval = null;
 
 // Client-side image cache
 const clientImageCache = {
@@ -224,6 +227,7 @@ async function init() {
     Homey.api('POST', '/log', { message: 'Init widget: ' + widgetId });
     // Get all floors
     const floors = await Homey.api('GET', '/floors');
+    allFloors = floors || [];
 
     if (!floors || floors.length === 0) {
         showNoFloorsMessage();
@@ -316,7 +320,141 @@ async function showFloorSelector(floors) {
 
 }
 
+// Shows/updates the floor-switcher button in the top corner of the widget.
+// Only visible when the user has more than one floor, since a switcher is
+// pointless with just one.
+// Wires a toggle button + its dropdown menu with both 'click' and
+// 'touchend' (iOS doesn't always reliably synthesize 'click' on absolutely
+// positioned elements, so we handle touch explicitly like the rest of this
+// widget does for drag/long-press). preventDefault on touchend suppresses
+// the following synthetic click so the toggle doesn't fire twice.
+function wireOverlayToggle(button, menu) {
+    if (button.dataset.wired) return;
+    button.dataset.wired = 'true';
+
+    const toggle = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const willOpen = !menu.classList.contains('open');
+        document.querySelectorAll('.floor-switcher-menu.open, .room-status-menu.open')
+            .forEach(m => m.classList.remove('open'));
+        if (willOpen) menu.classList.add('open');
+    };
+
+    button.addEventListener('touchend', toggle);
+    button.addEventListener('click', toggle);
+}
+
+// Tapping anywhere outside either overlay closes whichever menu is open.
+// Wired once globally rather than per-render.
+if (!window.__spaceyOverlayOutsideCloseWired) {
+    window.__spaceyOverlayOutsideCloseWired = true;
+    const closeIfOutside = (e) => {
+        if (e.target.closest('.floor-switcher, .room-status')) return;
+        document.querySelectorAll('.floor-switcher-menu.open, .room-status-menu.open')
+            .forEach(m => m.classList.remove('open'));
+    };
+    document.addEventListener('click', closeIfOutside);
+    document.addEventListener('touchend', closeIfOutside);
+}
+
+function renderFloorSwitcher() {
+    const switcher = document.getElementById('floorSwitcher');
+    const label = document.getElementById('floorSwitcherLabel');
+    const menu = document.getElementById('floorSwitcherMenu');
+    const button = document.getElementById('floorSwitcherButton');
+    if (!switcher || !label || !menu || !button) return;
+
+    if (!allFloors || allFloors.length < 2) {
+        switcher.style.display = 'none';
+        return;
+    }
+
+    const current = allFloors.find(f => f.id === currentFloorId);
+    label.textContent = current ? current.name : '';
+    switcher.style.display = 'block';
+
+    menu.innerHTML = allFloors.map(floor => `
+        <button type="button" class="floor-switcher-option${floor.id === currentFloorId ? ' active' : ''}" data-floor-id="${floor.id}">
+            ${floor.name}
+        </button>
+    `).join('');
+
+    menu.querySelectorAll('.floor-switcher-option').forEach(option => {
+        const selectFloor = async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            menu.classList.remove('open');
+            const floorId = option.getAttribute('data-floor-id');
+            if (floorId === currentFloorId) return;
+            const floor = allFloors.find(f => f.id === floorId);
+            if (!floor) return;
+
+            await Homey.api('POST', '/selectedFloors', { widgetId: widgetId, floorId: floor.id });
+            await showSelectedFloor(floor);
+        };
+        option.addEventListener('touchend', selectFloor);
+        option.addEventListener('click', selectFloor);
+    });
+
+    wireOverlayToggle(button, menu);
+}
+
+// Fetches active alarms/problems for the current floor and renders the
+// Room Status overlay button + dropdown. Only alarms/problems are shown,
+// not general device activity.
+async function loadRoomStatus(floorId) {
+    try {
+        const rooms = await Homey.api('GET', `/floors/${floorId}/problems`);
+        renderRoomStatus(rooms || []);
+    } catch (error) {
+        Homey.api('POST', '/error', { message: `Error loading room status: ${JSON.stringify(error)}` });
+    }
+}
+
+function renderRoomStatus(rooms) {
+    const status = document.getElementById('roomStatus');
+    const count = document.getElementById('roomStatusCount');
+    const menu = document.getElementById('roomStatusMenu');
+    const button = document.getElementById('roomStatusButton');
+    if (!status || !count || !menu || !button) return;
+
+    const totalProblems = rooms.reduce((sum, room) => sum + room.problems.length, 0);
+
+    if (totalProblems === 0) {
+        status.style.display = 'none';
+        menu.classList.remove('open');
+        return;
+    }
+
+    status.style.display = 'block';
+    count.textContent = totalProblems;
+
+    menu.innerHTML = rooms.map(room => `
+        <div class="room-status-group">
+            <div class="room-status-room-name">${room.zoneName}</div>
+            ${room.problems.map(p => `
+                <div class="room-status-problem">
+                    <span class="material-symbols-outlined">warning</span>
+                    <span>${p.deviceName} — ${p.label}</span>
+                </div>
+            `).join('')}
+        </div>
+    `).join('');
+
+    wireOverlayToggle(button, menu);
+}
+
 async function showSelectedFloor(floor) {
+    currentFloorId = floor.id;
+    renderFloorSwitcher();
+
+    if (roomStatusInterval) {
+        clearInterval(roomStatusInterval);
+    }
+    loadRoomStatus(floor.id);
+    roomStatusInterval = setInterval(() => loadRoomStatus(currentFloorId), 60000);
+
     // Initialize RendererManager with widgetId
     rendererManager = new CapabilityRendererManager();
     rendererManager.setWidgetId(widgetId);

@@ -470,6 +470,13 @@
     object-fit: contain;
 }
 
+.device-icon-small .measure-marker-icon {
+    font-family: 'Material Symbols Outlined';
+    font-size: 15px;
+    color: #333;
+    line-height: 1;
+}
+
 .floor-device-info {
     display: flex;
     align-items: center;

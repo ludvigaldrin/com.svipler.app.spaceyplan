@@ -1,6 +1,6 @@
 {
   "id": "com.svipler.app.spaceyplan.dev",
-  "version": "0.1.27",
+  "version": "0.2.0",
   "compatibility": ">=12.1.0",
   "sdk": 3,
   "platforms": [

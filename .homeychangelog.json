@@ -115,5 +115,11 @@
   },
   "0.1.27": {
     "en": "Fixed: the new floor-switcher and room-status buttons didn't react to taps. Cause: an invisible full-size layer used for device placement (z-index 300) was sitting above them and swallowing the touches. Also made the tap handling more robust (touchend in addition to click, matching the rest of the widget)."
+  },
+  "0.2.0": {
+    "en": "Updates from community @Asterix"
+  },
+  "0.2.1": {
+    "en": "Fix on name"
   }
 }

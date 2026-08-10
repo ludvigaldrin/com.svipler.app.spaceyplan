@@ -100,15 +100,15 @@ const measureRenderer = {
                 }
                 .measure-value-label {
                     position: absolute;
-                    top: 30px;
+                    top: 28px;
                     left: 50%;
                     transform: translateX(-50%);
                     background: rgba(255, 255, 255, 0.92);
                     color: #1C1C1E;
-                    font-size: 10px;
+                    font-size: 9px;
                     font-weight: 700;
-                    padding: 2px 6px;
-                    border-radius: 8px;
+                    padding: 1px 5px;
+                    border-radius: 7px;
                     white-space: nowrap;
                     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
                     pointer-events: none;
@@ -435,7 +435,7 @@ const measureRenderer = {
         }
 
         if (measureType === 'measure_temperature' || measureType === 'combined') {
-            return `${num.toFixed(1)}°C`;
+            return `${Math.round(num)}°C`;
         }
         if (measureType === 'measure_humidity') {
             return `${Math.round(num)}%`;

@@ -216,6 +216,88 @@ const floorManager = {
         });
     },
 
+    // Two-finger pinch-to-zoom + double-tap-to-reset on the floor plan image
+    // in the edit view, so devices can be placed more precisely on mobile.
+    // Only reacts to 2-finger gestures, so the existing single-finger
+    // device drag/placement handlers are completely unaffected.
+    setupImageZoom() {
+        const container = document.getElementById('floorMapContainer');
+        const wrapper = document.getElementById('imageWrapper');
+        if (!container || !wrapper) return;
+
+        // Reset zoom state whenever a (new) floor is opened for editing
+        this._zoomState = { scale: 1, panX: 0, panY: 0 };
+        wrapper.style.transform = 'none';
+
+        const applyTransform = () => {
+            const { scale, panX, panY } = this._zoomState;
+            // A transform value other than "none" creates a new CSS stacking
+            // context, which would trap the .dragging class's z-index:1000
+            // inside this element instead of letting it rise above siblings.
+            // Only apply an actual transform while genuinely zoomed/panned.
+            wrapper.style.transform = (scale === 1 && panX === 0 && panY === 0)
+                ? 'none'
+                : `scale(${scale}) translate(${panX}px, ${panY}px)`;
+        };
+
+        if (container.dataset.zoomWired) return;
+        container.dataset.zoomWired = 'true';
+
+        const distance = (touches) => {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.hypot(dx, dy);
+        };
+        const midpoint = (touches) => ({
+            x: (touches[0].clientX + touches[1].clientX) / 2,
+            y: (touches[0].clientY + touches[1].clientY) / 2
+        });
+
+        let pinchStartDistance = 0;
+        let pinchStartScale = 1;
+        let panStartMid = null;
+        let panStart = { x: 0, y: 0 };
+        let lastTapTime = 0;
+        let lastTapPos = null;
+
+        container.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                pinchStartDistance = distance(e.touches);
+                pinchStartScale = this._zoomState.scale;
+                panStartMid = midpoint(e.touches);
+                panStart = { x: this._zoomState.panX, y: this._zoomState.panY };
+            } else if (e.touches.length === 1) {
+                const now = Date.now();
+                const pos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                const closeEnough = lastTapPos && Math.hypot(pos.x - lastTapPos.x, pos.y - lastTapPos.y) < 40;
+
+                if (this._zoomState.scale > 1 && now - lastTapTime < 300 && closeEnough) {
+                    // Genuine double-tap at (roughly) the same spot: reset zoom/pan
+                    this._zoomState = { scale: 1, panX: 0, panY: 0 };
+                    applyTransform();
+                }
+                lastTapTime = now;
+                lastTapPos = pos;
+            }
+        }, { passive: false });
+
+        container.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2 && panStartMid) {
+                e.preventDefault();
+                const newDistance = distance(e.touches);
+                const scale = Math.min(3, Math.max(1, pinchStartScale * (newDistance / pinchStartDistance)));
+
+                const mid = midpoint(e.touches);
+                const panX = panStart.x + (mid.x - panStartMid.x) / scale;
+                const panY = panStart.y + (mid.y - panStartMid.y) / scale;
+
+                this._zoomState = { scale, panX, panY };
+                applyTransform();
+            }
+        }, { passive: false });
+    },
+
     editFloor(floorId) {
         this.currentFloorId = floorId;
         const floor = this.floors.find(f => f.id === floorId);
@@ -250,6 +332,7 @@ const floorManager = {
         document.getElementById('editViewTitle').textContent = `Edit ${floor.name}`;
         document.getElementById('editFloorName').value = floor.name;
         document.getElementById('floorMapImage').src = this.getFloorImageSource(floor);
+        this.setupImageZoom();
 
         // Add image change button next to the back button in the header
         const viewHeader = document.querySelector('.view-header');
@@ -267,7 +350,13 @@ const floorManager = {
             changeImageBtn.title = 'Change Floor Image';
             changeImageBtn.innerHTML = `
                 <svg width="24" height="24" viewBox="0 0 24 24">
-                    <path fill="currentColor" d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                    <path fill-rule="evenodd" clip-rule="evenodd" fill="currentColor" d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM19 19H5V5H19V19Z"/>
+                    <g transform="translate(0.3,-6) scale(0.95)">
+                        <path fill="currentColor" d="M8.5 13.5l2.5 3.01L14.5 12l4.5 6H5z"/>
+                    </g>
+                    <g transform="translate(10,10.5) scale(0.42)">
+                        <path fill="currentColor" d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+                    </g>
                 </svg>
             `;
             changeImageBtn.onclick = () => this.showChangeImageDialog(floorId);
@@ -986,10 +1075,16 @@ const floorManager = {
                 displayY = (device.position.y / 100) * imageRect.height;
             }
 
-            // Use transform instead of left/top for more precise positioning
+            // Use transform instead of left/top for more precise positioning.
+            // The device sits inside the (possibly zoomed) #imageWrapper, so
+            // its own translate() gets visually multiplied by the ancestor's
+            // scale too — divide by the current zoom scale to compensate,
+            // otherwise the device renders far outside its correct spot
+            // whenever the floor plan is zoomed in.
+            const zoomScale1 = this._zoomState?.scale || 1;
             deviceEl.style.left = '0';
             deviceEl.style.top = '0';
-            deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
+            deviceEl.style.transform = `translate(${displayX / zoomScale1}px, ${displayY / zoomScale1}px)`;
 
             // Use the semantic type icon for measure devices, the device's
             // own photo icon otherwise (see getDeviceIconHTML)
@@ -1308,7 +1403,8 @@ const floorManager = {
             const displayX = (position.x / 100) * wrapperRect.width;
             const displayY = (position.y / 100) * wrapperRect.height;
 
-            deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
+            const zoomScale2 = this._zoomState?.scale || 1;
+            deviceEl.style.transform = `translate(${displayX / zoomScale2}px, ${displayY / zoomScale2}px)`;
 
             // Use the semantic type icon for measure devices, the device's
             // own photo icon otherwise (see getDeviceIconHTML)
@@ -1400,20 +1496,21 @@ const floorManager = {
 
         const event = e.touches ? e.touches[0] : e;
 
-        // For touch events, determine if this is a drag or scroll
+        // For touch events, determine if this is a drag
         if (this.initialTouchPos && !this.isDragging) {
             const deltaX = Math.abs(event.clientX - this.initialTouchPos.x);
             const deltaY = Math.abs(event.clientY - this.initialTouchPos.y);
-            const timeDelta = Date.now() - this.dragStartTime;
 
-            // If movement is mostly vertical and quick, it's likely a scroll attempt
-            if (deltaY > deltaX * 1.5 && timeDelta < 300) {
-                this.handleDragEnd(e);
-                return;
-            }
-
-            // If we've moved enough horizontally, consider it a drag
-            if (deltaX > 10) {
+            // If we've moved enough in any direction, consider it a drag.
+            // Uses the larger of deltaX/deltaY so a purely vertical drag
+            // (e.g. straight down) is recognized just as well as a
+            // horizontal one — checking deltaX alone would never trigger
+            // for a straight-down movement. The threshold scales with the
+            // current zoom level: at 3x zoom, screen-pixel finger jitter is
+            // visually amplified 3x too, so a fixed 10px would misread an
+            // ordinary tap as a drag.
+            const dragThreshold = 10 * (this._zoomState?.scale || 1);
+            if (Math.max(deltaX, deltaY) > dragThreshold) {
                 this.isDragging = true;
                 // Now we can safely prevent default to avoid page scrolling during drag
                 e.preventDefault();
@@ -1504,7 +1601,8 @@ const floorManager = {
             displayY = (posY / 100) * imageRect.height;
         }
 
-        this.draggedDevice.style.transform = `translate(${displayX}px, ${displayY}px)`;
+        const zoomScale3 = this._zoomState?.scale || 1;
+        this.draggedDevice.style.transform = `translate(${displayX / zoomScale3}px, ${displayY / zoomScale3}px)`;
 
         // Store current position for drag end
         this.currentDragPosition = { x: posX, y: posY };
@@ -1601,7 +1699,7 @@ const floorManager = {
 
         if (saveButton) {
             saveButton.disabled = true;
-            saveButton.textContent = 'Update Image';
+            saveButton.textContent = 'Update Floor Image';
             saveButton.onclick = () => this.saveChangedImage(floorId);
         }
 

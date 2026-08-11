@@ -168,14 +168,6 @@
       "id": "spacey-plan"
     }
   },
-  "contributors": {
-    "developers": [
-      {
-        "name": "Asterix",
-        "email": "m91@bluewin.ch"
-      }
-    ]
-  },
   "flow": {
     "triggers": [
       {

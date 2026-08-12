@@ -114,6 +114,10 @@ const measureRenderer = {
                     pointer-events: none;
                     z-index: 301;
                 }
+                .measure-value-label.badge-centered {
+                    top: 50%;
+                    transform: translate(-50%, -50%);
+                }
             `;
             if (document.head && labelStyles) {
                 document.head.appendChild(labelStyles);
@@ -744,6 +748,14 @@ const measureRenderer = {
                             }
                         }
                     }
+                }
+
+                // With the icon hidden there's nothing left above the badge
+                // to anchor to — recenter it in the device slot instead of
+                // leaving it floating below an empty spot.
+                const valueLabel = deviceEl.querySelector('.measure-value-label');
+                if (valueLabel) {
+                    valueLabel.classList.toggle('badge-centered', !allColorRule.config.showIcon);
                 }
             }
         } catch (error) {

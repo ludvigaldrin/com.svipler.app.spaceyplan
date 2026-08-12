@@ -1,7 +1,7 @@
 const deviceManager = {
     Homey: null,
     currentFloorId: null,
-    supportedCapabilities: ['onoff', 'dim', 'alarm_motion', 'alarm_contact', 'alarm_smoke', 'alarm_co', 'alarm_water', 'alarm_heat', 'alarm_tamper', 'alarm_presence', 'alarm_intrusion', 'alarm_generic', 'measure_temperature', 'measure_humidity', 'locked', 'windowcoverings_set', 'speaker_playing'],
+    supportedCapabilities: ['onoff', 'dim', 'alarm_motion', 'alarm_contact', 'alarm_smoke', 'alarm_co', 'alarm_water', 'alarm_heat', 'alarm_tamper', 'alarm_presence', 'alarm_intrusion', 'alarm_generic', 'measure_temperature', 'measure_humidity', 'locked', 'windowcoverings_set', 'speaker_playing', 'target_temperature', 'homealarm_state', 'ajax_security_mode', 'ajax_hub_chime_enabled', 'ajax_chime_status'],
     devices: [], // Cache for devices
 
     async initialize() {
@@ -284,7 +284,12 @@ const deviceManager = {
             'measure_combined': 'Temperature & Humidity',
             'locked': 'Lock (Locked/Unlocked)',
             'windowcoverings_set': 'Cover (Position)',
-            'speaker_playing': 'Speaker (Play/Volume)'
+            'speaker_playing': 'Speaker (Play/Volume)',
+            'target_temperature': 'Thermostat (Setpoint)',
+            'homealarm_state': 'Alarm (Scharf/Unscharf)',
+            'ajax_security_mode': 'Ajax Sicherheitsmodus',
+            'ajax_hub_chime_enabled': 'Ajax Türgong (Ein/Aus)',
+            'ajax_chime_status': 'Ajax Türgong-Status'
         };
         if (displayNames[capabilityId]) {
             return displayNames[capabilityId];
@@ -389,6 +394,25 @@ const deviceManager = {
             return floor.devices.some(d => d.id === `${deviceId}-speaker`);
         }
 
+        // For thermostats
+        if (capability === 'target_temperature') {
+            return floor.devices.some(d => d.id === `${deviceId}-thermostat`);
+        }
+
+        // For Ajax/alarm enum & toggle capabilities
+        if (capability === 'homealarm_state') {
+            return floor.devices.some(d => d.id === `${deviceId}-homealarm`);
+        }
+        if (capability === 'ajax_security_mode') {
+            return floor.devices.some(d => d.id === `${deviceId}-ajaxsecurity`);
+        }
+        if (capability === 'ajax_hub_chime_enabled') {
+            return floor.devices.some(d => d.id === `${deviceId}-ajaxchime`);
+        }
+        if (capability === 'ajax_chime_status') {
+            return floor.devices.some(d => d.id === `${deviceId}-ajaxchimestatus`);
+        }
+
         // For other capabilities
         return floor.devices.some(d => d.id === deviceId);
     },
@@ -425,6 +449,21 @@ const deviceManager = {
         } else if (capability === 'speaker_playing') {
             deviceId = `${device.id}-speaker`;
             deviceCapability = 'speaker';
+        } else if (capability === 'target_temperature') {
+            deviceId = `${device.id}-thermostat`;
+            deviceCapability = 'thermostat';
+        } else if (capability === 'homealarm_state') {
+            deviceId = `${device.id}-homealarm`;
+            deviceCapability = 'homealarmstate';
+        } else if (capability === 'ajax_security_mode') {
+            deviceId = `${device.id}-ajaxsecurity`;
+            deviceCapability = 'ajaxsecuritymode';
+        } else if (capability === 'ajax_hub_chime_enabled') {
+            deviceId = `${device.id}-ajaxchime`;
+            deviceCapability = 'ajaxhubchime';
+        } else if (capability === 'ajax_chime_status') {
+            deviceId = `${device.id}-ajaxchimestatus`;
+            deviceCapability = 'ajaxchimestatus';
         } else {
             deviceId = device.id;
         }
@@ -648,6 +687,22 @@ const deviceManager = {
                 config: {
                     showIcon: true,
                     iconColor: '#333332',
+                    showCloud: false,
+                    cloudColor: '#FFFFFF'
+                }
+            });
+        }
+
+        // For thermostats: same subtle default icon styling as generic
+        // measure types (no on/off state to color against)
+        if (capability === 'target_temperature') {
+            newDevice.rules.push({
+                id: generateUUID(),
+                name: 'All - Color Select',
+                type: 'allColor',
+                config: {
+                    showIcon: true,
+                    iconColor: '#e67e22',
                     showCloud: false,
                     cloudColor: '#FFFFFF'
                 }

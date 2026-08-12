@@ -298,7 +298,7 @@
 /* Floor plan container */
 #floorMapContainer {
     position: relative;
-    margin: 8px 0;
+    margin: 24px 0;
     background: #f8f9fa;
     padding: 8px;
     border-radius: 8px;
@@ -320,7 +320,7 @@
 
 .floor-map {
     max-width: 100%;
-    max-height: 78vh;
+    max-height: 65vh;
     object-fit: contain;
     display: block;
 }

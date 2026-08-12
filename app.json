@@ -36,6 +36,14 @@
     "name": "Ludvig Aldrin",
     "email": "ludvig.aldrin@gmail.com"
   },
+  "contributors": {
+      "developers": [
+          {
+              "name": "Asterix",
+              "email": "m91@bluewin.ch"
+          }
+      ]
+  },
   "api": {
     "log": {
       "method": "post",

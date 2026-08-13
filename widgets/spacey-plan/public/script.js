@@ -1159,38 +1159,76 @@ function renderDevicesOnFloor(floor) {
     });
 }
 
-// Add a window resize handler to recalculate device positions
-function setupResizeHandler() {
-    let resizeTimeout;
-    window.addEventListener('resize', () => {
-        // Debounce to avoid excessive recalculations
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(() => {
-            const deviceElements = document.querySelectorAll('.device-element');
-            const floorMapImage = document.querySelector('.floor-map');
-            const wrapper = document.querySelector('.image-wrapper');
+// Recalculate every device's on-screen position from its stored data-x/
+// data-y percentages. Capability-agnostic — reads the same attributes
+// every renderer already sets on its element (data-x, data-y,
+// data-floor-aspect-ratio), so it works regardless of which capability
+// renderer created the element.
+function repositionAllDevices() {
+    const floorMapImage = document.getElementById('floorMapImage');
+    const wrapper = document.getElementById('imageWrapper');
+    if (!floorMapImage || !wrapper) return;
+    if (!floorMapImage.complete || floorMapImage.naturalWidth === 0) return;
 
-            if (!deviceElements.length || !floorMapImage || !wrapper) return;
+    const wrapperRect = wrapper.getBoundingClientRect();
+    if (wrapperRect.width === 0 || wrapperRect.height === 0) return;
 
-            deviceElements.forEach(deviceEl => {
-                try {
-                    const deviceId = deviceEl.getAttribute('data-device-id');
-                    if (!deviceId) return;
+    const currentImageAspectRatio = floorMapImage.naturalWidth / floorMapImage.naturalHeight;
 
-                    const device = JSON.parse(deviceEl.getAttribute('data-device') || '{}');
-                    if (!device || !device.capability) return;
+    const deviceElements = document.querySelectorAll('#floorPlanDevices [data-x]');
+    deviceElements.forEach(deviceEl => {
+        const posX = parseFloat(deviceEl.getAttribute('data-x'));
+        const posY = parseFloat(deviceEl.getAttribute('data-y'));
+        if (Number.isNaN(posX) || Number.isNaN(posY)) return;
 
-                    const renderer = CapabilityRendererManager.getRendererForCapability(device.capability);
-                    if (!renderer) return;
+        let imageWidth, imageHeight;
+        if (wrapperRect.width / wrapperRect.height > currentImageAspectRatio) {
+            imageHeight = wrapperRect.height;
+            imageWidth = imageHeight * currentImageAspectRatio;
+        } else {
+            imageWidth = wrapperRect.width;
+            imageHeight = imageWidth / currentImageAspectRatio;
+        }
 
-                    // Trigger repositioning
-                    renderer.positionDevice(deviceEl, device);
-                } catch (error) {
-                    Homey.api('POST', '/error', { message: 'Error repositioning device: ' + JSON.stringify(error) });
-                }
-            });
-        }, 250); // Wait 250ms after resize ends
+        let displayX = (posX / 100) * imageWidth;
+        let displayY = (posY / 100) * imageHeight;
+
+        if (imageWidth < wrapperRect.width) {
+            displayX += (wrapperRect.width - imageWidth) / 2;
+        }
+        if (imageHeight < wrapperRect.height) {
+            displayY += (wrapperRect.height - imageHeight) / 2;
+        }
+
+        deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
     });
+}
+
+// Add a resize/layout-change handler to recalculate device positions.
+// This replaces a previous version that never actually ran (it looked
+// for a '.device-element' class and renderer methods that don't exist)
+// — devices only got their correct position once, at creation time, and
+// silently drifted whenever the dashboard widget's own layout settled
+// or changed afterwards (a common case: several widgets loading in
+// around it on the same dashboard).
+function setupResizeHandler() {
+    const wrapper = document.getElementById('imageWrapper');
+    let resizeTimeout;
+
+    const scheduleReposition = () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(repositionAllDevices, 150);
+    };
+
+    window.addEventListener('resize', scheduleReposition);
+
+    // Covers layout shifts that aren't a window resize (the widget's own
+    // box changing size within the dashboard grid) — the actual cause
+    // behind devices ending up visually offset from where they were placed.
+    if (wrapper && typeof ResizeObserver !== 'undefined') {
+        const observer = new ResizeObserver(scheduleReposition);
+        observer.observe(wrapper);
+    }
 }
 
 // Re-render devices after the image has loaded to ensure correct positioning

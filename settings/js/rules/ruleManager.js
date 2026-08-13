@@ -266,6 +266,9 @@ const ruleManager = {
                                 <span class="slider round"></span>
                             </label>
                         </div>
+                        <div class="settings-note">
+                            Toggle off to hide the icon on the floor plan
+                        </div>
                         <div class="color-input-group">
                             <label>Icon Color</label>
                             <input type="color" id="iconColor" 
@@ -304,6 +307,9 @@ const ruleManager = {
                                 <span class="slider round"></span>
                             </label>
                         </div>
+                        <div class="settings-note">
+                            Toggle off to hide the icon in this state
+                        </div>
                         <div class="color-input-group">
                             <label>Icon Color</label>
                             <input type="color" id="iconColorOn" 
@@ -340,6 +346,9 @@ const ruleManager = {
                                     ${existingRule?.config?.showIconOff !== false ? 'checked' : ''}>
                                 <span class="slider round"></span>
                             </label>
+                        </div>
+                        <div class="settings-note">
+                            Toggle off to hide the icon in this state
                         </div>
                         <div class="color-input-group">
                             <label>Icon Color</label>
@@ -479,6 +488,9 @@ const ruleManager = {
                                 <span class="slider round"></span>
                             </label>
                         </div>
+                        <div class="settings-note">
+                            Toggle off to hide the icon in this state
+                        </div>
                         <div class="color-input-group">
                             <label>Icon Color</label>
                             <input type="color" id="iconColorOn" 
@@ -515,6 +527,9 @@ const ruleManager = {
                                     ${existingRule?.config?.showIconOff !== false ? 'checked' : ''}>
                                 <span class="slider round"></span>
                             </label>
+                        </div>
+                        <div class="settings-note">
+                            Toggle off to hide the icon in this state
                         </div>
                         <div class="color-input-group">
                             <label>Icon Color</label>

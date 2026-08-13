@@ -1,6 +1,6 @@
 {
   "id": "com.svipler.app.spaceyplan",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "compatibility": ">=12.1.0",
   "sdk": 3,
   "platforms": [
@@ -36,12 +36,12 @@
     "email": "ludvig.aldrin@gmail.com"
   },
   "contributors": {
-      "developers": [
-          {
-              "name": "Asterix",
-              "email": "m91@bluewin.ch"
-          }
-      ]
+    "developers": [
+      {
+        "name": "Asterix",
+        "email": "m91@bluewin.ch"
+      }
+    ]
   },
   "api": {
     "log": {

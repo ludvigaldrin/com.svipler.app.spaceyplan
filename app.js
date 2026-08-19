@@ -199,7 +199,20 @@ class SpaceHomeyApp extends Homey.App {
   async getFloorProblems(floorId) {
     try {
       const floorDevices = await this.getFloorDevices(floorId);
-      const uniqueHomeyIds = [...new Set((floorDevices || []).map(d => d.homeyId).filter(Boolean))];
+
+      // Only alarm_*/window_open capabilities the user actually placed as
+      // an icon on this floor may raise a "problem" for a device — not
+      // every alarm-type capability the underlying Homey device happens to
+      // expose. E.g. placing only a Luminance icon must not surface that
+      // same device's (unrelated, unplaced) alarm_motion state.
+      const placedCapsByHomeyId = {};
+      for (const fd of floorDevices || []) {
+        if (!fd.homeyId || !fd.sensorType) continue;
+        if (!placedCapsByHomeyId[fd.homeyId]) placedCapsByHomeyId[fd.homeyId] = new Set();
+        placedCapsByHomeyId[fd.homeyId].add(fd.sensorType);
+      }
+
+      const uniqueHomeyIds = Object.keys(placedCapsByHomeyId);
 
       const [zones, deviceResults] = await Promise.all([
         this.api.zones.getZones().catch(error => {
@@ -214,8 +227,11 @@ class SpaceHomeyApp extends Homey.App {
       for (const device of deviceResults) {
         if (!device || !device.capabilitiesObj) continue;
 
+        const placedCaps = placedCapsByHomeyId[device.id] || new Set();
+
         const problems = [];
         for (const [capabilityId, capability] of Object.entries(device.capabilitiesObj)) {
+          if (!placedCaps.has(capabilityId)) continue;
           const isAlarm = capabilityId.startsWith('alarm_') && capabilityId !== 'alarm_battery';
           const isWindowOpen = capabilityId === 'window_open';
           if ((isAlarm || isWindowOpen) && capability?.value === true) {
@@ -258,3 +274,4 @@ class SpaceHomeyApp extends Homey.App {
 }
 
 module.exports = SpaceHomeyApp;
+

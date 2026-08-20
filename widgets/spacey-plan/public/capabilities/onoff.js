@@ -660,9 +660,9 @@ const onOffRenderer = {
                 // Handle icon visibility and color
                 if (iconWrapper) {
                     if (!allColorRule.config.showIcon) {
-                        iconWrapper.style.display = 'none';
+                        iconWrapper.style.opacity = '0';
                     } else {
-                        iconWrapper.style.display = 'flex';
+                        iconWrapper.style.opacity = '1';
                         const iconElement = iconWrapper.querySelector('img, .material-symbols-outlined');
                         if (iconElement && allColorRule.config.iconColor) {
                             if (iconElement.tagName.toLowerCase() === 'img') {
@@ -701,9 +701,9 @@ const onOffRenderer = {
                 // Handle icon visibility and color
                 if (iconWrapper) {
                     if (!showIcon) {
-                        iconWrapper.style.display = 'none';
+                        iconWrapper.style.opacity = '0';
                     } else {
-                        iconWrapper.style.display = 'flex';
+                        iconWrapper.style.opacity = '1';
                         const iconElement = iconWrapper.querySelector('img, .material-symbols-outlined');
                         if (iconElement && iconColor) {
                             if (iconElement.tagName.toLowerCase() === 'img') {

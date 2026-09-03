@@ -139,5 +139,8 @@
   },
   "0.2.8": {
     "en": "Fixes se Github for log"
+  },
+  "0.2.10": {
+    "en": "Bug fixes"
   }
 }

@@ -439,7 +439,7 @@ const measureRenderer = {
         }
 
         if (measureType === 'measure_temperature' || measureType === 'combined') {
-            return `${Math.round(num)}°C`;
+            return `${num.toFixed(1)}°C`;
         }
         if (measureType === 'measure_humidity') {
             return `${Math.round(num)}%`;

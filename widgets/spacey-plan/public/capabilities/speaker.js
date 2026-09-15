@@ -48,6 +48,28 @@ const speakerRenderer = {
             const styles = document.createElement('style');
             styles.id = 'speakerModalStyles';
             styles.textContent = `
+                .speaker-mute-badge {
+                    position: absolute;
+                    top: -3px;
+                    right: -3px;
+                    width: 14px;
+                    height: 14px;
+                    border-radius: 50%;
+                    background: #ff3b30;
+                    display: none;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+                    z-index: 302;
+                    pointer-events: none;
+                }
+                .speaker-mute-badge.visible {
+                    display: flex;
+                }
+                .speaker-mute-badge .material-symbols-outlined {
+                    font-size: 10px;
+                    color: #fff;
+                }
                 .speaker-value-label {
                     position: absolute;
                     top: 30px;
@@ -146,6 +168,10 @@ const speakerRenderer = {
                     align-items: center;
                     justify-content: center;
                 }
+                .speaker-transport-buttons button.active {
+                    background: #ff3b30;
+                    color: #fff;
+                }
                 .speaker-transport-buttons .material-symbols-outlined {
                     font-size: 20px;
                 }
@@ -195,6 +221,7 @@ const speakerRenderer = {
         deviceEl.setAttribute('data-capability', this.id);
         deviceEl.setAttribute('data-state', device.state || false);
         deviceEl.setAttribute('data-volume', device.speakerVolume ?? 0);
+        deviceEl.setAttribute('data-muted', false);
         deviceEl.setAttribute('data-device', JSON.stringify(device));
 
         const iconWrapper = document.createElement('div');
@@ -221,6 +248,18 @@ const speakerRenderer = {
 
         if (deviceEl && iconWrapper) {
             deviceEl.appendChild(iconWrapper);
+        }
+
+        // Small "muted" badge in the top-right corner of the icon — only
+        // visible while the speaker is muted, since the play/pause icon
+        // itself keeps showing "playing" (which is still technically true,
+        // just silent) and gave no indication of mute state without
+        // opening the long-press panel.
+        const muteBadge = document.createElement('div');
+        muteBadge.className = 'speaker-mute-badge';
+        muteBadge.innerHTML = '<span class="material-symbols-outlined">volume_off</span>';
+        if (deviceEl && muteBadge) {
+            deviceEl.appendChild(muteBadge);
         }
 
         // Always-visible volume label below the icon
@@ -312,9 +351,11 @@ const speakerRenderer = {
             if (response !== undefined && response !== null) {
                 const playing = response.playing === true;
                 const volume = typeof response.volume === 'number' ? response.volume : 0;
+                const muted = response.muted === true;
 
                 deviceEl.setAttribute('data-state', playing);
                 deviceEl.setAttribute('data-volume', volume);
+                deviceEl.setAttribute('data-muted', muted);
                 deviceEl.setAttribute('data-track', response.track || '');
                 deviceEl.setAttribute('data-artist', response.artist || '');
                 deviceEl.classList.toggle('on', playing);
@@ -326,6 +367,7 @@ const speakerRenderer = {
 
                 this.applyInitialRules(deviceData, deviceEl);
                 this.renderVolumeLabel(deviceEl, volume);
+                this.renderMuteButton(deviceEl);
             }
 
             await Homey.api('POST', `/subscribeToDevices`, {
@@ -333,6 +375,7 @@ const speakerRenderer = {
                 devices: [
                     { deviceId: deviceId, capability: 'speaker_playing' },
                     { deviceId: deviceId, capability: 'volume_set' },
+                    { deviceId: deviceId, capability: 'volume_mute' },
                     { deviceId: deviceId, capability: 'speaker_track' },
                     { deviceId: deviceId, capability: 'speaker_artist' }
                 ]
@@ -528,6 +571,19 @@ const speakerRenderer = {
         }
     },
 
+    async sendMute(deviceEl, deviceId, muted) {
+        try {
+            deviceEl.setAttribute('data-muted', muted);
+            this.renderMuteButton(deviceEl);
+
+            await Homey.api('PUT', `/devices/${deviceId}/capabilities/speaker`, {
+                value: { action: 'mute', value: muted }
+            });
+        } catch (error) {
+            Homey.api('POST', '/error', { message: `Error setting speaker mute: ${JSON.stringify(error)}` });
+        }
+    },
+
     async sendTransport(deviceId, action) {
         try {
             await Homey.api('PUT', `/devices/${deviceId}/capabilities/speaker`, {
@@ -544,12 +600,14 @@ const speakerRenderer = {
         const deviceId = deviceEl.getAttribute('data-homey-id');
         const name = deviceEl.getAttribute('data-name');
         let volume = parseFloat(deviceEl.getAttribute('data-volume')) || 0;
+        const muted = deviceEl.getAttribute('data-muted') === 'true';
 
         const deviceData = JSON.parse(deviceEl.getAttribute('data-device') || '{}');
         const flowRule = deviceData.rules?.find(r => r.type === 'flowTrigger');
 
         const overlay = document.createElement('div');
         overlay.className = 'speaker-modal-overlay';
+        overlay.setAttribute('data-device-id', deviceId);
 
         const modal = document.createElement('div');
         modal.className = 'speaker-modal';
@@ -563,6 +621,7 @@ const speakerRenderer = {
             </div>
             <div class="speaker-transport-buttons">
                 <button type="button" data-action="prev"><span class="material-symbols-outlined">skip_previous</span></button>
+                <button type="button" data-action="mute" class="${muted ? 'active' : ''}"><span class="material-symbols-outlined">${muted ? 'volume_off' : 'volume_up'}</span></button>
                 <button type="button" data-action="next"><span class="material-symbols-outlined">skip_next</span></button>
             </div>
             ${flowRule?.config ? `
@@ -647,6 +706,11 @@ const speakerRenderer = {
             e.stopPropagation();
             this.sendTransport(deviceId, 'next');
         });
+        modal.querySelector('[data-action="mute"]').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const nowMuted = deviceEl.getAttribute('data-muted') !== 'true';
+            this.sendMute(deviceEl, deviceId, nowMuted);
+        });
 
         const flowButton = modal.querySelector('.speaker-flow-button');
         if (flowButton && flowRule?.config) {
@@ -721,6 +785,31 @@ const speakerRenderer = {
         }
     },
 
+    renderMuteButton(deviceEl) {
+        const muted = deviceEl.getAttribute('data-muted') === 'true';
+        const deviceId = deviceEl.getAttribute('data-homey-id');
+
+        // Badge on the tile itself — always kept in sync, so mute state
+        // is visible at a glance without opening the long-press panel.
+        const badge = deviceEl.querySelector('.speaker-mute-badge');
+        if (badge) badge.classList.toggle('visible', muted);
+
+        // Only touch an open modal if it belongs to this exact device —
+        // several speakers could exist on one floor, and unlike
+        // renderVolumeLabel (single-value, harmless if briefly mismatched)
+        // a mute icon showing the wrong device's state would be actively
+        // misleading.
+        const modal = document.querySelector('.speaker-modal-overlay');
+        if (modal && modal.getAttribute('data-device-id') === deviceId) {
+            const muteButton = modal.querySelector('[data-action="mute"]');
+            if (muteButton) {
+                const icon = muteButton.querySelector('.material-symbols-outlined');
+                if (icon) icon.textContent = muted ? 'volume_off' : 'volume_up';
+                muteButton.classList.toggle('active', muted);
+            }
+        }
+    },
+
     // Realtime updates from Homey (speaker_playing or volume_set changes)
     handleDeviceUpdate(deviceEl, value, capability) {
         try {
@@ -729,6 +818,12 @@ const speakerRenderer = {
             if (capability === 'volume_set') {
                 deviceEl.setAttribute('data-volume', value);
                 this.renderVolumeLabel(deviceEl, value);
+                return;
+            }
+
+            if (capability === 'volume_mute') {
+                deviceEl.setAttribute('data-muted', value === true);
+                this.renderMuteButton(deviceEl);
                 return;
             }
 
@@ -769,7 +864,7 @@ const speakerRenderer = {
                     }
                 }
                 if (iconWrapper) {
-                    iconWrapper.style.display = allColorRule.config.showIcon ? 'flex' : 'none';
+                    iconWrapper.style.opacity = allColorRule.config.showIcon ? '1' : '0';
                     if (allColorRule.config.showIcon) {
                         const iconElement = iconWrapper.querySelector('img, .material-symbols-outlined');
                         if (iconElement && allColorRule.config.iconColor) {
@@ -800,7 +895,7 @@ const speakerRenderer = {
                     }
                 }
                 if (iconWrapper) {
-                    iconWrapper.style.display = showIcon ? 'flex' : 'none';
+                    iconWrapper.style.opacity = showIcon ? '1' : '0';
                     if (showIcon) {
                         const iconElement = iconWrapper.querySelector('img, .material-symbols-outlined');
                         if (iconElement && iconColor) {

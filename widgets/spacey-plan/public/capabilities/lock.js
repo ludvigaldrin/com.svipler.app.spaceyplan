@@ -482,7 +482,7 @@ const lockRenderer = {
                 }
 
                 if (iconWrapper) {
-                    iconWrapper.style.display = allColorRule.config.showIcon ? 'flex' : 'none';
+                    iconWrapper.style.opacity = allColorRule.config.showIcon ? '1' : '0';
                     if (allColorRule.config.showIcon) {
                         const iconElement = iconWrapper.querySelector('img, .material-symbols-outlined');
                         if (iconElement && allColorRule.config.iconColor) {
@@ -516,7 +516,7 @@ const lockRenderer = {
                 }
 
                 if (iconWrapper) {
-                    iconWrapper.style.display = showIcon ? 'flex' : 'none';
+                    iconWrapper.style.opacity = showIcon ? '1' : '0';
                     if (showIcon) {
                         const iconElement = iconWrapper.querySelector('img, .material-symbols-outlined');
                         if (iconElement && iconColor) {

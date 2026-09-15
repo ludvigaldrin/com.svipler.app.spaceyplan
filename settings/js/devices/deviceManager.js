@@ -1,7 +1,7 @@
 const deviceManager = {
     Homey: null,
     currentFloorId: null,
-    supportedCapabilities: ['onoff', 'dim', 'alarm_motion', 'alarm_contact', 'alarm_smoke', 'alarm_co', 'alarm_water', 'alarm_heat', 'alarm_tamper', 'alarm_presence', 'alarm_intrusion', 'alarm_generic', 'measure_temperature', 'measure_humidity', 'locked', 'windowcoverings_set', 'speaker_playing', 'target_temperature', 'homealarm_state', 'ajax_security_mode', 'ajax_hub_chime_enabled', 'ajax_chime_status'],
+    supportedCapabilities: ['onoff', 'dim', 'alarm_motion', 'alarm_contact', 'alarm_smoke', 'alarm_co', 'alarm_water', 'alarm_heat', 'alarm_tamper', 'alarm_presence', 'alarm_intrusion', 'alarm_generic', 'measure_temperature', 'measure_humidity', 'locked', 'windowcoverings_set', 'speaker_playing', 'target_temperature', 'homealarm_state', 'ajax_security_mode', 'ajax_hub_chime_enabled', 'ajax_chime_status', 'washer_status', 'dryer_status', 'mower_status'],
     devices: [], // Cache for devices
 
     async initialize() {
@@ -289,7 +289,10 @@ const deviceManager = {
             'homealarm_state': 'Alarm (Scharf/Unscharf)',
             'ajax_security_mode': 'Ajax Sicherheitsmodus',
             'ajax_hub_chime_enabled': 'Ajax Türgong (Ein/Aus)',
-            'ajax_chime_status': 'Ajax Türgong-Status'
+            'ajax_chime_status': 'Ajax Türgong-Status',
+            'washer_status': 'Waschmaschine (Status)',
+            'dryer_status': 'Trockner (Status)',
+            'mower_status': 'Rasenmäher (Status/Steuerung)'
         };
         if (displayNames[capabilityId]) {
             return displayNames[capabilityId];
@@ -412,6 +415,15 @@ const deviceManager = {
         if (capability === 'ajax_chime_status') {
             return floor.devices.some(d => d.id === `${deviceId}-ajaxchimestatus`);
         }
+        if (capability === 'washer_status') {
+            return floor.devices.some(d => d.id === `${deviceId}-washer`);
+        }
+        if (capability === 'dryer_status') {
+            return floor.devices.some(d => d.id === `${deviceId}-dryer`);
+        }
+        if (capability === 'mower_status') {
+            return floor.devices.some(d => d.id === `${deviceId}-lawnmower`);
+        }
 
         // For other capabilities
         return floor.devices.some(d => d.id === deviceId);
@@ -464,6 +476,15 @@ const deviceManager = {
         } else if (capability === 'ajax_chime_status') {
             deviceId = `${device.id}-ajaxchimestatus`;
             deviceCapability = 'ajaxchimestatus';
+        } else if (capability === 'washer_status') {
+            deviceId = `${device.id}-washer`;
+            deviceCapability = 'washer';
+        } else if (capability === 'dryer_status') {
+            deviceId = `${device.id}-dryer`;
+            deviceCapability = 'dryer';
+        } else if (capability === 'mower_status') {
+            deviceId = `${device.id}-lawnmower`;
+            deviceCapability = 'lawnmower';
         } else {
             deviceId = device.id;
         }

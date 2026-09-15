@@ -196,16 +196,37 @@ function baseDeviceElement(rendererId, iconName, device, position) {
 
     const iconWrapper = document.createElement('div');
     iconWrapper.className = 'icon-wrapper';
-    const iconSpan = document.createElement('span');
-    iconSpan.className = 'material-symbols-outlined';
-    iconSpan.textContent = iconName;
-    iconSpan.style.pointerEvents = 'auto';
-    iconSpan.style.cursor = 'pointer';
-    iconSpan.style.userSelect = 'none';
-    iconSpan.style.webkitUserSelect = 'none';
-    iconSpan.style.webkitTouchCallout = 'none';
-    iconSpan.style.fontSize = '22px';
-    iconWrapper.appendChild(iconSpan);
+
+    // Prefer the device's own icon from Homey (same as onoff/dim/speaker
+    // etc. already do) over a hardcoded Material Symbols glyph — avoids
+    // guessing at an icon name that may not exist in the font, and looks
+    // more like the device the user actually has.
+    if (device.iconObj) {
+        const img = document.createElement('img');
+        if (device.iconObj.base64) {
+            img.src = device.iconObj.base64;
+        } else if (device.iconObj.url) {
+            img.src = device.iconObj.url;
+        }
+        img.className = 'device-icon';
+        img.style.pointerEvents = 'auto';
+        img.style.cursor = 'pointer';
+        img.style.userSelect = 'none';
+        img.style.webkitUserSelect = 'none';
+        img.style.webkitTouchCallout = 'none';
+        iconWrapper.appendChild(img);
+    } else {
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'material-symbols-outlined';
+        iconSpan.textContent = iconName;
+        iconSpan.style.pointerEvents = 'auto';
+        iconSpan.style.cursor = 'pointer';
+        iconSpan.style.userSelect = 'none';
+        iconSpan.style.webkitUserSelect = 'none';
+        iconSpan.style.webkitTouchCallout = 'none';
+        iconSpan.style.fontSize = '22px';
+        iconWrapper.appendChild(iconSpan);
+    }
     deviceEl.appendChild(iconWrapper);
 
     const valueLabel = document.createElement('div');
@@ -224,7 +245,7 @@ function baseDeviceElement(rendererId, iconName, device, position) {
 // since none of these have an on-map on/off toggle distinct from opening
 // the control).
 function attachTapHandler(deviceEl, onTap) {
-    const icon = deviceEl.querySelector('.material-symbols-outlined');
+    const icon = deviceEl.querySelector('.device-icon, .material-symbols-outlined');
     if (!icon) return;
 
     let moved = false;
@@ -422,7 +443,7 @@ function makeEnumDisplayRenderer(rendererId, apiCapabilityId, homeyCapabilityId,
         createDeviceElement(device, position) {
             const el = baseDeviceElement(rendererId, iconName, device, position);
             // No pointer/cursor affordance — this is a passive status badge.
-            const icon = el.querySelector('.material-symbols-outlined');
+            const icon = el.querySelector('.device-icon, .material-symbols-outlined');
             if (icon) { icon.style.cursor = 'default'; }
             return el;
         },

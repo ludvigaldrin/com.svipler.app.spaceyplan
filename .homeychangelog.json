@@ -142,5 +142,8 @@
   },
   "0.2.10": {
     "en": "Bug fixes"
+  },
+  "0.2.12": {
+    "en": "the floor plan temperature label now shows decimals (e.g. 21.5 °C). Speakers get a mute button with a visible indicator on the tile, plus new support for washers/dryers (status, program, remaining time) and robotic lawn mowers (status, alarms, and start/pause/stop/dock controls). We also fixed a bug that could make devices untappable when their state updated."
   }
 }

@@ -48,3 +48,25 @@ Merging pull requests takes time. While we always try to merge your pull request
 * Ask developers to review your code changes and post their feedback.
 * Ask users to test your changes and post their feedback.
 * Keep your changes to the minimal required amount, and dedicated to one issue/feature only.
+
+## Spacey Plan code structure
+
+Spacey Plan is growing an External Dashboard (the widget's frontend served
+from the app's own HTTP server). To keep the widget and the dashboard on one
+codebase, please follow these rules:
+
+* **Widget endpoints live in `lib/handlers.js`.** `widgets/spacey-plan/api.js`
+  is only a mapping. A new endpoint goes in `lib/handlers.js`, then gets a line
+  in `widgets/spacey-plan/api.js` and a route in `widget.compose.json`.
+* **Renderers don't position themselves.** A renderer in
+  `widgets/spacey-plan/public/capabilities/` builds its element (with
+  `data-x`/`data-y` and `opacity: 0`) and its behaviour. Placing it on the
+  floor plan and revealing it is done by
+  `CapabilityRendererManager.placeOnFloor()`. Don't compute a position from
+  `#floorMapImage` or `#imageWrapper` in a renderer.
+* **Only use the `Homey` methods the widget already uses:** `api`, `on`,
+  `removeAllListeners`, `ready`, `setHeight`, `getSettings`,
+  `getWidgetInstanceId`. The dashboard server provides a stand-in for exactly
+  these; anything else needs a matching change there.
+* **Live updates go through `SubscriptionManager.notifyWidgets`**, never
+  straight to `homey.api.realtime`, so every output receives them.

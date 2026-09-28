@@ -1161,41 +1161,14 @@ function renderDevicesOnFloor(floor) {
 
 // Recalculate every device's on-screen position from its stored data-x/
 // data-y percentages. Capability-agnostic — reads the same attributes
-// every renderer already sets on its element (data-x, data-y,
-// data-floor-aspect-ratio), so it works regardless of which capability
+// every renderer already sets on its element (data-x, data-y), so it works regardless of which capability
 // renderer created the element.
 function repositionAllDevices() {
-    const floorMapImage = document.getElementById('floorMapImage');
-    const wrapper = document.getElementById('imageWrapper');
-    if (!floorMapImage || !wrapper) return;
-    if (!floorMapImage.complete || floorMapImage.naturalWidth === 0) return;
+    const geometry = CapabilityRendererManager.floorGeometry();
+    if (!geometry) return;
 
-    const wrapperRect = wrapper.getBoundingClientRect();
-    if (wrapperRect.width === 0 || wrapperRect.height === 0) return;
-
-    // Measure the actual rendered image box directly instead of
-    // recomputing the object-fit:contain math ourselves. This mirrors
-    // what the edit page (floorManager.js) already does and guarantees
-    // pixel parity with whatever the platform's rendering engine
-    // actually drew, avoiding drift on engines (e.g. mobile WebViews)
-    // that may size intrinsic width:auto/height:auto slightly
-    // differently than a from-scratch reimplementation of the fit math.
-    const imageRect = floorMapImage.getBoundingClientRect();
-    if (imageRect.width === 0 || imageRect.height === 0) return;
-
-    const imageOffsetX = imageRect.left - wrapperRect.left;
-    const imageOffsetY = imageRect.top - wrapperRect.top;
-
-    const deviceElements = document.querySelectorAll('#floorPlanDevices [data-x]');
-    deviceElements.forEach(deviceEl => {
-        const posX = parseFloat(deviceEl.getAttribute('data-x'));
-        const posY = parseFloat(deviceEl.getAttribute('data-y'));
-        if (Number.isNaN(posX) || Number.isNaN(posY)) return;
-
-        const displayX = imageOffsetX + (posX / 100) * imageRect.width;
-        const displayY = imageOffsetY + (posY / 100) * imageRect.height;
-
-        deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
+    document.querySelectorAll('#floorPlanDevices [data-x]').forEach(deviceEl => {
+        CapabilityRendererManager.positionOnFloor(deviceEl, geometry);
     });
 }
 

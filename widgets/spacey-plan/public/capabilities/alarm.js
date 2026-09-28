@@ -109,60 +109,6 @@ function ensureSharedStyles() {
     }
 }
 
-function positionDevice(deviceEl, device, position) {
-    return new Promise((resolve) => {
-        const floorMapImage = document.getElementById('floorMapImage');
-        const wrapper = document.getElementById('imageWrapper');
-
-        const setPosition = () => {
-            if (!floorMapImage || !wrapper) return;
-            if (!floorMapImage.complete || floorMapImage.naturalWidth === 0) return;
-
-            const wrapperRect = wrapper.getBoundingClientRect();
-            const currentImageAspectRatio = floorMapImage.naturalWidth / floorMapImage.naturalHeight;
-            const storedAspectRatio = device.floorAspectRatio || parseFloat(deviceEl.getAttribute('data-floor-aspect-ratio'));
-
-            let displayX, displayY;
-
-            if (storedAspectRatio) {
-                let imageWidth, imageHeight;
-                if (wrapperRect.width / wrapperRect.height > currentImageAspectRatio) {
-                    imageHeight = wrapperRect.height;
-                    imageWidth = imageHeight * currentImageAspectRatio;
-                } else {
-                    imageWidth = wrapperRect.width;
-                    imageHeight = imageWidth / currentImageAspectRatio;
-                }
-                displayX = (position.x / 100) * imageWidth;
-                displayY = (position.y / 100) * imageHeight;
-                if (imageWidth < wrapperRect.width) displayX += (wrapperRect.width - imageWidth) / 2;
-                if (imageHeight < wrapperRect.height) displayY += (wrapperRect.height - imageHeight) / 2;
-            } else {
-                displayX = (position.x / 100) * wrapperRect.width;
-                displayY = (position.y / 100) * wrapperRect.height;
-            }
-
-            deviceEl.style.transform = `translate(${displayX}px, ${displayY}px)`;
-            deviceEl.style.opacity = '1';
-            resolve();
-        };
-
-        if (floorMapImage && floorMapImage.complete && floorMapImage.naturalWidth > 0) {
-            setPosition();
-        } else if (floorMapImage) {
-            floorMapImage.onload = setPosition;
-        }
-
-        const retryInterval = setInterval(() => {
-            if (floorMapImage && floorMapImage.complete && floorMapImage.naturalWidth > 0) {
-                setPosition();
-                clearInterval(retryInterval);
-            }
-        }, 100);
-        setTimeout(() => clearInterval(retryInterval), 5000);
-    });
-}
-
 function baseDeviceElement(rendererId, iconName, device, position) {
     ensureSharedStyles();
 
@@ -233,10 +179,6 @@ function baseDeviceElement(rendererId, iconName, device, position) {
     valueLabel.className = 'measure-value-label';
     valueLabel.textContent = '...';
     deviceEl.appendChild(valueLabel);
-
-    positionDevice(deviceEl, device, position).catch(error => {
-        Homey.api('POST', '/error', { message: `Error positioning ${rendererId} device: ${JSON.stringify(error)}` });
-    });
 
     return deviceEl;
 }

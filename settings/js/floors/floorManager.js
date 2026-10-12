@@ -24,7 +24,24 @@ const floorManager = {
         'measure_uv': 'wb_sunny',
         'measure_battery': 'battery_full',
         'measure_noise': 'volume_up',
-        'measure_water': 'water_drop'
+        'measure_water': 'water_drop',
+        'measure_voltage': 'electric_bolt',
+        'measure_current': 'electrical_services',
+        'measure_frequency': 'waves',
+        'meter_power': 'electric_meter',
+        'meter_gas': 'gas_meter',
+        'meter_water': 'water_drop'
+    },
+
+    // Capability IDs may carry a sub-capability suffix ("meter_power.daily");
+    // the base part picks the icon, grid-related suffixes get the meter icon.
+    getMeasureIconName(measureType) {
+        const text = String(measureType || '');
+        const dot = text.indexOf('.');
+        const base = dot === -1 ? text : text.slice(0, dot);
+        const sub = dot === -1 ? '' : text.slice(dot + 1);
+        if (sub.indexOf('grid') !== -1) return 'electric_meter';
+        return this.MEASURE_ICON_MAP[base] || 'sensors';
     },
 
     // Returns the HTML for a device's marker icon: the device's own photo
@@ -34,7 +51,7 @@ const floorManager = {
     // what's being measured.
     getDeviceIconHTML(device, altText) {
         if (device.capability === 'measure') {
-            const iconName = this.MEASURE_ICON_MAP[device.measureType] || 'sensors';
+            const iconName = this.getMeasureIconName(device.measureType);
             return `<span class="material-symbols-outlined measure-marker-icon">${iconName}</span>`;
         }
 

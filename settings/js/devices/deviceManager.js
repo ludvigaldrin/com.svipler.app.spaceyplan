@@ -1,3 +1,9 @@
+// True for measure_* and meter_* capabilities, including sub-capabilities
+// such as "meter_power.daily" or "measure_power.grid_active_power".
+function isMeasureCapability(cap) {
+    return typeof cap === 'string' && (cap.indexOf('measure_') === 0 || cap.indexOf('meter_') === 0);
+}
+
 const deviceManager = {
     Homey: null,
     currentFloorId: null,
@@ -109,7 +115,7 @@ const deviceManager = {
             // addition to the fixed whitelist (onoff, dim, locks, covers, etc.)
             let supported = deviceCapabilities.filter(cap =>
                 this.supportedCapabilities.includes(cap) ||
-                cap.indexOf('measure_') === 0 ||
+                isMeasureCapability(cap) ||
                 cap.indexOf('alarm_') === 0
             );
             
@@ -123,22 +129,21 @@ const deviceManager = {
             const hasTemperature = supported.includes('measure_temperature');
             const hasHumidity = supported.includes('measure_humidity');
             
-            // If device has both temperature and humidity, replace them with a combined option
+            // If device has both temperature and humidity, offer the combined option
+            // first, followed by temperature-only and humidity-only entries
             let displayCapabilities = [...supported];
             
             if (hasTemperature && hasHumidity) {
-                // Replace individual capabilities with a combined one
                 displayCapabilities = displayCapabilities.filter(cap => 
                     cap !== 'measure_temperature' && cap !== 'measure_humidity'
                 );
-                // Add combined option
-                displayCapabilities.push('measure_combined');
+                displayCapabilities.push('measure_combined', 'measure_temperature', 'measure_humidity');
             }
             
             // Get unsupported capabilities
             const unsupported = deviceCapabilities.filter(cap =>
                 !this.supportedCapabilities.includes(cap) &&
-                cap.indexOf('measure_') !== 0 &&
+                !isMeasureCapability(cap) &&
                 cap.indexOf('alarm_') !== 0
             );
 
@@ -301,7 +306,7 @@ const deviceManager = {
         // Generic fallback for any other measure_* capability Homey exposes
         // (power, luminance, co2, pressure, wind, rain, pm25, ...) so new
         // sensor types work without needing an explicit entry above.
-        if (capabilityId.indexOf('measure_') === 0) {
+        if (isMeasureCapability(capabilityId)) {
             return this.humanizeMeasureType(capabilityId);
         }
 
@@ -327,16 +332,22 @@ const deviceManager = {
             'measure_uv': 'UV Index',
             'measure_voc': 'VOC',
             'measure_ph': 'pH',
-            'measure_rain': 'Rain'
+            'measure_rain': 'Rain',
+            'meter_power': 'Energy (kWh)',
+            'meter_gas': 'Gas (m³)',
+            'meter_water': 'Water (m³)'
         };
-        if (overrides[capabilityId]) {
-            return overrides[capabilityId];
-        }
+        const humanize = (text) => text.split('_').filter(Boolean)
+            .map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+            .replace(/\bPv(\d)\b/g, 'PV$1');
 
-        const words = capabilityId.replace('measure_', '').split('_');
-        return words
-            .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-            .join(' ');
+        // Sub-capabilities ("meter_power.daily") are shown as "<base> (<sub>)"
+        const dot = capabilityId.indexOf('.');
+        const base = dot === -1 ? capabilityId : capabilityId.slice(0, dot);
+        const sub = dot === -1 ? '' : capabilityId.slice(dot + 1);
+
+        const baseLabel = overrides[base] || humanize(base.replace(/^(measure|meter)_/, ''));
+        return sub ? `${baseLabel} - ${humanize(sub)}` : baseLabel;
     },
 
     isDeviceCapabilityAdded(deviceId, capability) {
@@ -348,26 +359,15 @@ const deviceManager = {
             return floor.devices.some(d => d.id === `${deviceId}-sensor-${capability}`);
         }
 
-        // For measure_temperature and measure_humidity, also consider combined option
-        if (capability === 'measure_temperature' || capability === 'measure_humidity') {
-            return floor.devices.some(d => 
-                d.id === `${deviceId}-measure-${capability}` || 
-                d.id === `${deviceId}-measure-combined`
-            );
+        // For combined temperature & humidity (must precede the generic check,
+        // since 'measure_combined' also starts with 'measure_')
+        if (capability === 'measure_combined') {
+            return floor.devices.some(d => d.id === `${deviceId}-measure-combined`);
         }
 
         // For any other measure_* capability, check the generic measure ID
-        if (capability.indexOf('measure_') === 0) {
+        if (isMeasureCapability(capability)) {
             return floor.devices.some(d => d.id === `${deviceId}-measure-${capability}`);
-        }
-        
-        // For combined temperature & humidity
-        if (capability === 'measure_combined') {
-            return floor.devices.some(d => 
-                d.id === `${deviceId}-measure-combined` ||
-                (floor.devices.some(d1 => d1.id === `${deviceId}-measure-measure_temperature`) &&
-                 floor.devices.some(d2 => d2.id === `${deviceId}-measure-measure_humidity`))
-            );
         }
 
         // For onoff and dim, check the respective IDs
@@ -449,7 +449,7 @@ const deviceManager = {
         } else if (capability === 'measure_combined') {
             deviceId = `${device.id}-measure-combined`;
             deviceCapability = 'measure';
-        } else if (capability.indexOf('measure_') === 0) {
+        } else if (isMeasureCapability(capability)) {
             deviceId = `${device.id}-measure-${capability}`;
             deviceCapability = 'measure';
         } else if (capability === 'locked') {
@@ -507,7 +507,7 @@ const deviceManager = {
             // For combined capability, mark it as combined and store both types
             newDevice.measureType = 'combined';
             newDevice.measureTypes = ['measure_temperature', 'measure_humidity'];
-        } else if (capability.indexOf('measure_') === 0) {
+        } else if (isMeasureCapability(capability)) {
             newDevice.measureType = capability;
         }
 
@@ -614,6 +614,16 @@ const deviceManager = {
                     cloudColorOff: '#dcdcdc'
                 }
             });
+            // Flow-trigger button in the long-press window, on by default so it
+            // doesn't have to be re-added by hand (can be removed per device).
+            newDevice.rules.push({
+                id: generateUUID(),
+                name: 'Flow Trigger',
+                type: 'flowTrigger',
+                config: {
+                    buttonLabel: 'Run Flow'
+                }
+            });
         }
 
         // Add default color rule for speakers: purple = playing, neutral = paused
@@ -634,6 +644,16 @@ const deviceManager = {
                     iconColorOff: '#333332',
                     showCloudOff: false,
                     cloudColorOff: '#ffffff'
+                }
+            });
+            // Flow-trigger button in the long-press window, on by default so it
+            // doesn't have to be re-added by hand (can be removed per device).
+            newDevice.rules.push({
+                id: generateUUID(),
+                name: 'Flow Trigger',
+                type: 'flowTrigger',
+                config: {
+                    buttonLabel: 'Run Flow'
                 }
             });
         }
@@ -697,7 +717,7 @@ const deviceManager = {
                 type: 'allColor',
                 config: colorRuleConfig
             });
-        } else if (capability.indexOf('measure_') === 0) {
+        } else if (isMeasureCapability(capability)) {
             // Generic measure type: only one value to show, so no
             // measureDisplay toggle needed — just the same subtle default
             // icon styling used for temperature/humidity devices.

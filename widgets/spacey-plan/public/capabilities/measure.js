@@ -411,19 +411,46 @@ const measureRenderer = {
         'measure_battery': { icon: 'battery_full', label: 'Battery' },
         'measure_noise': { icon: 'volume_up', label: 'Noise' },
         'measure_water': { icon: 'water_drop', label: 'Water' },
-        'measure_gust_strength': { icon: 'air', label: 'Gust Strength' }
+        'measure_gust_strength': { icon: 'air', label: 'Gust Strength' },
+        'measure_voltage': { icon: 'electric_bolt', label: 'Voltage' },
+        'measure_current': { icon: 'electrical_services', label: 'Current' },
+        'measure_frequency': { icon: 'waves', label: 'Frequency' },
+        'meter_power': { icon: 'electric_meter', label: 'Energy' },
+        'meter_gas': { icon: 'gas_meter', label: 'Gas' },
+        'meter_water': { icon: 'water_drop', label: 'Water' }
+    },
+
+    // Capability IDs can carry a sub-capability suffix, e.g.
+    // "meter_power.daily" or "measure_power.grid_active_power". The base
+    // part ("meter_power") decides unit/icon/formatting; the suffix only
+    // distinguishes several values of the same kind on one device.
+    splitMeasureType(measureType) {
+        const text = String(measureType || '');
+        const dot = text.indexOf('.');
+        return dot === -1
+            ? { base: text, sub: '' }
+            : { base: text.slice(0, dot), sub: text.slice(dot + 1) };
+    },
+
+    humanizeWords(text) {
+        return String(text || '').split('_').filter(Boolean)
+            .map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+            .replace(/\bPv(\d)\b/g, 'PV$1');
     },
 
     getMeasureIcon(measureType) {
-        return this.GENERIC_MEASURE_META[measureType]?.icon || 'sensors';
+        const { base, sub } = this.splitMeasureType(measureType);
+        // Grid-related values (import/export/grid power) get the meter icon
+        if (sub.indexOf('grid') !== -1) return 'electric_meter';
+        return this.GENERIC_MEASURE_META[base]?.icon || 'sensors';
     },
 
     getMeasureLabel(measureType) {
-        if (this.GENERIC_MEASURE_META[measureType]) {
-            return this.GENERIC_MEASURE_META[measureType].label;
-        }
-        const words = (measureType || '').replace('measure_', '').split('_');
-        return words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        const { base, sub } = this.splitMeasureType(measureType);
+        const baseLabel = this.GENERIC_MEASURE_META[base]
+            ? this.GENERIC_MEASURE_META[base].label
+            : this.humanizeWords(base.replace(/^(measure|meter)_/, ''));
+        return sub ? `${baseLabel} (${this.humanizeWords(sub)})` : baseLabel;
     },
 
     // Formats the always-visible label shown below the icon on the floor
@@ -438,18 +465,31 @@ const measureRenderer = {
             return '…';
         }
 
-        if (measureType === 'measure_temperature' || measureType === 'combined') {
+        const baseType = this.splitMeasureType(measureType).base;
+
+        if (baseType === 'measure_temperature' || baseType === 'combined') {
             return `${num.toFixed(1)}°C`;
         }
-        if (measureType === 'measure_humidity') {
+        if (baseType === 'measure_humidity') {
             return `${Math.round(num)}%`;
         }
 
         const resolvedUnit = unit !== undefined ? unit : '';
         // Whole-number units (W, ppm, lux, ...) read cleaner rounded;
         // fractional-prone ones (pressure, PM2.5, wind) keep one decimal.
-        const oneDecimalTypes = ['measure_pressure', 'measure_pm25', 'measure_wind_strength', 'measure_gust_strength', 'measure_rain'];
-        const formatted = oneDecimalTypes.includes(measureType) ? num.toFixed(1) : Math.round(num);
+        const oneDecimalTypes = ['measure_pressure', 'measure_pm25', 'measure_wind_strength', 'measure_gust_strength', 'measure_rain', 'measure_voltage', 'measure_current'];
+        let formatted;
+        if (oneDecimalTypes.includes(baseType)) {
+            formatted = num.toFixed(1);
+        } else if (baseType === 'measure_frequency') {
+            formatted = num.toFixed(2);
+        } else if (baseType.indexOf('meter_') === 0) {
+            // Meter readings (kWh, m³, ...): keep one decimal for small
+            // values (daily yield 3.6kWh), whole numbers once they are large.
+            formatted = Math.abs(num) < 100 ? num.toFixed(1) : Math.round(num);
+        } else {
+            formatted = Math.round(num);
+        }
         return `${formatted}${resolvedUnit}`;
     },
 

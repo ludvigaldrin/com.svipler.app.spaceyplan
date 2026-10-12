@@ -230,7 +230,20 @@ function baseDeviceElement(rendererId, iconName, device, position) {
     deviceEl.appendChild(iconWrapper);
 
     const valueLabel = document.createElement('div');
-    valueLabel.className = 'measure-value-label';
+    // Device photo icons are only ~14px inside the 28px circle, so the label
+    // sits closer than under the larger glyph icons. Own style tag (not part
+    // of 'measureValueLabelStyles', which another renderer may inject first).
+    if (device.iconObj && !document.getElementById('labelNearStyles')) {
+        const nearStyles = document.createElement('style');
+        nearStyles.id = 'labelNearStyles';
+        nearStyles.textContent = `
+            .measure-value-label.label-near:not(.badge-centered) {
+                top: 24px;
+            }
+        `;
+        document.head.appendChild(nearStyles);
+    }
+    valueLabel.className = device.iconObj ? 'measure-value-label label-near' : 'measure-value-label';
     valueLabel.textContent = '...';
     deviceEl.appendChild(valueLabel);
 

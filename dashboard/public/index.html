@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Spacey Plan</title>
+  <link rel="stylesheet" href="/dashboard.css">
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200">
+</head>
+<body>
+  <header id="topbar" class="topbar">
+    <div id="title" class="title"></div>
+    <button id="menuButton" class="icon-button" aria-label="Menu">
+      <span class="material-symbols-outlined">more_vert</span>
+    </button>
+  </header>
+  <div id="menu" class="menu" hidden></div>
+
+  <main id="page" class="page" aria-live="polite"></main>
+  <nav id="dots" class="dots" aria-label="Pages"></nav>
+
+  <div id="saver" class="saver" hidden>
+    <div id="saverClock" class="saver-clock"></div>
+  </div>
+
+  <script src="/homey-shim.js"></script>
+  <script src="/widget/capabilities/onoff.js"></script>
+  <script src="/widget/capabilities/dim.js"></script>
+  <script src="/widget/capabilities/sensor.js"></script>
+  <script src="/widget/capabilities/measure.js"></script>
+  <script src="/widget/capabilities/lock.js"></script>
+  <script src="/widget/capabilities/windowcovering.js"></script>
+  <script src="/widget/capabilities/speaker.js"></script>
+  <script src="/widget/capabilities/thermostat.js"></script>
+  <script src="/widget/capabilities/alarm.js"></script>
+  <script src="/widget/capabilities/appliance.js"></script>
+  <script src="/widget/capabilities/lawnmower.js"></script>
+  <script src="/widget/CapabilityRendererManager.js"></script>
+  <script src="/dashboard.js"></script>
+</body>
+</html>

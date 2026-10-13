@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spacey Plan</title>
+  <link rel="stylesheet" href="/dashboard.css">
+</head>
+<body class="login-body">
+  <form id="loginForm" class="login-card" autocomplete="off">
+    <h1>Spacey Plan</h1>
+    <input id="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="12"
+           placeholder="PIN" autofocus aria-label="PIN">
+    <button type="submit">Open</button>
+    <p id="loginError" class="login-error" role="alert"></p>
+  </form>
+  <script src="/login.js"></script>
+</body>
+</html>

@@ -26,7 +26,10 @@ class CapabilityRendererManager {
         return renderer;
     }
 
-    async renderDevice(device, container) {
+    // view: 'pin'  - absolutely positioned icon on the floor plan (default,
+    //                 what the widget uses)
+    //       'tile' - the same element laid out as a card in a dashboard grid
+    async renderDevice(device, container, { view = 'pin' } = {}) {
         const renderer = this.getRenderer(device.capability);
         if (!renderer) {
             Homey.api('POST', '/error', { message: `No renderer found for capability: ${device.capability}` });
@@ -38,12 +41,16 @@ class CapabilityRendererManager {
             device.floorAspectRatio = this.floorAspectRatio;
         }
 
-        const deviceEl = renderer.createDeviceElement(device, device.position);
+        // Tiles have no floor position; renderers read position.x/y.
+        const deviceEl = renderer.createDeviceElement(device, device.position || { x: 0, y: 0 });
 
         // Renderers build the element and its behaviour only; placing it on
-        // the floor plan ("pin" view) happens here, so the same element can
-        // later be laid out elsewhere (e.g. as a dashboard tile).
-        CapabilityRendererManager.placeOnFloor(deviceEl);
+        // the floor plan ("pin" view) or in a grid ("tile" view) happens here.
+        if (view === 'tile') {
+            CapabilityRendererManager.styleAsTile(deviceEl);
+        } else {
+            CapabilityRendererManager.placeOnFloor(deviceEl);
+        }
         
         // Set data attributes with the correct device ID format
         const fullDeviceId = `${device.homeyId}`;
@@ -66,9 +73,51 @@ class CapabilityRendererManager {
         }
 
         // Add the element to the container
-        container.appendChild(deviceEl);
-        
+        if (view === 'tile') {
+            container.appendChild(CapabilityRendererManager.wrapTile(deviceEl, device));
+        } else {
+            container.appendChild(deviceEl);
+        }
+
         return deviceEl;
+    }
+
+    // Turns the absolutely positioned pin into an in-flow, enlarged icon.
+    // Overrides only what placement needs; colours/state styling stay as the
+    // renderer set them.
+    static styleAsTile(deviceEl) {
+        deviceEl.style.position = 'relative';
+        deviceEl.style.left = 'auto';
+        deviceEl.style.top = 'auto';
+        deviceEl.style.transform = 'none';
+        deviceEl.style.opacity = '1';
+        deviceEl.style.zoom = '2';
+        deviceEl.style.flex = '0 0 auto';
+        deviceEl.classList.add('tile-pin');
+    }
+
+    // Card around the pin with the device name underneath. Taps on the card
+    // outside the icon are forwarded to the icon so the whole tile is a
+    // hit target (the icon is the only element the renderers listen on).
+    static wrapTile(deviceEl, device) {
+        const tile = document.createElement('div');
+        tile.className = 'tile';
+        tile.setAttribute('data-tile-for', device.homeyId);
+
+        const name = document.createElement('div');
+        name.className = 'tile-name';
+        name.textContent = device.name || '';
+
+        tile.appendChild(deviceEl);
+        tile.appendChild(name);
+
+        tile.addEventListener('click', (e) => {
+            if (deviceEl.contains(e.target)) return;
+            const icon = deviceEl.querySelector('.device-icon, .material-symbols-outlined');
+            if (icon) icon.dispatchEvent(new MouseEvent('click', { bubbles: false, cancelable: true }));
+        });
+
+        return tile;
     }
 
     // The rendered floor image's box relative to #imageWrapper, or null if

@@ -4,6 +4,7 @@ const Homey = require('homey');
 const { HomeyAPI } = require('homey-api');
 const CapabilityManager = require('./lib/CapabilityManager');
 const SubscriptionManager = require('./lib/SubscriptionManager');
+const ExternalServer = require('./lib/ExternalServer');
 const { buildDefaultDashboards, validateDashboards } = require('./lib/dashboards');
 
 if (!global.fetch) {
@@ -51,6 +52,93 @@ class SpaceHomeyApp extends Homey.App {
     } catch (error) {
       this.error('Failed to register Flow-button trigger card:', error);
     }
+
+    // Dashboard buttons: one trigger card, the user picks which button it
+    // listens for (autocomplete) and builds "WHEN button X is pressed".
+    try {
+      this.dashboardButtonTrigger = this.homey.flow.getTriggerCard('spaceyplan_button');
+      this.dashboardButtonTrigger.registerArgumentAutocompleteListener('button', async (query) => {
+        const needle = String(query || '').toLowerCase();
+        return (await this.getFlowButtons())
+          .filter(b => b.name.toLowerCase().includes(needle))
+          .map(b => ({ id: b.id, name: b.name, description: b.description }));
+      });
+      this.dashboardButtonTrigger.registerRunListener(async (args, state) => {
+        return args.button && args.button.id === state.buttonId;
+      });
+    } catch (error) {
+      this.error('Failed to register dashboard button trigger card:', error);
+    }
+
+    await this.startExternalDashboard();
+  }
+
+  // Every `buttons` block item of kind "flow", across all dashboards.
+  async getFlowButtons() {
+    const buttons = [];
+    for (const dashboard of await this.getDashboards()) {
+      for (const page of dashboard.pages) {
+        for (const block of page.blocks) {
+          if (block.type !== 'buttons') continue;
+          for (const item of block.items || []) {
+            if (item.kind !== 'flow') continue;
+            buttons.push({
+              id: item.id,
+              name: item.label || item.id,
+              description: `${dashboard.name} / ${page.name}`
+            });
+          }
+        }
+      }
+    }
+    return buttons;
+  }
+
+  async pressFlowButton(buttonId) {
+    if (!this.dashboardButtonTrigger) {
+      throw new Error('Dashboard button trigger card not registered');
+    }
+    const button = (await this.getFlowButtons()).find(b => b.id === buttonId);
+    if (!button) throw new Error(`Unknown button: ${buttonId}`);
+    await this.dashboardButtonTrigger.trigger({ buttonId: button.id, label: button.name }, { buttonId: button.id });
+  }
+
+  // ---- External Dashboard server ----
+
+  // Settings key `externalDashboard`: { enabled, port, pin }. The server is
+  // opt-in; a changed setting restarts or stops it.
+  async startExternalDashboard() {
+    if (!this.externalServer) {
+      this.externalServer = new ExternalServer(this);
+      this.subscriptionManager.addOutput((clientId, payload) => this.externalServer.pushDeviceUpdate(clientId, payload));
+      this.homey.settings.on('set', key => {
+        if (key === 'externalDashboard') {
+          this.startExternalDashboard().catch(error => this.error('External Dashboard restart failed:', error));
+        }
+      });
+    }
+
+    const config = (await this.homey.settings.get('externalDashboard')) || {};
+    if (!config.enabled) {
+      await this.externalServer.stop();
+      return;
+    }
+
+    let secret = await this.homey.settings.get('externalDashboardSecret');
+    if (!secret) {
+      secret = require('crypto').randomBytes(32).toString('hex');
+      await this.homey.settings.set('externalDashboardSecret', secret);
+    }
+
+    try {
+      await this.externalServer.start({ port: Number(config.port) || 7580, pin: config.pin, secret });
+    } catch (error) {
+      // Surfaced to the settings page through this key instead of failing silently.
+      this.error('External Dashboard could not start:', error);
+      await this.homey.settings.set('externalDashboardStatus', { running: false, error: error.message });
+      return;
+    }
+    await this.homey.settings.set('externalDashboardStatus', { running: true, port: this.externalServer.port });
   }
 
   // Fires the Flow-button trigger card, with the device's name as a token

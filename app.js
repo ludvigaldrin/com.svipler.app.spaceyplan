@@ -103,6 +103,17 @@ class SpaceHomeyApp extends Homey.App {
     await this.dashboardButtonTrigger.trigger({ buttonId: button.id, label: button.name }, { buttonId: button.id });
   }
 
+  // Prefer the address Homey itself reports; fall back to a network interface.
+  async localHost() {
+    try {
+      const address = await this.homey.cloud.getLocalAddress();
+      if (address) return String(address).split(':')[0];
+    } catch (error) {
+      this.error('getLocalAddress failed:', error.message);
+    }
+    return this.lanAddress() || 'homey-ip';
+  }
+
   lanAddress() {
     for (const addresses of Object.values(require('os').networkInterfaces())) {
       for (const address of addresses || []) {
@@ -157,7 +168,7 @@ class SpaceHomeyApp extends Homey.App {
     await this.homey.settings.set('externalDashboardStatus', {
       running: true,
       port,
-      url: `http://${this.lanAddress() || 'homey-ip'}:${port}/`
+      url: `http://${await this.localHost()}:${port}/`
     });
   }
 

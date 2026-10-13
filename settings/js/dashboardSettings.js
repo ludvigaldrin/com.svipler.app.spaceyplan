@@ -13,13 +13,32 @@ const dashboardSettings = {
             $('extPin').value = $('extPinIntro').value.trim();
             this.save();
         });
-        $('extOpenBuilder').addEventListener('click', () => window.open(this.url + 'editor', '_blank'));
-        $('extOpenDash').addEventListener('click', () => window.open(this.url, '_blank'));
-        $('extCopy').addEventListener('click', () => {
-            try { navigator.clipboard.writeText(this.url); $('extCopy').textContent = 'Copied'; }
-            catch (e) { $('extCopy').textContent = this.url; }
-        });
+        $('extOpenBuilder').addEventListener('click', () => this.open(this.url + 'editor'));
+        $('extOpenDash').addEventListener('click', () => this.open(this.url));
+        $('extCopy').addEventListener('click', () => this.copy(this.url));
         this.load();
+    },
+
+    // The settings page runs in a sandboxed view where window.open is blocked;
+    // Homey.openURL is the supported way out.
+    open(url) {
+        try {
+            this.Homey.openURL(url);
+        } catch (err) {
+            this.setStatus('Could not open ' + url + ': ' + err.message, true);
+        }
+    },
+
+    copy(text) {
+        const button = document.getElementById('extCopy');
+        const area = document.createElement('textarea');
+        area.value = text;
+        document.body.appendChild(area);
+        area.select();
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+        area.remove();
+        button.textContent = ok ? 'Copied' : 'Copy failed';
     },
 
     setStatus(text, isError) {

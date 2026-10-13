@@ -2,9 +2,9 @@ const thermostatRenderer = {
     id: 'thermostat',
 
     // Fixed range/step, matching the settings-side choice (0.5°C steps,
-    // 5-30°C — standard radiator thermostat range). Not read per-device.
+    // 5-40°C — covers radiators as well as e.g. hot tubs). Not read per-device.
     MIN: 5,
-    MAX: 30,
+    MAX: 40,
     STEP: 0.5,
 
     createDeviceElement(device, position) {

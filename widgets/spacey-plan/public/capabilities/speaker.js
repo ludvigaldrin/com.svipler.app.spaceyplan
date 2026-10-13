@@ -72,7 +72,7 @@ const speakerRenderer = {
                 }
                 .speaker-value-label {
                     position: absolute;
-                    top: 30px;
+                    top: 24px;
                     left: 50%;
                     transform: translateX(-50%);
                     background: rgba(255, 255, 255, 0.92);

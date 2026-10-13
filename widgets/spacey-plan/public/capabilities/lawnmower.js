@@ -3,13 +3,44 @@
 // baseDeviceElement, attachTapHandler) — this file must be loaded after
 // alarm.js in index.html so those globals already exist.
 //
-// The status label shows the raw mower_status text as reported by the
-// device (e.g. "docked") rather than a translated/hardcoded set of
-// strings — we only confirmed "docked" ourselves, and showing the raw
-// value avoids guessing at the exact wording for "mowing", "paused",
-// etc. Red highlight is instead tied to alarm_generic/mower_error
-// (booleans, safe to rely on regardless of the mower's actual state
-// vocabulary).
+// Status vocabulary (mower_status enum of the MOVA & Dreame Mower app) is
+// translated to German for display; unknown values fall back to the raw
+// text. Blue highlight while the mower is actively working, red on
+// error/alarm.
+
+const MOWER_STATUS_LABELS = {
+    idle: 'Bereit',
+    mowing: 'Mäht',
+    standby: 'Standby',
+    paused: 'Pausiert',
+    error: 'Fehler',
+    returning: 'Fährt zur Station',
+    charging: 'Lädt',
+    docked: 'In Station',
+    mapping: 'Kartierung',
+    updating: 'Update',
+    remote_control: 'Fernsteuerung',
+    garage_home: 'In Garage',
+    garage_exiting: 'Verlässt Garage',
+    garage_adjusting: 'Richtet sich aus',
+    garage_opening: 'Garage öffnet',
+    garage_closing: 'Garage schliesst',
+    garage_maintenance_transit: 'Fährt zum Wartungspunkt',
+    garage_maintenance_reached: 'Am Wartungspunkt',
+    garage_free_drive: 'Fährt (Garage)',
+    garage_positioning: 'Positioniert sich',
+    garage_app_control: 'App-Steuerung'
+};
+
+const MOWER_ACTIVE_STATUSES = [
+    'mowing', 'returning', 'mapping', 'remote_control',
+    'garage_exiting', 'garage_maintenance_transit', 'garage_free_drive'
+];
+
+function mowerStatusLabel(status) {
+    if (!status) return '--';
+    return MOWER_STATUS_LABELS[status] || status;
+}
 
 function ensureLawnmowerStyles() {
     if (document.getElementById('lawnmowerModalStyles')) return;
@@ -109,15 +140,16 @@ const lawnmowerRenderer = {
 
         const label = deviceEl.querySelector('.measure-value-label');
         if (label) {
-            label.textContent = deviceData.mowerStatus || '--';
+            label.textContent = mowerStatusLabel(deviceData.mowerStatus);
         }
 
-        // Only highlight for an actual problem — we deliberately don't
-        // guess a "highlight while mowing" treatment without knowing the
-        // real status vocabulary yet (see file header).
-        if (hasProblem) {
+        const isActive = MOWER_ACTIVE_STATUSES.includes(deviceData.mowerStatus);
+        if (hasProblem || deviceData.mowerStatus === 'error') {
             deviceEl.style.background = 'rgba(255, 59, 48, 0.55)';
             deviceEl.style.boxShadow = '0 0 8px 2px rgba(255, 59, 48, 0.65)';
+        } else if (isActive) {
+            deviceEl.style.background = 'rgba(0, 122, 255, 0.55)';
+            deviceEl.style.boxShadow = '0 0 8px 2px rgba(0, 122, 255, 0.65)';
         } else {
             deviceEl.style.background = 'rgba(255, 255, 255, 0.35)';
             deviceEl.style.boxShadow = '0 0 8px 1px rgba(255, 255, 255, 0.45)';
@@ -192,7 +224,7 @@ const lawnmowerRenderer = {
         let rows = `
             <div class="lawnmower-info-row">
                 <span class="lawnmower-info-label">Status</span>
-                <span class="lawnmower-info-value">${deviceData.mowerStatus || '--'}</span>
+                <span class="lawnmower-info-value">${mowerStatusLabel(deviceData.mowerStatus)}</span>
             </div>
             <div class="lawnmower-info-row">
                 <span class="lawnmower-info-label">Akku</span>

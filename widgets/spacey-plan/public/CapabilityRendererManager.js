@@ -91,7 +91,7 @@ class CapabilityRendererManager {
         deviceEl.style.top = 'auto';
         deviceEl.style.transform = 'none';
         deviceEl.style.opacity = '1';
-        deviceEl.style.zoom = '2';
+        deviceEl.style.zoom = '2.5';
         deviceEl.style.flex = '0 0 auto';
         deviceEl.classList.add('tile-pin');
     }
@@ -111,10 +111,14 @@ class CapabilityRendererManager {
         tile.appendChild(deviceEl);
         tile.appendChild(name);
 
+        // The renderers listen for mouse/touch down-up on the icon (tap vs.
+        // long press), not click, so replay a quick tap on it.
         tile.addEventListener('click', (e) => {
             if (deviceEl.contains(e.target)) return;
             const icon = deviceEl.querySelector('.device-icon, .material-symbols-outlined');
-            if (icon) icon.dispatchEvent(new MouseEvent('click', { bubbles: false, cancelable: true }));
+            if (!icon) return;
+            icon.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
+            icon.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, button: 0 }));
         });
 
         return tile;

@@ -179,6 +179,42 @@
   "flow": {
     "triggers": [
       {
+        "id": "spaceyplan_button",
+        "title": {
+          "en": "A dashboard button was pressed"
+        },
+        "titleFormatted": {
+          "en": "Dashboard button [[button]] was pressed"
+        },
+        "args": [
+          {
+            "name": "button",
+            "type": "autocomplete",
+            "placeholder": {
+              "en": "Choose a button"
+            }
+          }
+        ],
+        "tokens": [
+          {
+            "name": "buttonId",
+            "type": "string",
+            "title": {
+              "en": "Button ID"
+            },
+            "example": "i1"
+          },
+          {
+            "name": "label",
+            "type": "string",
+            "title": {
+              "en": "Button label"
+            },
+            "example": "Good night"
+          }
+        ]
+      },
+      {
         "id": "spaceyplan_speaker_button",
         "title": {
           "en": "A Flow-button was pressed"

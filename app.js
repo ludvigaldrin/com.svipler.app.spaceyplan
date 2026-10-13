@@ -103,6 +103,15 @@ class SpaceHomeyApp extends Homey.App {
     await this.dashboardButtonTrigger.trigger({ buttonId: button.id, label: button.name }, { buttonId: button.id });
   }
 
+  lanAddress() {
+    for (const addresses of Object.values(require('os').networkInterfaces())) {
+      for (const address of addresses || []) {
+        if (address.family === 'IPv4' && !address.internal) return address.address;
+      }
+    }
+    return null;
+  }
+
   // ---- External Dashboard server ----
 
   // Settings key `externalDashboard`: { enabled, port, pin }. The server is
@@ -138,7 +147,12 @@ class SpaceHomeyApp extends Homey.App {
       await this.homey.settings.set('externalDashboardStatus', { running: false, error: error.message });
       return;
     }
-    await this.homey.settings.set('externalDashboardStatus', { running: true, port: this.externalServer.port });
+    const port = this.externalServer.port;
+    await this.homey.settings.set('externalDashboardStatus', {
+      running: true,
+      port,
+      url: `http://${this.lanAddress() || 'homey-ip'}:${port}/`
+    });
   }
 
   // Fires the Flow-button trigger card, with the device's name as a token

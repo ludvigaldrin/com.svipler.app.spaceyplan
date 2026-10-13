@@ -13,6 +13,8 @@ function onHomeyReady(Homey) {
         deviceManager.setupDeviceDialog();
     };
 
+    dashboardSettings.initialize(Homey);
+
     // Initialize
     async function init() {
         try {

@@ -37,6 +37,26 @@
         </div>
     </div>
 
+
+    <!-- External Dashboard -->
+    <div id="externalDashboardSection" class="homey-section external-dashboard">
+        <div class="homey-title">External Dashboard</div>
+        <p class="ext-hint">Show dashboards in any browser or on a wall display. Opt-in: the server only runs while this is on.</p>
+        <div class="homey-form-group">
+            <label><input type="checkbox" id="extEnabled"> Enable External Dashboard</label>
+        </div>
+        <div class="homey-form-group">
+            <label class="homey-form-label" for="extPin">PIN (4-8 digits)</label>
+            <input type="text" id="extPin" class="homey-form-input" inputmode="numeric" maxlength="8" autocomplete="off">
+        </div>
+        <div class="homey-form-group">
+            <label class="homey-form-label" for="extPort">Port</label>
+            <input type="number" id="extPort" class="homey-form-input" min="1024" max="65535" value="7580">
+        </div>
+        <button id="extSave" class="homey-button-primary-full">Save</button>
+        <p id="extStatus" class="ext-status"></p>
+    </div>
+
     <!-- Floor Edit View -->
     <div id="floorEditView" class="homey-section" style="display: none;">
         <div class="view-header">
@@ -212,6 +232,7 @@
     <script src="js/rules/ruleManager.js"></script>
     <!-- Then load deviceManager -->
     <script src="js/devices/deviceManager.js"></script>
+    <script src="js/dashboardSettings.js"></script>
     <script src="js/settings.js"></script>
 </body>
 

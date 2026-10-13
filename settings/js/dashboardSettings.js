@@ -6,7 +6,19 @@ const dashboardSettings = {
 
     initialize(Homey) {
         this.Homey = Homey;
-        document.getElementById('extSave').addEventListener('click', () => this.save());
+        const $ = id => document.getElementById(id);
+        $('extSave').addEventListener('click', () => this.save());
+        $('extStart').addEventListener('click', () => {
+            $('extEnabled').checked = true;
+            $('extPin').value = $('extPinIntro').value.trim();
+            this.save();
+        });
+        $('extOpenBuilder').addEventListener('click', () => window.open(this.url + 'editor', '_blank'));
+        $('extOpenDash').addEventListener('click', () => window.open(this.url, '_blank'));
+        $('extCopy').addEventListener('click', () => {
+            try { navigator.clipboard.writeText(this.url); $('extCopy').textContent = 'Copied'; }
+            catch (e) { $('extCopy').textContent = this.url; }
+        });
         this.load();
     },
 
@@ -47,10 +59,41 @@ const dashboardSettings = {
     },
 
     showStatus(status, enabled) {
-        if (!enabled) return this.setStatus('Off');
+        const $ = id => document.getElementById(id);
+        const running = !!(enabled && status && status.running);
+        $('extIntro').style.display = enabled ? 'none' : '';
+        $('extRunning').style.display = running ? '' : 'none';
+        if (running) {
+            this.url = status.url;
+            $('extUrl').textContent = status.url;
+            $('extCopy').textContent = 'Copy';
+            this.loadDashboards();
+        }
+        if (!enabled) return this.setStatus('');
         if (!status) return this.setStatus('Starting…');
         if (!status.running) return this.setStatus('Could not start: ' + status.error, true);
-        this.setStatus('Running. Open ' + status.url + ' (editor: ' + status.url + 'editor)');
+        this.setStatus('');
+    },
+
+    async loadDashboards() {
+        const el = document.getElementById('extDashboards');
+        try {
+            const dashboards = (await this.get('dashboards')) || [];
+            if (!dashboards.length) {
+                el.textContent = 'None yet. Open the builder to create one' + (this.hasFloors ? '.' : ' (add a floor plan first for a floor plan block).');
+                return;
+            }
+            el.innerHTML = '';
+            for (const d of dashboards) {
+                const row = document.createElement('div');
+                row.className = 'ext-row';
+                const pages = (d.pages || []).length;
+                row.textContent = d.name + ' · ' + pages + (pages === 1 ? ' page' : ' pages');
+                el.appendChild(row);
+            }
+        } catch (err) {
+            el.textContent = 'Could not load dashboards: ' + err.message;
+        }
     },
 
     async save() {

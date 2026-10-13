@@ -147,3 +147,17 @@ body {
 }
 .main-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; }
 .external-dashboard { border-top: 0; margin-top: 0; }
+
+/* Dashboard tab */
+.ext-card { margin: 12px 0; padding: 16px; background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.ext-card h3 { margin: 0 0 8px; font-size: 16px; }
+.ext-card > input, .ext-card > button { margin-top: 10px; }
+.ext-live { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }
+.ext-live code { padding: 2px 6px; background: #f1f3f5; border-radius: 6px; word-break: break-all; }
+.ext-dot { width: 10px; height: 10px; border-radius: 50%; background: #2ecc71; }
+.ext-link { border: 0; background: none; color: #3b82f6; font: inherit; cursor: pointer; }
+.ext-actions { display: flex; flex-direction: column; gap: 8px; }
+.ext-secondary { padding: 12px; border: 1px solid #ddd; border-radius: 10px; background: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.ext-row { padding: 10px 0; border-top: 1px solid #eee; }
+.ext-row:first-child { border-top: 0; }
+#extAdvanced summary { cursor: pointer; font-weight: 600; }

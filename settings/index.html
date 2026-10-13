@@ -46,20 +46,49 @@
 
     <!-- External Dashboard -->
     <div id="externalDashboardSection" class="homey-section external-dashboard" style="display: none;">
-        <div class="homey-title">External Dashboard</div>
-        <p class="ext-hint">Show dashboards in any browser or on a wall display. Opt-in: the server only runs while this is on.</p>
-        <div class="homey-form-group">
-            <label><input type="checkbox" id="extEnabled"> Enable External Dashboard</label>
+        <div class="homey-title">Dashboards</div>
+        <p class="ext-hint">Build dashboards with floor plans, buttons and devices, and show them on any browser, tablet or wall display on your network.</p>
+
+        <!-- Shown while the server is off -->
+        <div id="extIntro" class="ext-card">
+            <h3>Turn on the dashboard server</h3>
+            <p class="ext-hint">Pick a PIN (4-8 digits). You type it once on each screen that shows a dashboard.</p>
+            <input type="text" id="extPinIntro" class="homey-form-input" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="PIN">
+            <button id="extStart" class="homey-button-primary-full">Turn on</button>
         </div>
-        <div class="homey-form-group">
-            <label class="homey-form-label" for="extPin">PIN (4-8 digits)</label>
-            <input type="text" id="extPin" class="homey-form-input" inputmode="numeric" maxlength="8" autocomplete="off">
+
+        <!-- Shown while the server runs -->
+        <div id="extRunning" style="display: none;">
+            <div class="ext-card">
+                <div class="ext-live"><span class="ext-dot"></span> Running at <code id="extUrl"></code>
+                    <button id="extCopy" class="ext-link" type="button">Copy</button></div>
+                <div class="ext-actions">
+                    <button id="extOpenBuilder" class="homey-button-primary-full" type="button">Open dashboard builder</button>
+                    <button id="extOpenDash" class="ext-secondary" type="button">Open dashboard</button>
+                </div>
+                <p class="ext-hint">The builder opens in a new tab and asks for your PIN. Each screen picks which dashboard and room it shows.</p>
+            </div>
+            <div class="ext-card">
+                <h3>Your dashboards</h3>
+                <div id="extDashboards" class="ext-list"></div>
+            </div>
         </div>
-        <div class="homey-form-group">
-            <label class="homey-form-label" for="extPort">Port</label>
-            <input type="number" id="extPort" class="homey-form-input" min="1024" max="65535" value="7580">
-        </div>
-        <button id="extSave" class="homey-button-primary-full">Save</button>
+
+        <details id="extAdvanced" class="ext-card">
+            <summary>Server settings</summary>
+            <div class="homey-form-group">
+                <label><input type="checkbox" id="extEnabled"> Enable External Dashboard</label>
+            </div>
+            <div class="homey-form-group">
+                <label class="homey-form-label" for="extPin">PIN (4-8 digits)</label>
+                <input type="text" id="extPin" class="homey-form-input" inputmode="numeric" maxlength="8" autocomplete="off">
+            </div>
+            <div class="homey-form-group">
+                <label class="homey-form-label" for="extPort">Port</label>
+                <input type="number" id="extPort" class="homey-form-input" min="1024" max="65535" value="7580">
+            </div>
+            <button id="extSave" class="homey-button-primary-full">Save</button>
+        </details>
         <p id="extStatus" class="ext-status"></p>
     </div>
 

@@ -82,3 +82,34 @@ const dashboardSettings = {
         }
     }
 };
+
+// Tabs: Floor Plans / Dashboard. The tab bar hides while a floor is being
+// edited (settings.js hides #floorsListView then).
+(function () {
+  const tabs = document.getElementById('mainTabs');
+  const list = document.getElementById('floorsListView');
+  const dash = document.getElementById('externalDashboardSection');
+  if (!tabs || !list || !dash) return;
+  let active = 'floorplans';
+  let listHidden = false;
+
+  function apply() {
+    tabs.style.display = listHidden ? 'none' : '';
+    list.style.display = !listHidden && active === 'floorplans' ? '' : 'none';
+    dash.style.display = !listHidden && active === 'dashboard' ? '' : 'none';
+    tabs.querySelectorAll('.main-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === active));
+  }
+
+  tabs.addEventListener('click', e => {
+    const b = e.target.closest('.main-tab');
+    if (!b) return;
+    active = b.dataset.tab;
+    apply();
+  });
+
+  // Edit view toggles floorsListView; detect it via the edit view's visibility.
+  const edit = document.getElementById('floorEditView');
+  const watch = () => { listHidden = !!edit && edit.style.display !== 'none'; apply(); };
+  if (edit) new MutationObserver(watch).observe(edit, { attributes: true, attributeFilter: ['style', 'class'] });
+  watch();
+})();

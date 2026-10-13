@@ -12,6 +12,12 @@
 </head>
 
 <body>
+    <!-- Tabs (only shown on the main list, not while editing a floor) -->
+    <div id="mainTabs" class="main-tabs">
+        <button type="button" class="main-tab active" data-tab="floorplans">Floor Plans</button>
+        <button type="button" class="main-tab" data-tab="dashboard">Dashboard</button>
+    </div>
+
     <!-- Main Floor List View -->
     <div id="floorsListView" class="homey-section">
         <div class="homey-title">
@@ -39,7 +45,7 @@
 
 
     <!-- External Dashboard -->
-    <div id="externalDashboardSection" class="homey-section external-dashboard">
+    <div id="externalDashboardSection" class="homey-section external-dashboard" style="display: none;">
         <div class="homey-title">External Dashboard</div>
         <p class="ext-hint">Show dashboards in any browser or on a wall display. Opt-in: the server only runs while this is on.</p>
         <div class="homey-form-group">

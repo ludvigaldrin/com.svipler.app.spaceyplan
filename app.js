@@ -4,6 +4,7 @@ const Homey = require('homey');
 const { HomeyAPI } = require('homey-api');
 const CapabilityManager = require('./lib/CapabilityManager');
 const SubscriptionManager = require('./lib/SubscriptionManager');
+const { buildDefaultDashboards, validateDashboards } = require('./lib/dashboards');
 
 if (!global.fetch) {
   import('node-fetch').then(module => {
@@ -153,6 +154,39 @@ class SpaceHomeyApp extends Homey.App {
       return floors;
     } catch (error) {
       this.error('Error getting floors:', error);
+      throw error;
+    }
+  }
+
+  // Dashboards live under their own settings key. While the key is absent they
+  // are derived from the floors (one page per floor) and persisted, so
+  // existing installs get a default dashboard without touching `floors`.
+  // With no floors yet nothing is persisted, so floors added later still
+  // get migrated on the next read.
+  async getDashboards() {
+    try {
+      const stored = await this.homey.settings.get('dashboards');
+      if (Array.isArray(stored)) return stored;
+
+      const dashboards = buildDefaultDashboards(await this.getFloors());
+      if (dashboards.length > 0) {
+        await this.homey.settings.set('dashboards', dashboards);
+        this.log('Migrated floors to default dashboard');
+      }
+      return dashboards;
+    } catch (error) {
+      this.error('Error getting dashboards:', error);
+      throw error;
+    }
+  }
+
+  async saveDashboards(dashboards) {
+    try {
+      validateDashboards(dashboards);
+      await this.homey.settings.set('dashboards', dashboards);
+      return dashboards;
+    } catch (error) {
+      this.error('Error saving dashboards:', error);
       throw error;
     }
   }

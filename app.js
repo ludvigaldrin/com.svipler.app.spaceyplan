@@ -118,7 +118,13 @@ class SpaceHomeyApp extends Homey.App {
   // opt-in; a changed setting restarts or stops it.
   async startExternalDashboard() {
     if (!this.externalServer) {
-      this.externalServer = new ExternalServer(this);
+      try {
+        this.externalServer = new ExternalServer(this);
+      } catch (error) {
+        this.error('External Dashboard could not be created:', error);
+        await this.homey.settings.set('externalDashboardStatus', { running: false, error: error.message });
+        return;
+      }
       this.subscriptionManager.addOutput((clientId, payload) => this.externalServer.pushDeviceUpdate(clientId, payload));
       this.homey.settings.on('set', key => {
         if (key === 'externalDashboard') {

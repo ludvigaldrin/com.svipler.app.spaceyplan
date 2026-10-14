@@ -3,20 +3,32 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Spacey Plan editor</title>
+  <title>Spacey Plan dashboard builder</title>
   <link rel="stylesheet" href="/dashboard.css">
   <link rel="stylesheet" href="/editor.css">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
 </head>
 <body>
   <header class="topbar">
-    <div class="title">Spacey Plan editor</div>
+    <div class="title">Spacey Plan <span class="title-sub">Dashboard builder</span></div>
     <div class="editor-actions">
       <span id="status" class="status" role="status"></span>
-      <a class="btn" href="/">Open dashboard</a>
+      <button id="preview" class="btn" type="button">Preview</button>
+      <a class="btn" href="/" target="_blank" rel="noopener">Open dashboard</a>
       <button id="save" class="btn primary" disabled>Save</button>
     </div>
   </header>
-  <main id="root" class="editor"></main>
+  <main class="builder">
+    <aside id="left" class="col col-left"></aside>
+    <section id="center" class="col col-center"></section>
+    <aside id="right" class="col col-right"></aside>
+  </main>
+  <div id="previewModal" class="modal" hidden>
+    <div class="modal-card">
+      <div class="modal-head"><strong>Preview (saved version)</strong><button id="previewClose" class="btn small" type="button">Close</button></div>
+      <iframe id="previewFrame" title="Dashboard preview"></iframe>
+    </div>
+  </div>
   <script src="/editor.js"></script>
 </body>
 </html>

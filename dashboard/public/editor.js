@@ -1,38 +1,45 @@
-// Block editor for External Dashboards. Edits the whole `dashboards` list in
-// memory and saves it in one POST (the server validates).
+// Dashboard builder. Three columns: dashboards and pages | the page's blocks |
+// settings of the selected block. Edits the whole `dashboards` list in memory
+// and saves it in one POST (the server validates).
 (function () {
   'use strict';
 
-  var root = document.getElementById('root');
-  var saveButton = document.getElementById('save');
-  var statusEl = document.getElementById('status');
+  var els = {
+    left: document.getElementById('left'),
+    center: document.getElementById('center'),
+    right: document.getElementById('right'),
+    save: document.getElementById('save'),
+    status: document.getElementById('status'),
+    preview: document.getElementById('preview'),
+    modal: document.getElementById('previewModal'),
+    frame: document.getElementById('previewFrame')
+  };
 
   var data = { dashboards: [], floors: [], zones: [], devices: [] };
-  var sel = { dashboardId: null, pageId: null };
+  var sel = { dashboardId: null, pageId: null, blockId: null, picking: false };
   var dirty = false;
 
-  var BLOCK_TYPES = [
-    ['floorplan', 'Floor plan'],
-    ['buttons', 'Buttons'],
-    ['room', 'Room'],
-    ['devices', 'Devices'],
-    ['heading', 'Heading'],
-    ['spacer', 'Spacer'],
-    ['link', 'Page link']
-  ];
+  // type -> [label, icon, description]
+  var TYPES = {
+    floorplan: ['Floor plan', 'floor', 'Your floor plan with devices placed on the image.'],
+    buttons: ['Buttons', 'touch_app', 'Buttons that fire a Flow. Pick them in a Flow with the dashboard button card.'],
+    room: ['Room', 'meeting_room', 'Filled automatically with the devices of a Homey zone.'],
+    devices: ['Devices', 'devices', 'Hand-picked devices in the order you want.'],
+    heading: ['Heading', 'title', 'Plain text that splits a long page into sections.'],
+    spacer: ['Spacer', 'height', 'Empty space between blocks.'],
+    link: ['Page link', 'arrow_forward', 'A button that goes to another page of this dashboard.']
+  };
 
-  function uid(prefix) {
-    return prefix + Math.random().toString(36).slice(2, 9);
-  }
+  function uid(prefix) { return prefix + Math.random().toString(36).slice(2, 9); }
 
   function setStatus(text, isError) {
-    statusEl.textContent = text;
-    statusEl.className = 'status' + (isError ? ' error' : '');
+    els.status.textContent = text;
+    els.status.className = 'status' + (isError ? ' error' : '');
   }
 
   function markDirty() {
     dirty = true;
-    saveButton.disabled = false;
+    els.save.disabled = false;
     setStatus('Unsaved changes');
   }
 
@@ -69,16 +76,17 @@
     return node;
   }
 
-  function field(label, input) {
-    return h('label', null, [label, input]);
-  }
+  function icon(name) { return h('span', { class: 'material-symbols-outlined', text: name }); }
 
-  // Text/number input that writes to obj[key] without re-rendering.
-  function bound(obj, key, attrs) {
+  function field(label, input) { return h('label', { class: 'field' }, [label, input]); }
+
+  // Input that writes to obj[key]; `after` runs on each edit (e.g. refresh the centre column).
+  function bound(obj, key, attrs, after) {
     var input = h('input', Object.assign({ value: obj[key] === undefined ? '' : obj[key] }, attrs || {}));
     input.addEventListener('input', function () {
       obj[key] = input.type === 'number' ? (input.value === '' ? undefined : Number(input.value)) : input.value;
       markDirty();
+      if (after) after();
     });
     return input;
   }
@@ -97,7 +105,22 @@
 
   function currentPage() {
     var dashboard = currentDashboard();
-    return dashboard && dashboard.pages.find(function (p) { return p.id === sel.pageId; }) || null;
+    return (dashboard && dashboard.pages.find(function (p) { return p.id === sel.pageId; })) || null;
+  }
+
+  function currentBlock() {
+    var page = currentPage();
+    return (page && page.blocks.find(function (b) { return b.id === sel.blockId; })) || null;
+  }
+
+  function ensureSelection() {
+    var dashboard = currentDashboard();
+    if (!dashboard) { sel.pageId = null; sel.blockId = null; return; }
+    if (!dashboard.pages.some(function (p) { return p.id === sel.pageId; })) {
+      sel.pageId = dashboard.pages.length ? dashboard.pages[0].id : null;
+      sel.blockId = null;
+    }
+    if (!currentBlock()) sel.blockId = null;
   }
 
   function move(list, index, delta) {
@@ -109,244 +132,354 @@
     render();
   }
 
-  // ---- dashboards and pages ----
+  function zoneName(id) {
+    if (!id || id === '*') return 'The room chosen on the device';
+    var zone = data.zones.find(function (z) { return z.id === id; });
+    return zone ? zone.name : 'Missing room';
+  }
 
-  function renderDashboards() {
+  function floorName(id) {
+    var floor = data.floors.find(function (f) { return f.id === id; });
+    return floor ? floor.name : '';
+  }
+
+  function pageName(id) {
     var dashboard = currentDashboard();
-    var panel = h('section', { class: 'panel' }, [h('h2', { text: 'Dashboards' })]);
+    var page = dashboard && dashboard.pages.find(function (p) { return p.id === id; });
+    return page ? page.name : '';
+  }
 
-    var row = h('div', { class: 'row' });
-    row.appendChild(select(data.dashboards.map(function (d) { return [d.id, d.name]; }),
-      sel.dashboardId, function (id) { sel.dashboardId = id; sel.pageId = null; ensurePage(); render(); }));
-    row.appendChild(h('button', { class: 'btn', text: 'New dashboard', onclick: function () {
+  // ---- left: dashboards and pages ----
+
+  function renderLeft() {
+    var dashboard = currentDashboard();
+    var out = [h('div', { class: 'side-label', text: 'Dashboards' })];
+
+    data.dashboards.forEach(function (d) {
+      out.push(h('button', { class: 'side-item' + (d.id === sel.dashboardId ? ' active' : ''), onclick: function () {
+        sel.dashboardId = d.id; sel.pageId = null; sel.blockId = null; sel.picking = false;
+        ensureSelection(); render();
+      } }, [icon('dashboard'), d.name]));
+    });
+    out.push(h('button', { class: 'side-item add', text: '+ New dashboard', onclick: function () {
       var created = { id: uid('d_'), name: 'New dashboard', pages: [{ id: uid('p_'), name: 'Page 1', blocks: [] }] };
       data.dashboards.push(created);
-      sel.dashboardId = created.id;
-      sel.pageId = created.pages[0].id;
-      markDirty();
-      render();
+      sel.dashboardId = created.id; sel.pageId = created.pages[0].id; sel.blockId = null;
+      markDirty(); render();
     } }));
+
     if (dashboard) {
-      row.appendChild(h('button', { class: 'btn danger', text: 'Delete dashboard', onclick: function () {
-        if (!window.confirm('Delete dashboard "' + dashboard.name + '"?')) return;
-        data.dashboards = data.dashboards.filter(function (d) { return d.id !== dashboard.id; });
-        sel.dashboardId = data.dashboards.length ? data.dashboards[0].id : null;
-        sel.pageId = null;
-        ensurePage();
-        markDirty();
-        render();
+      out.push(h('details', { class: 'look' }, [
+        h('summary', { text: 'Dashboard settings' }),
+        h('div', { class: 'stack' }, [
+          field('Name', bound(dashboard, 'name', null, renderLeftLabelsOnly)),
+          field('Theme', select([['', 'Follow device'], ['light', 'Light'], ['dark', 'Dark']],
+            dashboard.theme || '', function (v) { dashboard.theme = v || undefined; markDirty(); })),
+          field('Accent', (function () {
+            var input = h('input', { type: 'color', value: dashboard.accent || '#3b82f6' });
+            input.addEventListener('input', function () { dashboard.accent = input.value; markDirty(); });
+            return input;
+          })()),
+          field('Screensaver (min, 0 = off)', bound(dashboard, 'screensaverMinutes', { type: 'number', min: 0 })),
+          h('button', { class: 'btn small danger', text: 'Delete dashboard', onclick: function () {
+            if (!window.confirm('Delete dashboard "' + dashboard.name + '"?')) return;
+            data.dashboards = data.dashboards.filter(function (d) { return d.id !== dashboard.id; });
+            sel.dashboardId = data.dashboards.length ? data.dashboards[0].id : null;
+            sel.pageId = null; sel.blockId = null;
+            ensureSelection(); markDirty(); render();
+          } })
+        ])
+      ]));
+
+      out.push(h('div', { class: 'side-label', text: 'Pages in ' + dashboard.name }));
+      dashboard.pages.forEach(function (page) {
+        out.push(h('button', { class: 'side-item' + (page.id === sel.pageId ? ' active' : ''), onclick: function () {
+          sel.pageId = page.id; sel.blockId = null; sel.picking = false; render();
+        } }, [icon('article'), page.name]));
+      });
+      out.push(h('button', { class: 'side-item add', text: '+ New page', onclick: function () {
+        var created = { id: uid('p_'), name: 'Page ' + (dashboard.pages.length + 1), blocks: [] };
+        dashboard.pages.push(created);
+        sel.pageId = created.id; sel.blockId = null;
+        markDirty(); render();
       } }));
-    }
-    panel.appendChild(row);
 
-    if (dashboard) {
-      var look = h('div', { class: 'row' }, [
-        field('Name', bound(dashboard, 'name')),
-        field('Theme', select([['', 'Follow device'], ['light', 'Light'], ['dark', 'Dark']],
-          dashboard.theme || '', function (v) { dashboard.theme = v || undefined; markDirty(); })),
-        field('Accent', (function () {
-          var input = h('input', { type: 'color', value: dashboard.accent || '#3b82f6' });
-          input.addEventListener('input', function () { dashboard.accent = input.value; markDirty(); });
-          return input;
-        })()),
-        field('Screensaver (min, 0 = off)', bound(dashboard, 'screensaverMinutes', { type: 'number', min: 0 }))
-      ]);
-      panel.appendChild(look);
-      panel.appendChild(h('p', { class: 'hint', text: 'Open on a screen with /?d=' + dashboard.id + ' (or pick it on the device).' }));
+      out.push(h('div', { class: 'side-foot' }, [
+        'Address of this dashboard', h('br'), h('code', { text: location.origin + '/?d=' + dashboard.id })
+      ]));
     }
-    return panel;
+    els.left.replaceChildren.apply(els.left, out);
   }
 
-  function ensurePage() {
+  // Typing a dashboard name only needs the list labels refreshed, not the inputs
+  // (re-rendering would drop focus).
+  function renderLeftLabelsOnly() {
     var dashboard = currentDashboard();
-    if (!dashboard) { sel.pageId = null; return; }
-    if (!dashboard.pages.some(function (p) { return p.id === sel.pageId; })) {
-      sel.pageId = dashboard.pages.length ? dashboard.pages[0].id : null;
+    var active = els.left.querySelector('.side-item.active .material-symbols-outlined');
+    if (dashboard && active && active.parentNode && active.textContent === 'dashboard') {
+      active.parentNode.lastChild.textContent = dashboard.name;
     }
+    renderCenter();
   }
 
-  function renderPages() {
-    var dashboard = currentDashboard();
-    var panel = h('section', { class: 'panel' }, [h('h2', { text: 'Pages' })]);
-    if (!dashboard) return panel;
+  // ---- centre: blocks of the page ----
 
-    var tabs = h('div', { class: 'tabs' });
-    dashboard.pages.forEach(function (page) {
-      tabs.appendChild(h('button', { class: 'tab' + (page.id === sel.pageId ? ' active' : ''), text: page.name,
-        onclick: function () { sel.pageId = page.id; render(); } }));
-    });
-    tabs.appendChild(h('button', { class: 'tab', text: '+ Page', onclick: function () {
-      var created = { id: uid('p_'), name: 'Page ' + (dashboard.pages.length + 1), blocks: [] };
-      dashboard.pages.push(created);
-      sel.pageId = created.id;
-      markDirty();
-      render();
-    } }));
-    panel.appendChild(tabs);
+  function preview(block) {
+    var cols = Math.max(1, Math.min(4, block.columns || 2));
+    var body = h('div', { class: 'bcard-body', style: '--cols:' + cols });
 
+    if (block.type === 'floorplan') {
+      body.appendChild(h('div', { class: 'pv-floor', text: block.floorId ? floorName(block.floorId) || 'Missing floor' : 'No floor chosen' }));
+    } else if (block.type === 'buttons') {
+      (block.items || []).forEach(function (item) {
+        body.appendChild(h('div', { class: 'pv' }, [icon(item.icon || 'play_arrow'), item.label || 'Button']));
+      });
+      if (!(block.items || []).length) body.appendChild(h('div', { class: 'pv pv-wide dim', text: 'No buttons yet' }));
+    } else if (block.type === 'room') {
+      body.appendChild(h('div', { class: 'pv pv-wide dim', text: zoneName(block.zoneId) + ' · filled automatically' }));
+    } else if (block.type === 'devices') {
+      (block.items || []).forEach(function (item) {
+        var device = data.devices.find(function (d) { return d.id === item.homeyId; });
+        body.appendChild(h('div', { class: 'pv' }, [icon('lightbulb'), device ? device.name : 'Missing device']));
+      });
+      if (!(block.items || []).length) body.appendChild(h('div', { class: 'pv pv-wide dim', text: 'No devices yet' }));
+    } else if (block.type === 'link') {
+      body.appendChild(h('div', { class: 'pv pv-wide' }, [icon('arrow_forward'), (block.label || 'Link') + (block.pageId ? ' → ' + pageName(block.pageId) : '')]));
+    } else if (block.type === 'spacer') {
+      body.appendChild(h('div', { class: 'pv pv-wide dim', text: (block.height || 0) + ' px of space' }));
+    } else {
+      return null;
+    }
+    return body;
+  }
+
+  function renderCenter() {
     var page = currentPage();
-    if (page) {
-      var index = dashboard.pages.indexOf(page);
-      panel.appendChild(h('div', { class: 'row' }, [
-        field('Page name', bound(page, 'name')),
-        h('button', { class: 'btn small', text: '← Earlier', disabled: index === 0, onclick: function () { move(dashboard.pages, index, -1); } }),
-        h('button', { class: 'btn small', text: 'Later →', disabled: index === dashboard.pages.length - 1, onclick: function () { move(dashboard.pages, index, 1); } }),
+    var out = [];
+    if (!currentDashboard()) {
+      els.center.replaceChildren(h('div', { class: 'empty', text: 'Create a dashboard to start.' }));
+      return;
+    }
+    if (!page) {
+      els.center.replaceChildren(h('div', { class: 'empty', text: 'Add a page to start.' }));
+      return;
+    }
+
+    var dashboard = currentDashboard();
+    var index = dashboard.pages.indexOf(page);
+    out.push(h('div', { class: 'page-head' }, [
+      bound(page, 'name', { class: 'page-title', 'aria-label': 'Page name' }, function () {
+        var activeItem = els.left.querySelectorAll('.side-item.active')[1];
+        if (activeItem) activeItem.lastChild.textContent = page.name;
+      }),
+      h('span', { class: 'page-count', text: page.blocks.length + (page.blocks.length === 1 ? ' block' : ' blocks') }),
+      h('div', { class: 'page-tools' }, [
+        h('button', { class: 'btn small', text: '←', title: 'Move page earlier', disabled: index === 0, onclick: function () { move(dashboard.pages, index, -1); } }),
+        h('button', { class: 'btn small', text: '→', title: 'Move page later', disabled: index === dashboard.pages.length - 1, onclick: function () { move(dashboard.pages, index, 1); } }),
         h('button', { class: 'btn small danger', text: 'Delete page', onclick: function () {
           if (!window.confirm('Delete page "' + page.name + '"?')) return;
           dashboard.pages.splice(index, 1);
-          ensurePage();
-          markDirty();
-          render();
+          sel.pageId = null; sel.blockId = null;
+          ensureSelection(); markDirty(); render();
         } })
-      ]));
+      ])
+    ]));
+
+    page.blocks.forEach(function (block, i) {
+      var meta = TYPES[block.type] || [block.type, 'help', ''];
+      var title = block.title || block.text || block.label || (block.type === 'floorplan' ? floorName(block.floorId) : '');
+      var chips = [h('span', { class: 'chip', text: meta[0] })];
+      if (block.columns && ['buttons', 'room', 'devices'].indexOf(block.type) >= 0) {
+        chips.push(h('span', { class: 'chip soft', text: block.columns + (block.columns === 1 ? ' column' : ' columns') }));
+      }
+      var card = h('div', { class: 'bcard' + (block.id === sel.blockId ? ' selected' : ''), onclick: function () {
+        sel.blockId = block.id; sel.picking = false; render();
+      } }, [
+        h('div', { class: 'bcard-head' }, chips.concat([
+          h('span', { class: 'bcard-title', text: title || '' }),
+          h('div', { class: 'bcard-tools' }, [
+            h('button', { class: 'btn small', text: '↑', disabled: i === 0, onclick: function (e) { e.stopPropagation(); move(page.blocks, i, -1); } }),
+            h('button', { class: 'btn small', text: '↓', disabled: i === page.blocks.length - 1, onclick: function (e) { e.stopPropagation(); move(page.blocks, i, 1); } })
+          ])
+        ])),
+        preview(block)
+      ]);
+      out.push(card);
+    });
+
+    if (sel.picking) {
+      out.push(h('div', { class: 'type-picker' }, [h('h3', { text: 'Choose a block type' })].concat(
+        Object.keys(TYPES).map(function (type) {
+          return h('button', { class: 'type-card', onclick: function () { addBlock(type); } }, [
+            icon(TYPES[type][1]),
+            h('div', null, [h('strong', { text: TYPES[type][0] }), h('span', { class: 'desc', text: TYPES[type][2] })])
+          ]);
+        })
+      )));
+    } else {
+      out.push(h('button', { class: 'add-block', text: '+ Add block', onclick: function () { sel.picking = true; renderCenter(); } }));
     }
-    return panel;
+    els.center.replaceChildren.apply(els.center, out);
   }
 
-  // ---- blocks ----
+  function addBlock(type) {
+    var page = currentPage();
+    if (!page) return;
+    var block = { id: uid('b_'), type: type };
+    if (type === 'buttons' || type === 'devices') { block.columns = 3; block.items = []; }
+    if (type === 'room') { block.columns = 2; block.zoneId = '*'; }
+    if (type === 'heading') block.text = 'Heading';
+    if (type === 'spacer') block.height = 24;
+    if (type === 'link') block.label = 'Next page';
+    page.blocks.push(block);
+    sel.blockId = block.id;
+    sel.picking = false;
+    markDirty();
+    render();
+  }
+
+  // ---- right: settings of the selected block ----
+
+  function renderRight() {
+    var page = currentPage();
+    var block = currentBlock();
+    if (!block) {
+      els.right.replaceChildren(h('div', { class: 'empty', text: 'Select a block to edit it.' }));
+      return;
+    }
+
+    var meta = TYPES[block.type] || [block.type];
+    var out = [
+      h('div', { class: 'side-label', text: 'Block settings' }),
+      h('strong', { text: meta[0] }),
+      h('div', { class: 'stack' }, blockFields(block, page)),
+      h('div', { class: 'stack' }, [
+        h('button', { class: 'btn block danger', text: 'Delete block', onclick: function () {
+          page.blocks = page.blocks.filter(function (b) { return b.id !== block.id; });
+          sel.blockId = null; markDirty(); render();
+        } })
+      ])
+    ];
+    els.right.replaceChildren.apply(els.right, out);
+  }
+
+  function segment(block, key, values) {
+    var wrap = h('div', { class: 'seg' });
+    values.forEach(function (n) {
+      wrap.appendChild(h('button', { class: (block[key] || values[0]) === n ? 'on' : '', text: String(n), onclick: function () {
+        block[key] = n; markDirty(); render();
+      } }));
+    });
+    return wrap;
+  }
 
   function blockFields(block, page) {
-    var out = h('div');
+    var f = [];
+    var refresh = renderCenter;
 
     if (block.type === 'floorplan') {
-      out.appendChild(h('div', { class: 'row' }, [
-        field('Floor', select([['', 'Choose a floor']].concat(data.floors.map(function (f) { return [f.id, f.name]; })),
-          block.floorId || '', function (v) { block.floorId = v; markDirty(); }))
-      ]));
-      out.appendChild(h('p', { class: 'hint', text: 'Device placement and rules are edited in the Spacey Plan settings in Homey.' }));
+      f.push(field('Floor', select([['', 'Choose a floor']].concat(data.floors.map(function (fl) { return [fl.id, fl.name]; })),
+        block.floorId || '', function (v) { block.floorId = v; markDirty(); renderCenter(); })));
+      f.push(h('p', { class: 'hint', text: 'Device placement and rules are edited in the Spacey Plan settings in Homey.' }));
     }
 
-    if (block.type === 'heading') {
-      out.appendChild(h('div', { class: 'row' }, [field('Text', bound(block, 'text'))]));
-    }
-
-    if (block.type === 'spacer') {
-      out.appendChild(h('div', { class: 'row' }, [field('Height (px)', bound(block, 'height', { type: 'number', min: 0 }))]));
-    }
+    if (block.type === 'heading') f.push(field('Text', bound(block, 'text', null, refresh)));
+    if (block.type === 'spacer') f.push(field('Height (px)', bound(block, 'height', { type: 'number', min: 0 }, refresh)));
 
     if (block.type === 'link') {
       var others = currentDashboard().pages.filter(function (p) { return p.id !== page.id; });
-      out.appendChild(h('div', { class: 'row' }, [
-        field('Label', bound(block, 'label')),
-        field('Icon (Material Symbols name)', bound(block, 'icon')),
-        field('Go to page', select([['', 'Choose a page']].concat(others.map(function (p) { return [p.id, p.name]; })),
-          block.pageId || '', function (v) { block.pageId = v; markDirty(); }))
-      ]));
+      f.push(field('Label', bound(block, 'label', null, refresh)));
+      f.push(field('Icon (Material Symbols name)', bound(block, 'icon')));
+      f.push(field('Go to page', select([['', 'Choose a page']].concat(others.map(function (p) { return [p.id, p.name]; })),
+        block.pageId || '', function (v) { block.pageId = v; markDirty(); renderCenter(); })));
     }
 
     if (block.type === 'buttons' || block.type === 'room' || block.type === 'devices') {
-      var row = h('div', { class: 'row' }, [
-        field('Title', bound(block, 'title')),
-        field('Max columns (1–4)', bound(block, 'columns', { type: 'number', min: 1, max: 4 }))
-      ]);
-      if (block.type === 'room') {
-        row.appendChild(field('Room', select(
-          [['*', 'The room chosen on the device']].concat(data.zones.map(function (z) { return [z.id, z.name]; })),
-          block.zoneId || '*', function (v) { block.zoneId = v; markDirty(); })));
-      }
-      out.appendChild(row);
+      f.push(field('Title', bound(block, 'title', null, refresh)));
+      f.push(field('Columns', segment(block, 'columns', [1, 2, 3, 4])));
+      f.push(h('p', { class: 'hint', text: 'Maximum. Narrow screens use fewer automatically.' }));
+    }
+
+    if (block.type === 'room') {
+      f.push(field('Room', select(
+        [['*', 'The room chosen on the device']].concat(data.zones.map(function (z) { return [z.id, z.name]; })),
+        block.zoneId || '*', function (v) { block.zoneId = v; markDirty(); renderCenter(); })));
     }
 
     if (block.type === 'buttons') {
+      f.push(h('div', { class: 'side-label', text: 'Content' }));
       block.items = block.items || [];
       block.items.forEach(function (item, i) {
-        out.appendChild(h('div', { class: 'item-row' }, [
-          bound(item, 'label', { placeholder: 'Label' }),
-          bound(item, 'icon', { placeholder: 'Icon name, e.g. bedtime' }),
-          h('button', { class: 'btn small danger', text: 'Remove', onclick: function () { block.items.splice(i, 1); markDirty(); render(); } })
+        f.push(h('div', { class: 'item-row' }, [
+          bound(item, 'label', { placeholder: 'Label' }, refresh),
+          bound(item, 'icon', { placeholder: 'Icon, e.g. bedtime' }, refresh),
+          h('button', { class: 'btn small danger', text: '×', title: 'Remove', onclick: function () { block.items.splice(i, 1); markDirty(); render(); } })
         ]));
       });
-      out.appendChild(h('button', { class: 'btn small', text: '+ Button', onclick: function () {
+      f.push(h('button', { class: 'btn', text: '+ Add button', onclick: function () {
         block.items.push({ id: uid('i_'), kind: 'flow', label: 'Button', icon: 'play_arrow' });
-        markDirty();
-        render();
+        markDirty(); render();
       } }));
-      out.appendChild(h('p', { class: 'hint', text: 'In a Flow use: WHEN "Dashboard button … was pressed" and choose the button.' }));
+      f.push(h('p', { class: 'hint', text: 'In a Flow use: WHEN "Dashboard button … was pressed" and choose the button.' }));
     }
 
     if (block.type === 'devices') {
+      f.push(h('div', { class: 'side-label', text: 'Content' }));
       block.items = block.items || [];
       block.items.forEach(function (item, i) {
         var device = data.devices.find(function (d) { return d.id === item.homeyId; });
         var caps = device ? device.capabilities : [item.capability];
-        out.appendChild(h('div', { class: 'item-row' }, [
+        f.push(h('div', { class: 'item-row' }, [
           h('strong', { text: device ? device.name : 'Missing device' }),
           select(caps.map(function (c) { return [c, c]; }), item.capability, function (v) { item.capability = v; markDirty(); }),
-          h('button', { class: 'btn small danger', text: 'Remove', onclick: function () { block.items.splice(i, 1); markDirty(); render(); } })
+          h('button', { class: 'btn small danger', text: '×', title: 'Remove', onclick: function () { block.items.splice(i, 1); markDirty(); render(); } })
         ]));
       });
-
-      var picker = h('select', null, [h('option', { value: '', text: 'Add a device…' })].concat(
+      var picker = h('select', null, [h('option', { value: '', text: '+ Add a device…' })].concat(
         data.devices.map(function (d) { return h('option', { value: d.id, text: d.name }); })));
       picker.addEventListener('change', function () {
         var device = data.devices.find(function (d) { return d.id === picker.value; });
         if (!device) return;
         block.items.push({ id: uid('i_'), homeyId: device.id, capability: device.capabilities[0] });
-        markDirty();
-        render();
+        markDirty(); render();
       });
-      out.appendChild(picker);
+      f.push(picker);
     }
 
-    return out;
-  }
-
-  function renderBlocks() {
-    var page = currentPage();
-    var panel = h('section', { class: 'panel' }, [h('h2', { text: 'Blocks' })]);
-    if (!page) {
-      panel.appendChild(h('p', { class: 'hint', text: 'Add a page to start.' }));
-      return panel;
-    }
-
-    page.blocks.forEach(function (block, index) {
-      var label = (BLOCK_TYPES.find(function (t) { return t[0] === block.type; }) || [0, block.type])[1];
-      panel.appendChild(h('div', { class: 'block-card' }, [
-        h('div', { class: 'block-head' }, [
-          h('span', { class: 'block-type', text: label }),
-          h('div', { class: 'block-tools' }, [
-            h('button', { class: 'btn small', text: '↑', disabled: index === 0, onclick: function () { move(page.blocks, index, -1); } }),
-            h('button', { class: 'btn small', text: '↓', disabled: index === page.blocks.length - 1, onclick: function () { move(page.blocks, index, 1); } }),
-            h('button', { class: 'btn small danger', text: 'Delete', onclick: function () { page.blocks.splice(index, 1); markDirty(); render(); } })
-          ])
-        ]),
-        blockFields(block, page)
-      ]));
-    });
-
-    var add = select([['', '+ Add block…']].concat(BLOCK_TYPES), '', function (type) {
-      if (!type) return;
-      var block = { id: uid('b_'), type: type };
-      if (type === 'buttons' || type === 'devices') { block.columns = 3; block.items = []; }
-      if (type === 'room') { block.columns = 2; block.zoneId = '*'; }
-      if (type === 'heading') block.text = 'Heading';
-      if (type === 'spacer') block.height = 24;
-      if (type === 'link') block.label = 'Next page';
-      page.blocks.push(block);
-      markDirty();
-      render();
-    });
-    panel.appendChild(add);
-    return panel;
+    return f;
   }
 
   function render() {
-    root.replaceChildren(renderDashboards(), renderPages(), renderBlocks());
+    ensureSelection();
+    renderLeft();
+    renderCenter();
+    renderRight();
   }
 
-  // ---- load / save ----
+  // ---- save / preview / load ----
 
-  saveButton.addEventListener('click', async function () {
-    saveButton.disabled = true;
+  els.save.addEventListener('click', async function () {
+    els.save.disabled = true;
     setStatus('Saving…');
     try {
       await api('POST', '/dashboards', data.dashboards);
       dirty = false;
       setStatus('Saved');
     } catch (error) {
-      saveButton.disabled = false;
+      els.save.disabled = false;
       setStatus('Save failed: ' + error.message, true);
     }
+  });
+
+  els.preview.addEventListener('click', function () {
+    var dashboard = currentDashboard();
+    if (!dashboard) return;
+    els.frame.src = '/?d=' + encodeURIComponent(dashboard.id);
+    els.modal.hidden = false;
+  });
+  document.getElementById('previewClose').addEventListener('click', function () {
+    els.modal.hidden = true;
+    els.frame.src = 'about:blank';
   });
 
   window.addEventListener('beforeunload', function (event) {
@@ -366,11 +499,10 @@
       data.zones = results[2].sort(function (a, b) { return a.name.localeCompare(b.name); });
       data.devices = results[3];
     } catch (error) {
-      root.replaceChildren(h('p', { class: 'hint error', text: 'Could not load: ' + error.message }));
+      els.center.replaceChildren(h('p', { class: 'hint error', text: 'Could not load: ' + error.message }));
       return;
     }
     sel.dashboardId = data.dashboards.length ? data.dashboards[0].id : null;
-    ensurePage();
     render();
   }
 

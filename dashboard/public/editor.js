@@ -181,6 +181,15 @@
             return input;
           })()),
           field('Screensaver (min, 0 = off)', bound(dashboard, 'screensaverMinutes', { type: 'number', min: 0 })),
+          h('label', { class: 'check' }, [(function () {
+            var box = h('input', { type: 'checkbox', checked: !!dashboard.showClock });
+            box.addEventListener('change', function () { dashboard.showClock = box.checked; markDirty(); renderLeft(); });
+            return box;
+          })(), 'Show clock and date']),
+          dashboard.showClock ? field('Outdoor temperature (optional)', select(
+            [['', 'None']].concat(data.devices.filter(function (d) { return d.capabilities.indexOf('measure_temperature') >= 0; })
+              .map(function (d) { return [d.id, d.name]; })),
+            dashboard.weatherDeviceId || '', function (v) { dashboard.weatherDeviceId = v || undefined; markDirty(); })) : null,
           h('button', { class: 'btn small danger', text: 'Delete dashboard', onclick: function () {
             if (!window.confirm('Delete dashboard "' + dashboard.name + '"?')) return;
             data.dashboards = data.dashboards.filter(function (d) { return d.id !== dashboard.id; });
@@ -253,6 +262,19 @@
     return body;
   }
 
+  var dragIndex = null;
+
+  function dropAfter(card, e) {
+    var rect = card.getBoundingClientRect();
+    return e.clientY > rect.top + rect.height / 2;
+  }
+
+  function clearDropMarks() {
+    els.center.querySelectorAll('.drop-before, .drop-after').forEach(function (n) {
+      n.classList.remove('drop-before', 'drop-after');
+    });
+  }
+
   function renderCenter() {
     var page = currentPage();
     var out = [];
@@ -292,10 +314,11 @@
       if (block.columns && ['buttons', 'room', 'devices'].indexOf(block.type) >= 0) {
         chips.push(h('span', { class: 'chip soft', text: block.columns + (block.columns === 1 ? ' column' : ' columns') }));
       }
+      if (block.visibleOn) chips.push(h('span', { class: 'chip soft', text: block.visibleOn === 'small' ? 'small screens' : 'large screens' }));
       var card = h('div', { class: 'bcard' + (block.id === sel.blockId ? ' selected' : ''), onclick: function () {
         sel.blockId = block.id; sel.picking = false; render();
       } }, [
-        h('div', { class: 'bcard-head' }, chips.concat([
+        h('div', { class: 'bcard-head' }, [h('span', { class: 'drag-handle', title: 'Drag to reorder' }, [icon('drag_indicator')])].concat(chips).concat([
           h('span', { class: 'bcard-title', text: title || '' }),
           h('div', { class: 'bcard-tools' }, [
             h('button', { class: 'btn small', text: '↑', disabled: i === 0, onclick: function (e) { e.stopPropagation(); move(page.blocks, i, -1); } }),
@@ -304,6 +327,31 @@
         ])),
         preview(block)
       ]);
+      card.setAttribute('draggable', 'true');
+      card.addEventListener('dragstart', function (e) {
+        dragIndex = i;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', block.id);
+        card.classList.add('dragging');
+      });
+      card.addEventListener('dragend', function () { dragIndex = null; card.classList.remove('dragging'); clearDropMarks(); });
+      card.addEventListener('dragover', function (e) {
+        if (dragIndex === null) return;
+        e.preventDefault();
+        clearDropMarks();
+        card.classList.add(dropAfter(card, e) ? 'drop-after' : 'drop-before');
+      });
+      card.addEventListener('drop', function (e) {
+        if (dragIndex === null) return;
+        e.preventDefault();
+        var target = i + (dropAfter(card, e) ? 1 : 0);
+        var item = page.blocks.splice(dragIndex, 1)[0];
+        if (dragIndex < target) target--;
+        page.blocks.splice(target, 0, item);
+        dragIndex = null;
+        markDirty();
+        render();
+      });
       out.push(card);
     });
 
@@ -353,6 +401,9 @@
       h('div', { class: 'side-label', text: 'Block settings' }),
       h('strong', { text: meta[0] }),
       h('div', { class: 'stack' }, blockFields(block, page)),
+      h('div', { class: 'side-label', text: 'Show block on' }),
+      visibleOnSegment(block),
+      h('p', { class: 'hint', text: 'Small = phones and narrow panels (under 700 px wide). Hide blocks that do not fit a screen.' }),
       h('div', { class: 'stack' }, [
         h('button', { class: 'btn block danger', text: 'Delete block', onclick: function () {
           page.blocks = page.blocks.filter(function (b) { return b.id !== block.id; });
@@ -368,6 +419,17 @@
     values.forEach(function (n) {
       wrap.appendChild(h('button', { class: (block[key] || values[0]) === n ? 'on' : '', text: String(n), onclick: function () {
         block[key] = n; markDirty(); render();
+      } }));
+    });
+    return wrap;
+  }
+
+  function visibleOnSegment(block) {
+    var wrap = h('div', { class: 'seg' });
+    [['all', 'All'], ['small', 'Small'], ['large', 'Large']].forEach(function (o) {
+      wrap.appendChild(h('button', { class: (block.visibleOn || 'all') === o[0] ? 'on' : '', text: o[1], onclick: function () {
+        block.visibleOn = o[0] === 'all' ? undefined : o[0];
+        markDirty(); render();
       } }));
     });
     return wrap;

@@ -26,7 +26,7 @@ HA handshake). **Not yet run on a real Homey / Shelly.**
 - PIN instead of URL token (2026-10-13): a long token is too awkward to type on a wall panel.
 - Device chooses its dashboard and room, saved in the browser's localStorage.
 - Pages are chained with `link` blocks; one dashboard holds several pages.
-- Per-block `visibleOn` not built; multiple dashboards cover it (open question 1).
+- Per-block `visibleOn` is `all|small|large` (screen width 700 px), not per-dashboard: a block lives in one dashboard, so size is the useful axis (2026-10-14).
 
 ## Findings
 - 2026-10-13: renderers need an `<img>` icon to create a tap target, so devices

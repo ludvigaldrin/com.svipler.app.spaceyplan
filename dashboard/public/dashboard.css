@@ -270,3 +270,13 @@ html, body {
 }
 
 .login-error { min-height: 1.2em; margin: 0; color: var(--danger); text-align: center; }
+
+/* header clock and weather */
+.clock { display: flex; align-items: baseline; gap: 12px; margin-left: auto; margin-right: 8px; white-space: nowrap; }
+.clock[hidden] { display: none; }
+#clockTime { font-size: 1.3rem; font-weight: 600; }
+#clockDate, #weather { font-size: 0.85rem; color: var(--muted); }
+
+/* per-block visibility by screen size */
+@media (max-width: 700px) { .only-large { display: none !important; } }
+@media (min-width: 701px) { .only-small { display: none !important; } }

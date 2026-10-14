@@ -22,6 +22,10 @@
 
   var els = {
     topbar: document.getElementById('topbar'),
+    clock: document.getElementById('clock'),
+    clockTime: document.getElementById('clockTime'),
+    clockDate: document.getElementById('clockDate'),
+    weather: document.getElementById('weather'),
     title: document.getElementById('title'),
     menuButton: document.getElementById('menuButton'),
     menu: document.getElementById('menu'),
@@ -228,6 +232,8 @@
       try {
         var node = await render(block, token);
         if (token !== state.renderToken) return;
+        if (block.visibleOn === 'small') node.classList.add('only-small');
+        if (block.visibleOn === 'large') node.classList.add('only-large');
         els.page.appendChild(node);
       } catch (error) {
         var failed = el('p', 'hint error', block.type + ' block failed: ' + error.message);
@@ -317,6 +323,13 @@
     editor.href = '/editor';
     els.menu.appendChild(editor);
 
+    var signOut = el('button', 'menu-item', 'Sign out');
+    signOut.addEventListener('click', async function () {
+      try { await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' }); } catch (e) { /* the login page will tell */ }
+      location.href = '/login';
+    });
+    els.menu.appendChild(signOut);
+
     els.menu.hidden = false;
   }
 
@@ -334,6 +347,7 @@
     state.dashboard = dashboard;
     store(KEY_DASHBOARD, dashboard.id);
     applyLook(dashboard);
+    applyHeader(dashboard);
     resetSaverTimer();
 
     var savedPage = store(KEY_PAGE + dashboard.id);
@@ -356,6 +370,49 @@
       grid.appendChild(tile);
     });
     els.page.appendChild(grid);
+  }
+
+  // ---- header clock and weather ----
+
+  var headerTimer = null;
+  var weatherTimer = null;
+
+  function tickHeader() {
+    var now = new Date();
+    els.clockTime.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    els.clockDate.textContent = now.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+
+  async function refreshWeather(deviceId) {
+    try {
+      var value = await window.Homey.api('GET', '/devices/' + encodeURIComponent(deviceId) + '/capabilities/measure_temperature');
+      if (value && typeof value === 'object') value = value.value;
+      var number = typeof value === 'string' ? parseFloat(value) : value;
+      if (typeof number === 'number' && isFinite(number)) {
+        els.weather.textContent = Math.round(number * 10) / 10 + ' °C';
+        els.weather.title = '';
+      } else {
+        els.weather.textContent = '';
+        els.weather.title = 'Temperature unavailable: unexpected value ' + JSON.stringify(value);
+      }
+    } catch (error) {
+      els.weather.textContent = '';
+      els.weather.title = 'Temperature unavailable: ' + error.message;
+    }
+  }
+
+  function applyHeader(dashboard) {
+    clearInterval(headerTimer);
+    clearInterval(weatherTimer);
+    els.weather.textContent = '';
+    els.clock.hidden = !dashboard.showClock;
+    if (!dashboard.showClock) return;
+    tickHeader();
+    headerTimer = setInterval(tickHeader, 15000);
+    if (dashboard.weatherDeviceId) {
+      refreshWeather(dashboard.weatherDeviceId);
+      weatherTimer = setInterval(function () { refreshWeather(dashboard.weatherDeviceId); }, 300000);
+    }
   }
 
   // ---- screensaver ----

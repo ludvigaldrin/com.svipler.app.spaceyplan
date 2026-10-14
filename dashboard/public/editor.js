@@ -244,7 +244,7 @@
       });
       if (!(block.items || []).length) body.appendChild(h('div', { class: 'pv pv-wide dim', text: 'No devices yet' }));
     } else if (block.type === 'link') {
-      body.appendChild(h('div', { class: 'pv pv-wide' }, [icon('arrow_forward'), (block.label || 'Link') + (block.pageId ? ' → ' + pageName(block.pageId) : '')]));
+      body.appendChild(h('div', { class: 'pv pv-wide' }, [icon('arrow_forward'), (block.label || 'Link') + (block.pageId ? ' · goes to ' + pageName(block.pageId) : '')]));
     } else if (block.type === 'spacer') {
       body.appendChild(h('div', { class: 'pv pv-wide dim', text: (block.height || 0) + ' px of space' }));
     } else {

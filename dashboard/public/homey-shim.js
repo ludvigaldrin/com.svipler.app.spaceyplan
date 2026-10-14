@@ -115,3 +115,15 @@
     if (typeof window.onHomeyReady === 'function') window.onHomeyReady(window.Homey);
   };
 })();
+
+// When the widget is embedded in a dashboard page, take over the page's
+// colour scheme. A framed document whose scheme differs from its embedder
+// gets an opaque white canvas, which showed as a white box in dark themes.
+(function () {
+  if (window.parent === window) return;
+  try {
+    var root = document.documentElement;
+    root.style.colorScheme = window.parent.getComputedStyle(window.parent.document.documentElement).colorScheme;
+    root.style.background = 'transparent';
+  } catch (e) { /* cross-origin parent: leave as is */ }
+})();

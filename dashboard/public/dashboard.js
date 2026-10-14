@@ -61,7 +61,7 @@
     box.appendChild(el('h2', null, text));
     if (detail) box.appendChild(el('p', null, detail));
     els.page.appendChild(box);
-    els.dots.replaceChildren();
+    els.dots.replaceChildren(); els.dots.hidden = true;
   }
 
   // ---- renderers ----
@@ -237,7 +237,7 @@
 
     var token = ++state.renderToken;
     var page = pages[state.pageIndex];
-    els.title.textContent = state.dashboard.name + (pages.length > 1 ? ' · ' + page.name : '');
+    els.title.textContent = state.dashboard.name;
     els.page.replaceChildren();
     renderDots();
 
@@ -258,15 +258,16 @@
     }
   }
 
+  // Page switcher: only shown when the dashboard has more than one page.
   function renderDots() {
-    els.dots.replaceChildren();
+    els.dots.replaceChildren(); els.dots.hidden = true;
     var pages = state.dashboard.pages;
+    els.dots.hidden = pages.length < 2;
     if (pages.length < 2) return;
     pages.forEach(function (page, i) {
-      var dot = el('button', 'dot' + (i === state.pageIndex ? ' active' : ''));
-      dot.setAttribute('aria-label', page.name);
-      dot.addEventListener('click', function () { showPage(i); });
-      els.dots.appendChild(dot);
+      var tab = el('button', 'page-tab' + (i === state.pageIndex ? ' active' : ''), page.name);
+      tab.addEventListener('click', function () { showPage(i); });
+      els.dots.appendChild(tab);
     });
   }
 
@@ -303,6 +304,13 @@
     els.menu.hidden = true;
   }
 
+  // The room choice only matters when a room block follows the device's room.
+  function usesDeviceRoom() {
+    return !!state.dashboard && state.dashboard.pages.some(function (p) {
+      return p.blocks.some(function (b) { return b.type === 'room' && (!b.zoneId || b.zoneId === '*'); });
+    });
+  }
+
   function openMenu() {
     els.menu.replaceChildren();
 
@@ -315,8 +323,8 @@
       });
     }
 
-    if (state.zones.length) {
-      els.menu.appendChild(el('div', 'menu-label', 'Room'));
+    if (state.zones.length && usesDeviceRoom()) {
+      els.menu.appendChild(el('div', 'menu-label', 'Room for room blocks'));
       var current = store(KEY_ROOM);
       var none = el('button', 'menu-item' + (!current ? ' active' : ''), 'None');
       none.addEventListener('click', function () { closeMenu(); store(KEY_ROOM, null); showPage(state.pageIndex); });
@@ -375,7 +383,7 @@
     state.dashboard = null;
     els.title.textContent = 'Choose a dashboard';
     els.page.replaceChildren();
-    els.dots.replaceChildren();
+    els.dots.replaceChildren(); els.dots.hidden = true;
     var grid = el('div', 'grid');
     grid.style.setProperty('--cols', 2);
     state.dashboards.forEach(function (dashboard) {

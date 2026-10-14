@@ -194,30 +194,31 @@ html, body {
 .message { padding: 48px 8px; text-align: center; }
 .message p { color: var(--muted); }
 
-.dots {
-  position: fixed;
-  bottom: 14px;
-  left: 0;
-  right: 0;
-  z-index: 10;
+.page-tabs {
+  position: sticky;
+  top: 65px;
+  z-index: 15;
   display: flex;
-  justify-content: center;
-  gap: 10px;
-  pointer-events: none;
+  gap: 8px;
+  padding: 10px 16px;
+  overflow-x: auto;
+  background: var(--bg);
 }
 
-.dot {
-  width: 12px;
-  height: 12px;
-  padding: 0;
+.page-tabs[hidden] { display: none; }
+
+.page-tab {
+  flex: none;
+  padding: 9px 18px;
   border: 0;
-  border-radius: 50%;
-  background: var(--line);
-  pointer-events: auto;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
   cursor: pointer;
 }
 
-.dot.active { background: var(--accent); }
+.page-tab.active { background: var(--accent); color: #fff; font-weight: 600; }
 
 .saver {
   position: fixed;

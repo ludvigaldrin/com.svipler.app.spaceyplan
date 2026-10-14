@@ -663,7 +663,7 @@ const floorManager = {
             saveButton.innerHTML = '<div class="button-content"><div class="spinner"></div>Saving...</div>';
 
             // Read the file as a data URL
-            const imageData = await this.readFileAsDataURL(file);
+            const imageData = (await imageUtils.processImage(file)).imageData; // compressed: the Homey proxy rejects large bodies
 
             try {
                 // Upload the image using the API endpoint
@@ -1799,7 +1799,7 @@ const floorManager = {
 
             try {
                 // Read the file as a data URL
-                const imageData = await this.readFileAsDataURL(file);
+                const imageData = (await imageUtils.processImage(file)).imageData; // compressed: the Homey proxy rejects large bodies
 
                 // Always create new image instead of updating
                 const response = await this.Homey.api('POST', '/floor-images/upload', {

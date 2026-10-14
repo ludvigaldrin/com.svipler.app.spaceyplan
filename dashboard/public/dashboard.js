@@ -93,6 +93,21 @@
 
   // ---- blocks ----
 
+  // A button wired straight to a device's on/off: toggle, on or off.
+  async function pressDeviceButton(item) {
+    if (!item.homeyId) throw new Error('No device chosen for this button');
+    var path = '/devices/' + encodeURIComponent(item.homeyId) + '/capabilities/onoff';
+    var value;
+    if (item.action === 'on') value = true;
+    else if (item.action === 'off') value = false;
+    else {
+      var current = await window.Homey.api('GET', path);
+      if (current && typeof current === 'object') current = current.value;
+      value = !current;
+    }
+    await window.Homey.api('PUT', path, { value: value });
+  }
+
   function gridFor(block) {
     var grid = el('div', 'grid');
     grid.style.setProperty('--cols', Math.min(Math.max(parseInt(block.columns, 10) || 2, 1), 4));
@@ -152,7 +167,8 @@
         tile.addEventListener('click', async function () {
           tile.classList.add('pressed');
           try {
-            await window.Homey.api('POST', '/flowButtons/' + encodeURIComponent(item.id) + '/press', {});
+            if (item.kind === 'device') await pressDeviceButton(item);
+            else await window.Homey.api('POST', '/flowButtons/' + encodeURIComponent(item.id) + '/press', {});
           } catch (error) {
             tile.classList.add('failed');
             tile.title = error.message;

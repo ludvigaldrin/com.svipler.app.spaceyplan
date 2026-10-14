@@ -472,17 +472,28 @@
       f.push(h('div', { class: 'side-label', text: 'Content' }));
       block.items = block.items || [];
       block.items.forEach(function (item, i) {
-        f.push(h('div', { class: 'item-row' }, [
+        var onOffDevices = data.devices.filter(function (d) { return d.capabilities.indexOf('onoff') >= 0 || d.capabilities.indexOf('dim') >= 0; });
+        var rowParts = [
           bound(item, 'label', { placeholder: 'Label' }, refresh),
           bound(item, 'icon', { placeholder: 'Icon, e.g. bedtime' }, refresh),
-          h('button', { class: 'btn small danger', text: '×', title: 'Remove', onclick: function () { block.items.splice(i, 1); markDirty(); render(); } })
-        ]));
+          select([['flow', 'Runs a Flow'], ['device', 'Controls a device']], item.kind || 'flow', function (v) {
+            item.kind = v; markDirty(); render();
+          })
+        ];
+        if (item.kind === 'device') {
+          rowParts.push(select([['', 'Choose a device']].concat(onOffDevices.map(function (d) { return [d.id, d.name]; })),
+            item.homeyId || '', function (v) { item.homeyId = v; markDirty(); }));
+          rowParts.push(select([['toggle', 'Toggle'], ['on', 'Turn on'], ['off', 'Turn off']],
+            item.action || 'toggle', function (v) { item.action = v; markDirty(); }));
+        }
+        rowParts.push(h('button', { class: 'btn small danger', text: '×', title: 'Remove', onclick: function () { block.items.splice(i, 1); markDirty(); render(); } }));
+        f.push(h('div', { class: 'item-row' }, rowParts));
       });
       f.push(h('button', { class: 'btn', text: '+ Add button', onclick: function () {
         block.items.push({ id: uid('i_'), kind: 'flow', label: 'Button', icon: 'play_arrow' });
         markDirty(); render();
       } }));
-      f.push(h('p', { class: 'hint', text: 'In a Flow use: WHEN "Dashboard button … was pressed" and choose the button.' }));
+      f.push(h('p', { class: 'hint', text: '"Runs a Flow": in a Flow use WHEN "Dashboard button … was pressed" and choose the button. "Controls a device" needs no Flow.' }));
     }
 
     if (block.type === 'devices') {

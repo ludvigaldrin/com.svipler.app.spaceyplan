@@ -9,6 +9,7 @@
   --danger: #dc2626;
   --gap: 12px;
   --radius: 16px;
+  --icon-filter: none;
   color-scheme: light;
 }
 
@@ -20,6 +21,7 @@
     --text: #f2f4f7;
     --muted: #9aa1ad;
     --line: #2a2e36;
+    --icon-filter: invert(1);
     color-scheme: dark;
   }
 }
@@ -31,6 +33,7 @@
   --text: #f2f4f7;
   --muted: #9aa1ad;
   --line: #2a2e36;
+  --icon-filter: invert(1);
   color-scheme: dark;
 }
 
@@ -304,3 +307,6 @@ html, body {
 @media (min-width: 701px) { .only-small { display: none !important; } }
 
 .topbar .icon-button { margin-left: auto; flex: none; }
+
+.tile-icon { width: 52px; height: 52px; margin: 0 0 12px; object-fit: contain; filter: var(--icon-filter); }
+.tile .tile-name { white-space: normal; font-size: 1rem; line-height: 1.2; }

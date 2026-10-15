@@ -99,6 +99,20 @@
 
   // ---- blocks ----
 
+  // The tile shows the device's own icon; the floor-plan pin stays in the DOM,
+  // hidden, because it carries the tap behaviour (toggle, long press, ...).
+  function decorateTile(deviceEl, device) {
+    var tile = deviceEl && deviceEl.parentNode;
+    if (!tile || !tile.classList.contains('tile')) return;
+    deviceEl.style.display = 'none';
+    var src = device.iconObj && (device.iconObj.base64 || device.iconObj.url);
+    if (!src) return;
+    var img = el('img', 'tile-icon');
+    img.src = src;
+    img.alt = '';
+    tile.insertBefore(img, tile.firstChild);
+  }
+
   // ---- tile status text (like "On", "60 %", "21.4 °C") ----
 
   var HOMEY_CAPABILITY = {
@@ -205,6 +219,7 @@
       }
       try {
         var rendered = await rendererManager.renderDevice(device, grid, { view: 'tile' });
+        decorateTile(rendered, device);
         attachStatus(rendered, device);
       } catch (error) {
         var broken = el('div', 'tile tile-missing');

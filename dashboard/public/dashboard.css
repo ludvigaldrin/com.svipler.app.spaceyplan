@@ -46,6 +46,7 @@ html, body {
 }
 
 .topbar {
+  gap: 8px;
   position: sticky;
   top: 0;
   z-index: 20;
@@ -195,15 +196,15 @@ html, body {
 .message p { color: var(--muted); }
 
 .page-tabs {
-  position: sticky;
-  top: 65px;
-  z-index: 15;
   display: flex;
+  flex: 1 1 auto;
   gap: 8px;
-  padding: 10px 16px;
+  min-width: 0;
   overflow-x: auto;
-  background: var(--bg);
+  scrollbar-width: none;
 }
+
+.page-tabs::-webkit-scrollbar { display: none; }
 
 .page-tabs[hidden] { display: none; }
 
@@ -281,3 +282,5 @@ html, body {
 /* per-block visibility by screen size */
 @media (max-width: 700px) { .only-large { display: none !important; } }
 @media (min-width: 701px) { .only-small { display: none !important; } }
+
+.topbar .icon-button { margin-left: auto; flex: none; }

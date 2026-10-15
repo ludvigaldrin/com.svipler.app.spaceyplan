@@ -233,12 +233,64 @@
 
   // ---- centre: blocks of the page ----
 
+  // The floor image with the device pins drawn on top, at roughly the height
+  // the dashboard gives a floor plan, so you can see how much room it takes.
+  var floorImages = {};
+
+  function loadFloorImage(floor, done) {
+    var cached = floorImages[floor.id];
+    if (cached) { if (cached.src !== undefined) done(cached.src); else cached.waiting.push(done); return; }
+    cached = floorImages[floor.id] = { waiting: [done] };
+    var finish = function (src) {
+      cached.src = src;
+      cached.waiting.splice(0).forEach(function (cb) { cb(src); });
+    };
+    if (floor.imageData) return finish(floor.imageData);
+    if (floor.imageId && floor.imageId.indexOf('.') >= 0) {
+      api('GET', '/floorImage/' + encodeURIComponent(floor.imageId))
+        .then(function (r) { finish(r && r.dataUrl ? r.dataUrl : null); })
+        .catch(function () { finish(null); });
+      return;
+    }
+    finish(floor.fileUrl || null);
+  }
+
+  function floorPreview(block) {
+    var floor = data.floors.find(function (f) { return f.id === block.floorId; });
+    var box = h('div', { class: 'pv-floor' });
+    if (!block.floorId) { box.textContent = 'No floor chosen'; return box; }
+    if (!floor) { box.textContent = 'Missing floor'; return box; }
+    box.textContent = 'Loading ' + floor.name + '…';
+    loadFloorImage(floor, function (src) {
+      if (!src) { box.textContent = 'No image for ' + floor.name; return; }
+      var img = h('img', { src: src, alt: floor.name });
+      img.addEventListener('load', function () {
+        box.textContent = '';
+        var stage = h('div', { class: 'pv-stage' });
+        stage.style.aspectRatio = img.naturalWidth + ' / ' + img.naturalHeight;
+        stage.style.width = 'min(100%, ' + Math.round(340 * img.naturalWidth / img.naturalHeight) + 'px)';
+        stage.appendChild(img);
+        (floor.devices || []).forEach(function (device) {
+          var pos = device.position;
+          if (!pos || typeof pos.x !== 'number' || typeof pos.y !== 'number') return;
+          var dot = h('span', { class: 'pv-pin', title: device.name || '' });
+          dot.style.left = pos.x + '%';
+          dot.style.top = pos.y + '%';
+          stage.appendChild(dot);
+        });
+        box.appendChild(stage);
+      });
+      img.addEventListener('error', function () { box.textContent = 'Could not show the image of ' + floor.name; });
+    });
+    return box;
+  }
+
   function preview(block) {
     var cols = Math.max(1, Math.min(4, block.columns || 2));
     var body = h('div', { class: 'bcard-body', style: '--cols:' + cols });
 
     if (block.type === 'floorplan') {
-      body.appendChild(h('div', { class: 'pv-floor', text: block.floorId ? floorName(block.floorId) || 'Missing floor' : 'No floor chosen' }));
+      body.appendChild(floorPreview(block));
     } else if (block.type === 'buttons') {
       (block.items || []).forEach(function (item) {
         body.appendChild(h('div', { class: 'pv' }, [icon(item.icon || 'play_arrow'), item.label || 'Button']));
@@ -482,9 +534,12 @@
         ];
         if (item.kind === 'device') {
           rowParts.push(select([['', 'Choose a device']].concat(onOffDevices.map(function (d) { return [d.id, d.name]; })),
-            item.homeyId || '', function (v) { item.homeyId = v; markDirty(); }));
-          rowParts.push(select([['toggle', 'Toggle'], ['on', 'Turn on'], ['off', 'Turn off']],
-            item.action || 'toggle', function (v) { item.action = v; markDirty(); }));
+            item.homeyId || '', function (v) {
+              var device = data.devices.find(function (d) { return d.id === v; });
+              item.homeyId = v;
+              item.capability = device && device.capabilities.indexOf('dim') >= 0 ? 'dim' : 'onoff';
+              markDirty(); renderCenter();
+            }));
         }
         rowParts.push(h('button', { class: 'btn small danger', text: '×', title: 'Remove', onclick: function () { block.items.splice(i, 1); markDirty(); render(); } }));
         f.push(h('div', { class: 'item-row' }, rowParts));
@@ -493,7 +548,7 @@
         block.items.push({ id: uid('i_'), kind: 'flow', label: 'Button', icon: 'play_arrow' });
         markDirty(); render();
       } }));
-      f.push(h('p', { class: 'hint', text: '"Runs a Flow": in a Flow use WHEN "Dashboard button … was pressed" and choose the button. "Controls a device" needs no Flow.' }));
+      f.push(h('p', { class: 'hint', text: '"Runs a Flow": in a Flow use WHEN "Dashboard button … was pressed" and choose the button. "Controls a device" shows the own tile of the device with icon and live status, no Flow needed.' }));
     }
 
     if (block.type === 'devices') {

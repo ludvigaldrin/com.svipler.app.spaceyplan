@@ -30,6 +30,7 @@ class CapabilityRendererManager {
     //                 what the widget uses)
     //       'tile' - the same element laid out as a card in a dashboard grid
     async renderDevice(device, container, { view = 'pin' } = {}) {
+        container = container || document.getElementById('floorPlanDevices');
         const renderer = this.getRenderer(device.capability);
         if (!renderer) {
             Homey.api('POST', '/error', { message: `No renderer found for capability: ${device.capability}` });
@@ -188,7 +189,9 @@ class CapabilityRendererManager {
                 place();
             }
         }, 100);
-        setTimeout(() => clearInterval(retryInterval), 5000);
+        // A first load can take a while (the image arrives as base64); keep
+        // waiting rather than leaving the pin invisible.
+        setTimeout(() => clearInterval(retryInterval), 60000);
     }
 
 }

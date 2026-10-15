@@ -737,7 +737,7 @@ async function showSelectedFloor(floor) {
                                 const renderPromises = floor.devices.map(device => {
                                     try {
                                         if (device && device.id) {
-                                            return rendererManager.renderDevice(device)
+                                            return rendererManager.renderDevice(device, devicesContainer)
                                                 .then(rendered => {
                                                     if (rendered) renderedCount++;
                                                     return rendered;
@@ -869,7 +869,7 @@ async function showSelectedFloor(floor) {
                                 const renderPromises = floor.devices.map(device => {
                                     try {
                                         if (device && device.id) {
-                                            return rendererManager.renderDevice(device)
+                                            return rendererManager.renderDevice(device, devicesContainer)
                                                 .then(rendered => {
                                                     if (rendered) renderedCount++;
                                                     return rendered;

@@ -106,7 +106,10 @@ input[type="color"] { padding: 2px; height: 38px; width: 56px; }
 .pv .material-symbols-outlined { font-size: 20px; color: var(--accent); }
 .pv.dim { color: var(--muted); }
 .pv-wide { grid-column: 1 / -1; }
-.pv-floor { height: 90px; display: flex; align-items: center; justify-content: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 10px; grid-column: 1 / -1; }
+.pv-floor { min-height: 90px; display: flex; align-items: center; justify-content: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 10px; grid-column: 1 / -1; padding: 8px; }
+.pv-stage { position: relative; }
+.pv-stage img { display: block; width: 100%; height: 100%; }
+.pv-pin { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--accent); border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
 
 .add-block { width: 100%; padding: 14px; border: 1px dashed var(--line); border-radius: 14px; background: transparent; color: var(--muted); font: inherit; cursor: pointer; }
 .add-block:hover { color: var(--accent); border-color: var(--accent); }

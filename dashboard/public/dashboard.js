@@ -93,19 +93,21 @@
 
   // ---- blocks ----
 
-  // A button wired straight to a device's on/off: toggle, on or off.
-  async function pressDeviceButton(item) {
-    if (!item.homeyId) throw new Error('No device chosen for this button');
-    var path = '/devices/' + encodeURIComponent(item.homeyId) + '/capabilities/onoff';
-    var value;
-    if (item.action === 'on') value = true;
-    else if (item.action === 'off') value = false;
-    else {
-      var current = await window.Homey.api('GET', path);
-      if (current && typeof current === 'object') current = current.value;
-      value = !current;
-    }
-    await window.Homey.api('PUT', path, { value: value });
+  function flowTile(item) {
+    var tile = el('button', 'tile button-tile');
+    tile.appendChild(symbol(item.icon || 'play_arrow'));
+    tile.appendChild(el('div', 'tile-name', item.label || ''));
+    tile.addEventListener('click', async function () {
+      tile.classList.add('pressed');
+      try {
+        await window.Homey.api('POST', '/flowButtons/' + encodeURIComponent(item.id) + '/press', {});
+      } catch (error) {
+        tile.classList.add('failed');
+        tile.title = error.message;
+      }
+      setTimeout(function () { tile.classList.remove('pressed'); }, 400);
+    });
+    return tile;
   }
 
   function gridFor(block) {
@@ -156,28 +158,35 @@
       return button;
     },
 
-    buttons: function (block) {
+    // Flow buttons are plain tiles. A button that controls a device is the
+    // device's own tile (icon, live status, tap to toggle).
+    buttons: async function (block, token) {
       var wrap = el('section', 'block');
       if (block.title) wrap.appendChild(el('h3', 'block-title', block.title));
       var grid = gridFor(block);
-      (block.items || []).forEach(function (item) {
-        var tile = el('button', 'tile button-tile');
-        tile.appendChild(symbol(item.icon || 'play_arrow'));
-        tile.appendChild(el('div', 'tile-name', item.label || ''));
-        tile.addEventListener('click', async function () {
-          tile.classList.add('pressed');
-          try {
-            if (item.kind === 'device') await pressDeviceButton(item);
-            else await window.Homey.api('POST', '/flowButtons/' + encodeURIComponent(item.id) + '/press', {});
-          } catch (error) {
-            tile.classList.add('failed');
-            tile.title = error.message;
-          }
-          setTimeout(function () { tile.classList.remove('pressed'); }, 400);
-        });
-        grid.appendChild(tile);
-      });
       wrap.appendChild(grid);
+      var items = block.items || [];
+
+      var deviceItems = items.filter(function (i) { return i.kind === 'device' && i.homeyId; });
+      var described = [];
+      if (deviceItems.length) {
+        described = await window.Homey.api('POST', '/describeDevices', {
+          items: deviceItems.map(function (i) { return { homeyId: i.homeyId, capability: i.capability || 'onoff' }; })
+        });
+        if (token !== state.renderToken) return wrap;
+      }
+
+      var next = 0;
+      for (var n = 0; n < items.length; n++) {
+        var item = items[n];
+        if (item.kind === 'device') {
+          var device = item.homeyId ? described[next++] : null;
+          if (device && item.label) device.name = item.label;
+          await renderTiles([device || { missing: true }], grid, token);
+          continue;
+        }
+        grid.appendChild(flowTile(item));
+      }
       return wrap;
     },
 
@@ -237,7 +246,7 @@
 
     var token = ++state.renderToken;
     var page = pages[state.pageIndex];
-    els.title.textContent = state.dashboard.name;
+    els.title.hidden = true;
     els.page.replaceChildren();
     renderDots();
 
@@ -382,6 +391,7 @@
   function showPicker() {
     state.dashboard = null;
     els.title.textContent = 'Choose a dashboard';
+    els.title.hidden = false;
     els.page.replaceChildren();
     els.dots.replaceChildren(); els.dots.hidden = true;
     var grid = el('div', 'grid');

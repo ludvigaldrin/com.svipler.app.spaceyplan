@@ -459,6 +459,15 @@
     });
     els.menu.appendChild(signOut);
 
+    var about = el('div', 'menu-about');
+    var supports = function (property, value) { try { return window.CSS && CSS.supports(property, value); } catch (e) { return false; } };
+    about.textContent = 'Screen ' + window.innerWidth + '×' + window.innerHeight +
+      ' · 8-digit hex ' + (supports('color', '#00000080') ? 'yes' : 'no') +
+      ' · aspect-ratio ' + (supports('aspect-ratio', '1 / 1') ? 'yes' : 'no') +
+      ' · color-mix ' + (supports('color', 'color-mix(in srgb, red 50%, blue)') ? 'yes' : 'no');
+    els.menu.appendChild(about);
+    els.menu.appendChild(el('div', 'menu-about', navigator.userAgent));
+
     els.menu.hidden = false;
   }
 

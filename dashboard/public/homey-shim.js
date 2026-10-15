@@ -125,5 +125,9 @@
     var root = document.documentElement;
     root.style.colorScheme = window.parent.getComputedStyle(window.parent.document.documentElement).colorScheme;
     root.style.background = 'transparent';
+    // The frame is sized to the content; an inner scrollbar only gets in the way.
+    var style = document.createElement('style');
+    style.textContent = 'html, body { overflow: hidden !important; }';
+    document.head.appendChild(style);
   } catch (e) { /* cross-origin parent: leave as is */ }
 })();

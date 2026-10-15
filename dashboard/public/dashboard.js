@@ -73,6 +73,12 @@
   });
 
   window.Homey.on('widget:' + window.Homey.clientId + ':deviceUpdate', function (data) {
+    statusTiles.forEach(function (entry) {
+      if (entry.deviceId === data.deviceId && entry.caps.indexOf(data.capability) >= 0) {
+        entry.values[data.capability] = data.value;
+        paintStatus(entry);
+      }
+    });
     document.querySelectorAll('[data-device-id="' + data.deviceId + '"]').forEach(function (deviceEl) {
       var renderer = rendererManager.getRenderer(deviceEl.getAttribute('data-capability'));
       if (renderer && typeof renderer.handleDeviceUpdate === 'function') {
@@ -93,10 +99,81 @@
 
   // ---- blocks ----
 
+  // ---- tile status text (like "On", "60 %", "21.4 °C") ----
+
+  var HOMEY_CAPABILITY = {
+    onoff: 'onoff', dim: 'dim', lock: 'locked', windowcovering: 'windowcoverings_set',
+    thermostat: 'target_temperature', speaker: 'speaker_playing'
+  };
+  var UNITS = { measure_temperature: ' °C', measure_humidity: ' %', measure_battery: ' %', measure_power: ' W',
+    meter_power: ' kWh', measure_luminance: ' lx', measure_co2: ' ppm', measure_wind_strength: ' m/s' };
+  var statusTiles = [];
+
+  function statusCapabilities(device) {
+    if (device.capability === 'measure') {
+      return device.measureType === 'combined' ? (device.measureTypes || []) : [device.measureType];
+    }
+    if (device.capability === 'sensor') return [device.sensorType];
+    return HOMEY_CAPABILITY[device.capability] ? [HOMEY_CAPABILITY[device.capability]] : [];
+  }
+
+  function formatNumber(value) {
+    return typeof value === 'number' ? String(Math.round(value * 10) / 10) : String(value);
+  }
+
+  // Returns { text, active } for the current values of a tile.
+  function describeStatus(entry) {
+    var caps = entry.caps;
+    var values = entry.values;
+    var first = caps[0];
+    var value = values[first];
+    if (value === undefined || value === null) return { text: '', active: false };
+
+    if (first === 'onoff') return { text: value ? 'On' : 'Off', active: !!value };
+    if (first === 'dim') return { text: value > 0 ? Math.round(value * 100) + ' %' : 'Off', active: value > 0 };
+    if (first === 'locked') return { text: value ? 'Locked' : 'Unlocked', active: !!value };
+    if (first === 'windowcoverings_set') return { text: Math.round(value * 100) + ' %', active: value > 0 };
+    if (first === 'speaker_playing') return { text: value ? 'Playing' : 'Paused', active: !!value };
+    if (first === 'target_temperature') return { text: formatNumber(value) + ' °C', active: false };
+    if (first.indexOf('alarm_') === 0) return { text: value ? 'Alarm' : 'OK', active: !!value };
+    var parts = caps.filter(function (c) { return values[c] !== undefined && values[c] !== null; })
+      .map(function (c) { return formatNumber(values[c]) + (UNITS[c] || ''); });
+    return { text: parts.join(' · '), active: false };
+  }
+
+  function paintStatus(entry) {
+    var status = describeStatus(entry);
+    entry.statusEl.textContent = status.text;
+    entry.tile.classList.toggle('on', status.active);
+  }
+
+  async function attachStatus(deviceEl, device) {
+    var tile = deviceEl && deviceEl.parentNode;
+    if (!tile || !tile.classList.contains('tile')) return;
+    var caps = statusCapabilities(device);
+    var statusEl = el('div', 'tile-status');
+    tile.appendChild(statusEl);
+    if (!caps.length) return;
+
+    var entry = { tile: tile, statusEl: statusEl, deviceId: device.homeyId, caps: caps, values: {} };
+    statusTiles.push(entry);
+    await Promise.all(caps.map(async function (cap) {
+      try {
+        var value = await window.Homey.api('GET', '/devices/' + encodeURIComponent(device.homeyId) + '/capabilities/' + encodeURIComponent(cap));
+        if (value && typeof value === 'object' && 'value' in value) value = value.value;
+        entry.values[cap] = value;
+      } catch (error) {
+        statusEl.title = 'Status unavailable: ' + error.message;
+      }
+    }));
+    paintStatus(entry);
+  }
+
   function flowTile(item) {
     var tile = el('button', 'tile button-tile');
     tile.appendChild(symbol(item.icon || 'play_arrow'));
     tile.appendChild(el('div', 'tile-name', item.label || ''));
+    tile.appendChild(el('div', 'tile-status', 'Flow'));
     tile.addEventListener('click', async function () {
       tile.classList.add('pressed');
       try {
@@ -127,7 +204,8 @@
         continue;
       }
       try {
-        await rendererManager.renderDevice(device, grid, { view: 'tile' });
+        var rendered = await rendererManager.renderDevice(device, grid, { view: 'tile' });
+        attachStatus(rendered, device);
       } catch (error) {
         var broken = el('div', 'tile tile-missing');
         broken.appendChild(el('div', 'tile-name', device.name + ': ' + error.message));
@@ -191,7 +269,8 @@
     },
 
     floorplan: function (block) {
-      var frame = el('iframe', 'floorplan-frame');
+      var frame = el('iframe', 'floorplan-frame' + (block.background ? ' with-background' : ''));
+      frame.setAttribute('scrolling', 'no');
       var height = Math.round(window.innerHeight * 0.7);
       frame.style.height = height + 'px';
       frame.src = '/widget/?floor=' + encodeURIComponent(block.floorId) +

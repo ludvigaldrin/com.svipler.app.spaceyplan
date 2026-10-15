@@ -92,7 +92,7 @@ class CapabilityRendererManager {
         deviceEl.style.top = 'auto';
         deviceEl.style.transform = 'none';
         deviceEl.style.opacity = '1';
-        deviceEl.style.zoom = '2.5';
+        deviceEl.style.zoom = '1.5';
         deviceEl.style.flex = '0 0 auto';
         deviceEl.classList.add('tile-pin');
     }

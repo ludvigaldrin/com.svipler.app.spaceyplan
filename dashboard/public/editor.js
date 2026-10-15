@@ -494,6 +494,11 @@
     if (block.type === 'floorplan') {
       f.push(field('Floor', select([['', 'Choose a floor']].concat(data.floors.map(function (fl) { return [fl.id, fl.name]; })),
         block.floorId || '', function (v) { block.floorId = v; markDirty(); renderCenter(); })));
+      f.push(h('label', { class: 'check' }, [(function () {
+        var box = h('input', { type: 'checkbox', checked: !!block.background });
+        box.addEventListener('change', function () { block.background = box.checked ? true : undefined; markDirty(); });
+        return box;
+      })(), 'Card background behind the floor plan']));
       f.push(h('p', { class: 'hint', text: 'Device placement and rules are edited in the Spacey Plan settings in Homey.' }));
     }
 

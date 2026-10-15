@@ -292,8 +292,9 @@
     if (block.type === 'floorplan') {
       body.appendChild(floorPreview(block));
     } else if (block.type === 'buttons') {
+      body.classList.add('squares');
       (block.items || []).forEach(function (item) {
-        body.appendChild(h('div', { class: 'pv' }, [icon(item.icon || 'play_arrow'), item.label || 'Button']));
+        body.appendChild(h('div', { class: 'pv sq' }, [icon(item.kind === 'device' ? 'lightbulb' : (item.icon || 'play_arrow')), item.label || 'Button']));
       });
       if (!(block.items || []).length) body.appendChild(h('div', { class: 'pv pv-wide dim', text: 'No buttons yet' }));
     } else if (block.type === 'room') {
@@ -301,7 +302,8 @@
     } else if (block.type === 'devices') {
       (block.items || []).forEach(function (item) {
         var device = data.devices.find(function (d) { return d.id === item.homeyId; });
-        body.appendChild(h('div', { class: 'pv' }, [icon('lightbulb'), device ? device.name : 'Missing device']));
+        body.classList.add('squares');
+        body.appendChild(h('div', { class: 'pv sq' }, [icon('lightbulb'), device ? device.name : 'Missing device']));
       });
       if (!(block.items || []).length) body.appendChild(h('div', { class: 'pv pv-wide dim', text: 'No devices yet' }));
     } else if (block.type === 'link') {

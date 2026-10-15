@@ -419,6 +419,10 @@
   function openMenu() {
     els.menu.replaceChildren();
 
+    var refresh = el('button', 'menu-item', 'Refresh');
+    refresh.addEventListener('click', function () { location.reload(); });
+    els.menu.appendChild(refresh);
+
     if (state.dashboards.length > 1) {
       els.menu.appendChild(el('div', 'menu-label', 'Dashboard'));
       state.dashboards.forEach(function (dashboard) {

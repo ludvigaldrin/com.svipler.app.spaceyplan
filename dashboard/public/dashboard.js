@@ -353,6 +353,8 @@
         if (token !== state.renderToken) return;
         if (block.visibleOn === 'small') node.classList.add('only-small');
         if (block.visibleOn === 'large') node.classList.add('only-large');
+        var span = parseInt(block.span, 10);
+        if (span >= 1 && span < 12) node.style.gridColumn = 'span ' + span;
         els.page.appendChild(node);
       } catch (error) {
         var failed = el('p', 'hint error', block.type + ' block failed: ' + error.message);

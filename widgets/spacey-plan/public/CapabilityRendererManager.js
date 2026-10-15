@@ -112,15 +112,38 @@ class CapabilityRendererManager {
         tile.appendChild(deviceEl);
         tile.appendChild(name);
 
-        // The renderers listen for mouse/touch down-up on the icon (tap vs.
-        // long press), not click, so replay a quick tap on it.
-        tile.addEventListener('click', (e) => {
-            if (deviceEl.contains(e.target)) return;
-            const icon = deviceEl.querySelector('.device-icon, .material-symbols-outlined');
-            if (!icon) return;
-            icon.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
-            icon.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, button: 0 }));
+        // The renderers decide between tap and long press from the time between
+        // mouse down and up on the icon, so replay the real press on it: a quick
+        // press toggles, holding opens the device popup.
+        const icon = () => deviceEl.querySelector('.device-icon, .material-symbols-outlined');
+        let pressed = false;
+        const send = (type, e) => {
+            const target = icon();
+            if (!target) return;
+            target.dispatchEvent(new MouseEvent(type, {
+                bubbles: true, cancelable: true, button: 0,
+                clientX: e.clientX, clientY: e.clientY
+            }));
+        };
+
+        tile.addEventListener('pointerdown', (e) => {
+            if (e.button > 0 || deviceEl.contains(e.target)) return;
+            pressed = true;
+            send('mousedown', e);
         });
+        tile.addEventListener('pointermove', (e) => { if (pressed) send('mousemove', e); });
+        const release = (e) => {
+            if (!pressed) return;
+            pressed = false;
+            send('mouseup', e);
+        };
+        tile.addEventListener('pointerup', release);
+        tile.addEventListener('pointercancel', release);
+        tile.addEventListener('pointerleave', release);
+        tile.addEventListener('contextmenu', (e) => e.preventDefault());
+        tile.style.touchAction = 'manipulation';
+        tile.style.userSelect = 'none';
+        tile.style.webkitUserSelect = 'none';
 
         return tile;
     }

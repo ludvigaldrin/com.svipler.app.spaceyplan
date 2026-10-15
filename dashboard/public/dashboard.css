@@ -116,9 +116,20 @@ html, body {
 .menu-item.active { color: var(--accent); font-weight: 600; }
 
 .page {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: 20px;
+  align-items: start;
   padding: 16px 16px 72px;
   max-width: 1200px;
   margin: 0 auto;
+}
+
+/* blocks are full width unless they carry a width (see `span` in the builder) */
+.page > * { grid-column: 1 / -1; }
+
+@media (max-width: 700px) {
+  .page > * { grid-column: 1 / -1 !important; }
 }
 
 .block { margin-bottom: 20px; }
@@ -315,3 +326,4 @@ html, body {
 
 .tile .tile-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .tile-missing { aspect-ratio: 1 / 1; }
+.link-button { justify-self: start; }

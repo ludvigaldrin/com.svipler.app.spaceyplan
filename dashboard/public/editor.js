@@ -318,8 +318,11 @@
 
   var dragIndex = null;
 
+  // Side-by-side blocks (narrower than the list) are ordered left to right.
   function dropAfter(card, e) {
     var rect = card.getBoundingClientRect();
+    var list = card.parentNode.getBoundingClientRect();
+    if (rect.width < list.width - 4) return e.clientX > rect.left + rect.width / 2;
     return e.clientY > rect.top + rect.height / 2;
   }
 
@@ -361,6 +364,7 @@
       ])
     ]));
 
+    var list = h('div', { class: 'blocks-grid' });
     page.blocks.forEach(function (block, i) {
       var meta = TYPES[block.type] || [block.type, 'help', ''];
       var title = block.title || block.text || block.label || (block.type === 'floorplan' ? floorName(block.floorId) : '');
@@ -406,8 +410,11 @@
         markDirty();
         render();
       });
-      out.push(card);
+      var span = parseInt(block.span, 10);
+      if (span >= 1 && span < 12) card.style.gridColumn = 'span ' + span;
+      list.appendChild(card);
     });
+    out.push(list);
 
     if (sel.picking) {
       out.push(h('div', { class: 'type-picker' }, [h('h3', { text: 'Choose a block type' })].concat(
@@ -455,6 +462,9 @@
       h('div', { class: 'side-label', text: 'Block settings' }),
       h('strong', { text: meta[0] }),
       h('div', { class: 'stack' }, blockFields(block, page)),
+      h('div', { class: 'side-label', text: 'Width' }),
+      widthSegment(block),
+      h('p', { class: 'hint', text: 'Blocks that fit side by side share a row. Narrow screens always show them full width.' }),
       h('div', { class: 'side-label', text: 'Show block on' }),
       visibleOnSegment(block),
       h('p', { class: 'hint', text: 'Small = phones and narrow panels (under 700 px wide). Hide blocks that do not fit a screen.' }),
@@ -473,6 +483,18 @@
     values.forEach(function (n) {
       wrap.appendChild(h('button', { class: (block[key] || values[0]) === n ? 'on' : '', text: String(n), onclick: function () {
         block[key] = n; markDirty(); render();
+      } }));
+    });
+    return wrap;
+  }
+
+  function widthSegment(block) {
+    var wrap = h('div', { class: 'seg' });
+    [[12, 'Full'], [8, '2/3'], [6, '1/2'], [4, '1/3'], [3, '1/4']].forEach(function (o) {
+      var current = parseInt(block.span, 10) || 12;
+      wrap.appendChild(h('button', { class: current === o[0] ? 'on' : '', text: o[1], onclick: function () {
+        block.span = o[0] === 12 ? undefined : o[0];
+        markDirty(); render();
       } }));
     });
     return wrap;

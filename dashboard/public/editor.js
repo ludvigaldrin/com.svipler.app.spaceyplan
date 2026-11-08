@@ -32,6 +32,7 @@
     weather: ['Weather', 'partly_cloudy_day', 'Outdoor weather for Homey\'s location: temperature, wind, rain, sunrise and sunset.'],
     climate: ['Indoor climate', 'thermostat', 'Temperature of one main room in large type, with other rooms listed beside it.'],
     lighting: ['Lighting', 'lightbulb', 'How many lights are on. Tap to open the chosen floor plans with the lights placed on them.'],
+    quick: ['Quick actions', 'bolt', 'A row of equal buttons that turn chosen lights or devices on and off. Long press opens the device.'],
     music: ['Music', 'music_note', 'Now playing with album art, play controls, volume per room and for all linked rooms.']
   };
 
@@ -336,6 +337,9 @@
     } else if (block.type === 'lighting') {
       var floors = (block.floorIds || []).length ? block.floorIds.map(floorName).filter(Boolean).join(' → ') : 'All floors';
       body.appendChild(h('div', { class: 'pv pv-wide' }, [icon('lightbulb'), floors]));
+    } else if (block.type === 'quick') {
+      var names = (block.items || []).map(function (i) { var d = data.devices.find(function (x) { return x.id === i.homeyId; }); return i.label || (d ? d.name : 'Missing device'); });
+      body.appendChild(h('div', { class: 'pv pv-wide' + (names.length ? '' : ' dim') }, [icon('bolt'), names.length ? names.join(' · ') : 'No devices yet']));
     } else if (block.type === 'music') {
       var picked = (block.deviceIds || []).map(function (id) { var d = data.devices.find(function (x) { return x.id === id; }); return d ? d.name : null; }).filter(Boolean);
       body.appendChild(h('div', { class: 'pv pv-wide' }, [icon('music_note'), picked.length ? picked.join(', ') : 'All speakers']));
@@ -474,6 +478,7 @@
     if (type === 'climate') block.items = [];
     if (type === 'lighting') block.floorIds = [];
     if (type === 'music') block.deviceIds = [];
+    if (type === 'quick') block.items = [];
     page.blocks.push(block);
     sel.blockId = block.id;
     sel.picking = false;
@@ -655,6 +660,35 @@
         f.push(floorPicker);
       }
       f.push(h('p', { class: 'hint', text: 'Each floor is a tab with its plan and the lights placed on it, grouped by room. Lights are devices of the class Light, or sockets whose connected device is set to Light in Homey.' }));
+    }
+
+    if (block.type === 'quick') {
+      f.push(field('Title (optional)', bound(block, 'title', null, refresh)));
+      f.push(h('div', { class: 'side-label', text: 'Buttons, in order' }));
+      block.items = block.items || [];
+      block.items.forEach(function (item, i) {
+        var device = data.devices.find(function (d) { return d.id === item.homeyId; });
+        var moveItem = function (to) { block.items.splice(to, 0, block.items.splice(i, 1)[0]); markDirty(); render(); };
+        f.push(h('div', { class: 'item-row' }, [
+          h('strong', { text: device ? device.name : 'Missing device' }),
+          h('button', { class: 'btn small', text: '↑', title: 'Earlier', disabled: i === 0, onclick: function () { moveItem(i - 1); } }),
+          h('button', { class: 'btn small', text: '↓', title: 'Later', disabled: i === block.items.length - 1, onclick: function () { moveItem(i + 1); } }),
+          h('button', { class: 'btn small danger', text: '×', title: 'Remove', onclick: function () { block.items.splice(i, 1); markDirty(); render(); } })
+        ]));
+        f.push(field('Label (empty = device name)', bound(item, 'label', null, refresh)));
+      });
+      var switchable = data.devices.filter(function (d) {
+        return (d.capabilities || []).some(function (c) { return c === 'onoff' || c === 'dim'; });
+      });
+      var quickPicker = h('select', null, [h('option', { value: '', text: '+ Add a device…' })].concat(
+        switchable.map(function (d) { return h('option', { value: d.id, text: d.name }); })));
+      quickPicker.addEventListener('change', function () {
+        if (!quickPicker.value) return;
+        block.items.push({ id: uid('q_'), homeyId: quickPicker.value });
+        markDirty(); render();
+      });
+      f.push(quickPicker);
+      f.push(h('p', { class: 'hint', text: 'Lights and other on/off devices. Tap toggles, long press opens the device.' }));
     }
 
     if (block.type === 'music') {

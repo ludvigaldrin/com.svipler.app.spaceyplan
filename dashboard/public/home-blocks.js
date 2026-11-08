@@ -633,6 +633,108 @@
     return card;
   }
 
+  // ---- quick actions: a row of equal buttons that toggle chosen devices ----
+  // Tap toggles; a long press opens the device popup.
+
+  function quick(block, ctx) {
+    var el = ctx.el;
+    var sv = language(ctx.dashboard) === 'sv';
+    var wrap = el('section', 'quick-block');
+    if (block.title) wrap.appendChild(el('h3', 'block-title', block.title));
+    var row = el('div', 'quick-row');
+    wrap.appendChild(row);
+    var status = el('p', 'hint error quick-status');
+    status.hidden = true;
+    wrap.appendChild(status);
+    var items = (block.items || []).filter(function (i) { return i.homeyId; });
+    if (!items.length) {
+      row.appendChild(el('p', 'hint', sv ? 'Välj enheter i editorn.' : 'Pick devices in the editor.'));
+      return wrap;
+    }
+
+    var buttons = {};
+    function paint(id) {
+      var b = buttons[id];
+      if (!b || !b.detail) return;
+      var v = b.detail.values;
+      var on = typeof v.onoff === 'boolean' ? v.onoff : (typeof v.dim === 'number' && v.dim > 0);
+      b.node.classList.toggle('on', on);
+      b.node.classList.toggle('unavailable', !b.detail.available);
+      var text = on ? (sv ? 'På' : 'On') : (sv ? 'Av' : 'Off');
+      if (on && typeof v.dim === 'number') text += ' · ' + Math.round(v.dim * 100) + ' %';
+      b.state.textContent = text;
+    }
+
+    items.forEach(function (item) {
+      var node = el('button', 'quick-btn');
+      node.type = 'button';
+      var icon = ctx.symbol('lightbulb', 'quick-icon');
+      var texts = el('div', 'quick-text');
+      var name = el('div', 'quick-name', item.label || '…');
+      var state = el('div', 'quick-state', '');
+      texts.appendChild(name); texts.appendChild(state);
+      node.appendChild(icon); node.appendChild(texts);
+      row.appendChild(node);
+      var b = { node: node, icon: icon, name: name, state: state, detail: null, item: item };
+      buttons[item.homeyId] = b;
+
+      var pressTimer = null, longPressed = false;
+      function down() {
+        longPressed = false;
+        clearTimeout(pressTimer);
+        pressTimer = setTimeout(function () {
+          longPressed = true;
+          if (window.SpaceyDevicePopup) window.SpaceyDevicePopup.open(item.homeyId);
+        }, 550);
+      }
+      function up() { clearTimeout(pressTimer); }
+      node.addEventListener('pointerdown', down);
+      node.addEventListener('pointerup', up);
+      node.addEventListener('pointerleave', up);
+      node.addEventListener('pointercancel', up);
+      node.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+      node.addEventListener('click', function () {
+        if (longPressed || !b.detail) return;
+        var v = b.detail.values;
+        var capability, value;
+        if (typeof v.onoff === 'boolean') { capability = 'onoff'; value = !v.onoff; }
+        else if (typeof v.dim === 'number') { capability = 'dim'; value = v.dim > 0 ? 0 : 1; }
+        else return;
+        var previous = v[capability];
+        v[capability] = value;
+        paint(item.homeyId);
+        status.hidden = true;
+        ctx.api('POST', '/deviceCapability', { deviceId: item.homeyId, capability: capability, value: value }).catch(function (error) {
+          v[capability] = previous;
+          paint(item.homeyId);
+          status.textContent = (b.detail.name || '') + ': ' + error.message;
+          status.hidden = false;
+        });
+      });
+
+      ctx.api('GET', '/deviceDetail/' + encodeURIComponent(item.homeyId)).then(function (detail) {
+        b.detail = detail;
+        name.textContent = item.label || detail.name;
+        icon.textContent = detail.deviceClass === 'light' ? 'lightbulb' : 'power_settings_new';
+        paint(item.homeyId);
+        ctx.subscribe(['onoff', 'dim'].filter(function (cap) { return cap in detail.values; })
+          .map(function (cap) { return { deviceId: item.homeyId, capability: cap }; }));
+      }).catch(function (error) {
+        node.classList.add('failed');
+        name.textContent = item.label || (sv ? 'Saknas' : 'Missing');
+        state.textContent = error.message;
+      });
+    });
+
+    ctx.onDeviceUpdate(function (data) {
+      var b = buttons[data.deviceId];
+      if (!b || !b.detail || (data.capability !== 'onoff' && data.capability !== 'dim')) return;
+      b.detail.values[data.capability] = data.value;
+      paint(data.deviceId);
+    });
+    return wrap;
+  }
+
   // Drag a bottom sheet down to close it: from the handle or header, or from
   // anywhere while the sheet is scrolled to the top. Sliders and the floor
   // plan (an iframe) keep their own gestures.
@@ -685,6 +787,7 @@
     hero: hero,
     weather: weatherCard,
     climate: climateCard,
-    lighting: lighting
+    lighting: lighting,
+    quick: quick
   };
 })();

@@ -53,6 +53,9 @@ HA handshake). **Not yet run on a real Homey / Shelly.**
   only the lights placed on its plan, grouped by zone. No outdoor tab/zones
   (dropped: the Garage floor covers it). A light is class `light` or a socket
   with virtualClass `light` (Homey's "connected device" setting).
+- Quick actions block `quick` (2026-11-08): equal buttons for chosen on/off
+  devices above Belysning on `hemma` (Spottar Hall Nedre, Spottar Tv-rum).
+  Tap toggles onoff (or dim 0/1), long press opens the device popup.
 - Keep, don't refetch (2026-11-08, Ludvig): pages are rendered once and kept
   hidden; lighting and music sheets are kept hidden with their floor plans.
   Only status is live: SSE updates, and after the stream reconnects or the

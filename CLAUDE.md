@@ -28,6 +28,10 @@ HA handshake). **Not yet run on a real Homey / Shelly.**
   at http://192.168.4.229:7580/?d=hemma. Light toggling verified only on the fake backend.
 
 ## Decisions and why
+- Device popups (2026-11-08): on the dashboard server `dashboard/public/device-popup.js`
+  replaces `showDeviceModal` of the onoff, dim, measure and sensor renderers with one
+  card, opened in the top window; other popups are restyled by `device-popup.css`.
+  Injected into the widget iframe by ExternalServer, so the Homey widget is unchanged.
 - PIN instead of URL token (2026-10-13): a long token is too awkward to type on a wall panel.
 - Device chooses its dashboard and room, saved in the browser's localStorage.
 - Pages are chained with `link` blocks; one dashboard holds several pages.

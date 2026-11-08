@@ -1,0 +1,235 @@
+/* Device popups on the External Dashboard (top page and floor plan iframes).
+   The widget renderers style their own popups inline; the overrides below
+   need !important to win. Not loaded by the Homey widget itself. */
+
+.sp-pop-overlay, .device-modal-overlay, .enum-modal-overlay, .speaker-modal-overlay,
+.thermostat-modal-overlay, .cover-modal-overlay {
+  background: rgba(6, 5, 4, 0.6) !important;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+/* ---------- new popup (lights, plugs) ---------- */
+
+.sp-pop-overlay {
+  position: fixed;
+  top: 0; right: 0; bottom: 0; left: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+.sp-pop-overlay.open { opacity: 1; }
+
+.sp-pop {
+  --gold: #e8b25c;
+  width: min(460px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding: 20px 22px 22px;
+  border: 1px solid rgba(255, 228, 190, 0.12);
+  border-radius: 26px;
+  background: linear-gradient(180deg, #2b2621, #1b1815);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 240, 220, 0.06);
+  color: #f3eee7;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  transform: translateY(12px) scale(0.98);
+  transition: transform 0.18s ease;
+}
+.sp-pop-overlay.open .sp-pop { transform: none; }
+.sp-pop .material-symbols-outlined { font-size: 22px; line-height: 1; }
+
+.sp-pop-head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.sp-pop-icon {
+  display: flex; align-items: center; justify-content: center; flex: none;
+  width: 48px; height: 48px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.sp-pop-icon img { width: 30px; height: 30px; object-fit: contain; filter: invert(1) brightness(0.9); }
+.sp-pop.is-on .sp-pop-icon { background: rgba(232, 178, 92, 0.18); box-shadow: 0 0 18px rgba(232, 178, 92, 0.25); }
+.sp-pop.is-on .sp-pop-icon img { filter: invert(76%) sepia(43%) saturate(640%) hue-rotate(345deg) brightness(98%); }
+.sp-pop-titles { flex: 1; min-width: 0; }
+.sp-pop-title { font-size: 1.3rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-pop-sub { margin-top: 2px; color: #a69d92; font-size: 0.9rem; }
+.sp-pop-close {
+  display: flex; align-items: center; justify-content: center; flex: none;
+  width: 42px; height: 42px;
+  border: 1px solid rgba(255, 228, 190, 0.12); border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06); color: #f3eee7;
+  cursor: pointer;
+}
+
+.sp-pop-power {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 228, 190, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 1.05rem; font-weight: 500;
+  cursor: pointer;
+}
+.sp-pop-power input { position: absolute; opacity: 0; width: 0; height: 0; }
+.sp-switch { position: relative; width: 56px; height: 32px; border-radius: 16px; background: #4a433c; transition: background 0.2s ease; }
+.sp-switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4); transition: transform 0.2s ease; }
+.sp-pop-power input:checked + .sp-switch { background: var(--gold); }
+.sp-pop-power input:checked + .sp-switch::after { transform: translateX(24px); }
+
+.sp-pop-controls { display: grid; gap: 16px; margin-top: 18px; transition: opacity 0.2s ease; }
+.sp-pop-controls.dimmed { opacity: 0.55; }
+.sp-pop-controls [hidden] { display: none !important; }
+.sp-pop-row { display: grid; gap: 10px; }
+.sp-pop-label { display: flex; align-items: center; gap: 10px; font-size: 1rem; }
+.sp-pop-label .material-symbols-outlined { color: var(--gold); }
+.sp-pop-value { margin-left: auto; color: #d9d1c6; font-variant-numeric: tabular-nums; }
+
+.sp-range {
+  --fill: 0%;
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 8px; margin: 6px 0;
+  border-radius: 4px;
+  background: #3b352f;
+  cursor: pointer;
+  touch-action: none;
+}
+.sp-range::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5); }
+.sp-range::-moz-range-thumb { width: 26px; height: 26px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5); }
+.sp-range-gold { background: linear-gradient(90deg, #d99a3e, #f4c776 var(--fill), #3b352f var(--fill)); }
+.sp-range-temp { background: linear-gradient(90deg, #ff9d3c, #ffd9a0 40%, #f4f4f4 60%, #a9c8ff); }
+.sp-range-sat { --hue: 0; background: linear-gradient(90deg, #f4f4f4, hsl(var(--hue), 100%, 55%)); }
+
+.sp-pop-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); }
+.sp-pop-tab {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px; border: 1px solid transparent; border-radius: 11px;
+  background: none; color: #d9d1c6; font: inherit; cursor: pointer;
+}
+.sp-pop-tab.active { border-color: var(--gold); background: rgba(232, 178, 92, 0.18); color: #fff; }
+
+.sp-pop-colour { display: grid; grid-template-columns: 180px minmax(0, 1fr); align-items: center; gap: 20px; }
+.sp-wheel {
+  position: relative;
+  width: 180px; height: 180px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle closest-side, #fff, rgba(255, 255, 255, 0) 100%),
+    conic-gradient(from 0deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.06), 0 8px 24px rgba(0, 0, 0, 0.4);
+  cursor: crosshair;
+  touch-action: none;
+}
+.sp-wheel-thumb {
+  position: absolute;
+  width: 26px; height: 26px;
+  margin: -13px 0 0 -13px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.sp-pop-quick-label { margin-bottom: 10px; color: #a69d92; font-size: 0.85rem; }
+.sp-pop-swatches { display: flex; flex-wrap: wrap; gap: 12px; }
+.sp-swatch {
+  width: 44px; height: 44px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: inset 0 -6px 12px rgba(0, 0, 0, 0.25), 0 0 14px var(--swatch);
+  cursor: pointer;
+}
+.sp-swatch:active { transform: scale(0.94); }
+
+.sp-pop-status { margin-top: 14px; padding: 10px 12px; border-radius: 12px; background: rgba(220, 38, 38, 0.15); color: #fca5a5; font-size: 0.9rem; }
+.sp-pop-status[hidden] { display: none; }
+
+@media (max-width: 480px) {
+  .sp-pop { padding: 16px; border-radius: 22px; }
+  .sp-pop-colour { grid-template-columns: 1fr; justify-items: center; }
+  .sp-pop-colour .sp-pop-row { width: 100%; }
+}
+
+/* ---------- the widget's other popups, restyled ---------- */
+
+.device-modal, .enum-modal, .speaker-modal, .thermostat-modal, .cover-modal, .lock-confirm-modal > div {
+  border: 1px solid rgba(255, 228, 190, 0.12) !important;
+  border-radius: 24px !important;
+  background: linear-gradient(180deg, #2b2621, #1b1815) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55) !important;
+  color: #f3eee7 !important;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif !important;
+  padding: 18px 20px !important;
+  width: min(420px, 92vw) !important;
+}
+.device-modal *:not(.material-symbols-outlined), .enum-modal *:not(.material-symbols-outlined),
+.speaker-modal *:not(.material-symbols-outlined), .thermostat-modal *:not(.material-symbols-outlined),
+.cover-modal *:not(.material-symbols-outlined), .lock-confirm-modal > div *:not(.material-symbols-outlined) {
+  color: inherit;
+  font-family: inherit !important;
+  border-color: rgba(255, 228, 190, 0.12);
+}
+.device-modal h2, .enum-modal h2, .speaker-modal h2, .thermostat-modal h2, .cover-modal h2, .lock-confirm-modal h2,
+.device-modal h3, .enum-modal h3, .speaker-modal h3, .thermostat-modal h3, .cover-modal h3 {
+  color: #f3eee7 !important;
+  font-size: 1.25rem !important;
+  font-weight: 600 !important;
+}
+.close-button, .enum-modal-close, .speaker-modal-close, .thermostat-modal-close, .cover-modal-close {
+  width: 40px !important; height: 40px !important;
+  border: 1px solid rgba(255, 228, 190, 0.12) !important;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #f3eee7 !important;
+  font-size: 20px !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+}
+.device-modal button:not(.close-button), .enum-modal button:not(.enum-modal-close), .speaker-modal button:not(.speaker-modal-close),
+.thermostat-modal button:not(.thermostat-modal-close), .cover-modal button:not(.cover-modal-close), .lock-confirm-modal button {
+  border: 1px solid rgba(255, 228, 190, 0.14) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #f3eee7 !important;
+  border-radius: 12px !important;
+}
+.device-modal button.active, .enum-modal button.active, .speaker-modal button.active, .thermostat-modal button.active,
+.cover-modal button.active, .enum-modal button.selected, .device-modal .view-button.active {
+  border-color: #e8b25c !important;
+  background: rgba(232, 178, 92, 0.2) !important;
+  color: #fff !important;
+}
+.device-modal input[type="range"], .speaker-modal input[type="range"], .thermostat-modal input[type="range"], .cover-modal input[type="range"] {
+  accent-color: #e8b25c;
+}
+.custom-slider-container { background: #3b352f !important; }
+.custom-slider-container .track-fill { background: linear-gradient(90deg, #d99a3e, #f4c776) !important; }
+.device-modal .power-button { background: #3b352f !important; }
+.device-modal .power-button.on { background: #e8b25c !important; box-shadow: 0 0 22px rgba(232, 178, 92, 0.45) !important; }
+
+/* readings (sensors) */
+.sp-pop-readings { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+.sp-reading {
+  display: grid; gap: 4px;
+  padding: 14px;
+  border: 1px solid rgba(255, 228, 190, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.sp-reading .material-symbols-outlined { font-size: 26px; color: var(--gold); }
+.sp-reading-value { font-size: 1.4rem; line-height: 1.2; font-weight: 500; font-variant-numeric: tabular-nums; }
+.sp-reading-title { color: #a69d92; font-size: 0.85rem; }
+.sp-reading.alert { border-color: rgba(239, 68, 68, 0.6); background: rgba(239, 68, 68, 0.12); }
+.sp-reading.alert .material-symbols-outlined { color: #f87171; }
+.sp-pop-empty { color: #a69d92; }
+
+/* sliders and buttons inside the speaker, thermostat and cover popups */
+.speaker-slider-track, .thermostat-slider-track, .cover-slider-track { background: #3b352f !important; }
+.speaker-slider-fill, .thermostat-slider-fill, .cover-slider-fill { background: linear-gradient(90deg, #d99a3e, #f4c776) !important; }
+.speaker-slider-thumb, .thermostat-slider-thumb, .cover-slider-thumb { background: #fff !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5) !important; }
+.speaker-transport-buttons button.active { background: rgba(232, 178, 92, 0.25) !important; border-color: #e8b25c !important; }
+.speaker-flow-button, .cover-flow-button { background: rgba(232, 178, 92, 0.18) !important; border: 1px solid #e8b25c !important; color: #fff !important; }
+.speaker-modal .speaker-track-label, .speaker-value-label, .thermostat-value-display, .measure-value-label { color: #d9d1c6 !important; background: transparent !important; }
+.speaker-modal .material-symbols-outlined, .thermostat-modal .material-symbols-outlined, .cover-modal .material-symbols-outlined,
+.enum-modal .material-symbols-outlined { color: #e8b25c !important; }

@@ -553,6 +553,7 @@
 
   function chooseDashboard(dashboard) {
     state.dashboard = dashboard;
+    window.__spLanguage = dashboard.language;
     store(KEY_DASHBOARD, dashboard.id);
     applyLook(dashboard);
     applyHeader(dashboard);

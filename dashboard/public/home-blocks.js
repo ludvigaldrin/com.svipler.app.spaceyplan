@@ -320,7 +320,9 @@
       repaints = repaints.filter(function (fn) { return fn() !== false; });
     }
 
-    ctx.api('POST', '/lighting', { floorIds: block.floorIds || [], outdoorZoneIds: block.outdoorZoneIds || [] }).then(function (data) {
+    ctx.api('POST', '/lighting', {
+      floorIds: block.floorIds || [], outdoorZoneIds: block.outdoorZoneIds || [], outdoorFloorId: block.outdoorFloorId || null
+    }).then(function (data) {
       model = data;
       data.groups.forEach(function (g) { g.rooms.forEach(function (r) { r.lights.forEach(function (l) { lightsById[l.id] = l; }); }); });
       var subs = [];
@@ -512,13 +514,18 @@
       if (!groups.length) body.appendChild(el('p', 'hint', T.noLights));
 
       function showGroup(index) {
-        Array.prototype.forEach.call(tabs.children, function (t, i) { t.classList.toggle('active', i === index); });
+        Array.prototype.forEach.call(tabs.children, function (t, i) {
+          t.classList.toggle('active', i === index);
+          // Phones scroll the tab row; keep the chosen tab in view.
+          if (i === index && t.scrollIntoView) t.scrollIntoView({ block: 'nearest', inline: 'center' });
+        });
         var group = groups[index];
-        var groupName = group.kind === 'outdoor' ? T.outdoor : group.name;
+        var groupName = group.kind === 'outdoor' ? (group.name || T.outdoor) : group.name;
+        var planFloorId = group.kind === 'floor' ? group.id : group.floorId;
         body.replaceChildren();
 
         var plan = el('div', 'sheet-plan');
-        if (group.kind === 'floor') {
+        if (planFloorId) {
           var frame = el('iframe', 'floorplan-frame');
           frame.setAttribute('scrolling', 'no');
           frame.setAttribute('title', groupName);
@@ -528,7 +535,7 @@
           requestAnimationFrame(function () {
             var h = Math.round(Math.min(window.innerHeight * 0.6, (plan.clientWidth || window.innerWidth) * 0.78));
             frame.style.height = h + 'px';
-            frame.src = '/widget/?floor=' + encodeURIComponent(group.id) + '&slot=' + encodeURIComponent('light_' + group.id) + '&h=' + h;
+            frame.src = '/widget/?floor=' + encodeURIComponent(planFloorId) + '&slot=' + encodeURIComponent('light_' + planFloorId) + '&h=' + h;
           });
         } else if (heroImageId()) {
           var img = el('img', 'sheet-photo');
@@ -584,9 +591,9 @@
       groups.forEach(function (group, i) {
         var tab = el('button', 'sheet-tab');
         tab.type = 'button';
-        var icon = group.kind === 'outdoor' ? 'park' : (i === 0 ? 'home' : 'stairs');
+        var icon = group.kind === 'outdoor' ? (group.floorId ? 'garage' : 'park') : (i === 0 ? 'home' : 'stairs');
         tab.appendChild(ctx.symbol(icon));
-        tab.appendChild(el('span', null, group.kind === 'outdoor' ? T.outdoor : group.name));
+        tab.appendChild(el('span', null, group.kind === 'outdoor' ? (group.name || T.outdoor) : group.name));
         tab.addEventListener('click', function () { showGroup(i); });
         tabs.appendChild(tab);
       });

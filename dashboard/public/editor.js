@@ -626,6 +626,8 @@
       data.floors.forEach(function (fl) {
         f.push(checkInList(block.floorIds, fl.id, fl.name));
       });
+      f.push(field('Outdoor tab shows the plan of', select([['', 'No plan (header photo)']].concat(data.floors.map(function (fl) { return [fl.id, fl.name]; })),
+        block.outdoorFloorId || '', function (v) { block.outdoorFloorId = v || undefined; markDirty(); renderCenter(); })));
       f.push(h('div', { class: 'side-label', text: 'Outdoor rooms' }));
       block.outdoorZoneIds = block.outdoorZoneIds || [];
       data.zones.forEach(function (z) {

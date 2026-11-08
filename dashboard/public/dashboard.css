@@ -694,3 +694,5 @@ html, body {
 :root.style-evening .tile.on .tile-status { color: var(--accent); }
 :root.style-evening .block-title { color: var(--text); font-size: 1.1rem; font-weight: 500; }
 :root.style-evening .page-tab.active, :root.style-evening .link-button { color: #1a140c; }
+.page[hidden] { display: none; }
+.sheet-body[hidden] { display: none; }

@@ -53,6 +53,12 @@ HA handshake). **Not yet run on a real Homey / Shelly.**
   earlier rule (zone goes to the floor with most placed devices, then all its
   lights) showed rooms and lamps that are not on the plan. Outdoor zones are
   picked per block and list all their lights in their own tab.
+- Keep, don't refetch (2026-11-08, Ludvig): pages are rendered once and kept
+  hidden; lighting and music sheets are kept hidden with their floor plans.
+  Only status is live: SSE updates, and after the stream reconnects or the
+  panel was hidden over 1 min the shim re-subscribes and replays values from
+  POST /deviceValues. Menu > Uppdatera (page reload) picks up layout changes.
+  Floor plan iframes share the page's SSE stream (few connections per host).
 - Music "all linked" volume (2026-11-08): rooms in the same `sonos_group`, else
   every playing room; scaled proportionally so their balance is kept, like Sonos.
 - Cards in one row stretch to equal height (`.page > .card`), by request.

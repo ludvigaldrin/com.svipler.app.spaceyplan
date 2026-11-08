@@ -17,7 +17,8 @@
     zones: [],
     dashboard: null,
     pageIndex: 0,
-    renderToken: 0
+    renderToken: 0,
+    panes: {} // page id -> rendered page, kept until the layout changes
   };
 
   var els = {
@@ -30,6 +31,7 @@
     menuButton: document.getElementById('menuButton'),
     menu: document.getElementById('menu'),
     page: document.getElementById('page'),
+    main: document.getElementById('page'),
     dots: document.getElementById('dots'),
     bottomNav: document.getElementById('bottomNav'),
     saver: document.getElementById('saver'),
@@ -57,6 +59,7 @@
   }
 
   function message(text, detail) {
+    showMain();
     els.page.replaceChildren();
     var box = el('div', 'message');
     box.appendChild(el('h2', null, text));
@@ -374,38 +377,73 @@
 
   // ---- pages ----
 
-  async function showPage(index) {
+  // Pages are rendered once and kept: switching back only shows them again.
+  // Status stays current through the live updates (and a resync after the
+  // stream reconnects, see homey-shim.js). Layout changes (other dashboard,
+  // other room, Refresh in the menu) drop the kept pages.
+  function invalidatePages() {
+    state.renderToken++;
+    Object.keys(state.panes).forEach(function (id) { state.panes[id].remove(); });
+    state.panes = {};
+    document.querySelectorAll('.sp-kept-sheet').forEach(function (n) { n.remove(); });
+    resetPageHooks();
+    statusTiles = [];
+  }
+
+  function showMain() {
+    Object.keys(state.panes).forEach(function (id) { state.panes[id].hidden = true; });
+    els.main.hidden = false;
+    els.page = els.main;
+  }
+
+  function showPage(index) {
     var pages = state.dashboard.pages;
     if (pages.length === 0) {
       message('This dashboard has no pages yet', 'Add pages in the editor.');
       return;
     }
     state.pageIndex = Math.min(Math.max(index, 0), pages.length - 1);
-    store(KEY_PAGE + state.dashboard.id, pages[state.pageIndex].id);
-
-    var token = ++state.renderToken;
-    resetPageHooks();
     var page = pages[state.pageIndex];
+    store(KEY_PAGE + state.dashboard.id, page.id);
     els.title.hidden = true;
-    els.page.replaceChildren();
     renderDots();
 
+    if (els.page !== state.panes[page.id]) window.scrollTo(0, 0);
+    els.main.hidden = true;
+    Object.keys(state.panes).forEach(function (id) { state.panes[id].hidden = id !== page.id; });
+    var pane = state.panes[page.id];
+    if (!pane) {
+      pane = el('div', 'page');
+      state.panes[page.id] = pane;
+      els.main.parentNode.insertBefore(pane, els.main.nextSibling);
+      renderPane(page, pane, state.renderToken);
+    }
+    els.page = pane;
+  }
+
+  async function renderPane(page, pane, token) {
+    // Blocks load side by side; they are placed in their page order.
+    var pending = page.blocks.map(function (block) {
+      var render = blockRenderers[block.type];
+      if (!render) return Promise.resolve(null);
+      return Promise.resolve().then(function () { return render(block, token); })
+        .then(function (node) { return { node: node }; }, function (error) { return { error: error }; });
+    });
     for (var i = 0; i < page.blocks.length; i++) {
       var block = page.blocks[i];
-      var render = blockRenderers[block.type];
-      if (!render) continue;
-      try {
-        var node = await render(block, token);
-        if (token !== state.renderToken) return;
-        if (block.visibleOn === 'small') node.classList.add('only-small');
-        if (block.visibleOn === 'large') node.classList.add('only-large');
-        var span = parseInt(block.span, 10);
-        if (span >= 1 && span < 12) node.style.gridColumn = 'span ' + span;
-        els.page.appendChild(node);
-      } catch (error) {
-        var failed = el('p', 'hint error', block.type + ' block failed: ' + error.message);
-        els.page.appendChild(failed);
+      var result = await pending[i];
+      if (token !== state.renderToken) return;
+      if (!result) continue;
+      if (result.error) {
+        pane.appendChild(el('p', 'hint error', block.type + ' block failed: ' + result.error.message));
+        continue;
       }
+      var node = result.node;
+      if (block.visibleOn === 'small') node.classList.add('only-small');
+      if (block.visibleOn === 'large') node.classList.add('only-large');
+      var span = parseInt(block.span, 10);
+      if (span >= 1 && span < 12) node.style.gridColumn = 'span ' + span;
+      pane.appendChild(node);
     }
   }
 
@@ -503,13 +541,20 @@
       els.menu.appendChild(el('div', 'menu-label', 'Room for room blocks'));
       var current = store(KEY_ROOM);
       var none = el('button', 'menu-item' + (!current ? ' active' : ''), 'None');
-      none.addEventListener('click', function () { closeMenu(); store(KEY_ROOM, null); showPage(state.pageIndex); });
+      none.addEventListener('click', function () { closeMenu(); store(KEY_ROOM, null); invalidatePages(); showPage(state.pageIndex); });
       els.menu.appendChild(none);
       state.zones.forEach(function (zone) {
         var item = el('button', 'menu-item' + (zone.id === current ? ' active' : ''), zone.name);
-        item.addEventListener('click', function () { closeMenu(); store(KEY_ROOM, zone.id); showPage(state.pageIndex); });
+        item.addEventListener('click', function () { closeMenu(); store(KEY_ROOM, zone.id); invalidatePages(); showPage(state.pageIndex); });
         els.menu.appendChild(item);
       });
+    }
+
+    if (state.dashboard) {
+      var refresh = el('button', 'menu-item', state.dashboard.language === 'en' ? 'Refresh' : 'Uppdatera');
+      refresh.title = 'Reload rooms, devices and floor plans';
+      refresh.addEventListener('click', function () { closeMenu(); location.reload(); });
+      els.menu.appendChild(refresh);
     }
 
     var fullscreen = el('button', 'menu-item', 'Fullscreen');
@@ -560,6 +605,7 @@
     applyHeader(dashboard);
     resetSaverTimer();
 
+    invalidatePages();
     var savedPage = store(KEY_PAGE + dashboard.id);
     var index = dashboard.pages.findIndex(function (p) { return p.id === savedPage; });
     showPage(index >= 0 ? index : 0);
@@ -569,6 +615,8 @@
     state.dashboard = null;
     els.title.textContent = 'Choose a dashboard';
     els.title.hidden = false;
+    invalidatePages();
+    showMain();
     els.page.replaceChildren();
     els.dots.replaceChildren(); els.dots.hidden = true;
     var grid = el('div', 'grid');

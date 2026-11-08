@@ -457,9 +457,12 @@
       });
     });
 
+    // Built once and kept hidden between opens; the player stays live.
+    var kept = null;
     function openSheet() {
       if (!speakers || !speakers.length) return;
-      var backdrop = h('div', 'sheet-backdrop');
+      if (kept) { kept.open(); return; }
+      var backdrop = h('div', 'sheet-backdrop sp-kept-sheet');
       var sheet = h('div', 'sheet music-sheet');
       sheet.setAttribute('role', 'dialog');
       sheet.setAttribute('aria-modal', 'true');
@@ -478,19 +481,25 @@
 
       function close() {
         backdrop.classList.remove('open');
-        setTimeout(function () { backdrop.remove(); }, 220);
+        setTimeout(function () { if (!backdrop.classList.contains('open')) backdrop.style.display = 'none'; }, 220);
         document.removeEventListener('keydown', onKey);
         paint();
       }
+      function open() {
+        backdrop.style.display = '';
+        sheet.style.transform = '';
+        document.addEventListener('keydown', onKey);
+        requestAnimationFrame(function () { requestAnimationFrame(function () { backdrop.classList.add('open'); }); });
+      }
+      kept = { open: open };
       function onKey(e) { if (e.key === 'Escape') close(); }
       closeBtn.addEventListener('click', close);
       backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(); });
-      document.addEventListener('keydown', onKey);
       if (window.SpaceySheet) window.SpaceySheet.swipeToClose(sheet, close);
 
       createPlayer(body, speakers, { focus: savedFocus(), onFocus: function (id) { saveFocus(id); paint(); } });
       document.body.appendChild(backdrop);
-      requestAnimationFrame(function () { backdrop.classList.add('open'); });
+      open();
     }
     card.addEventListener('click', openSheet);
     card.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSheet(); } });

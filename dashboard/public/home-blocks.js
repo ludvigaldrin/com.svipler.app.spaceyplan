@@ -495,10 +495,15 @@
       return found;
     }
 
+    // The sheet is built once and kept (hidden) so its floor plans do not
+    // load again on every open; its rows stay live through device updates.
+    var kept = null;
+
     function openSheet() {
       if (!model) return;
+      if (kept) { kept.open(); return; }
       var groups = model.groups.filter(function (g) { return g.kind === 'outdoor' || g.rooms.length || model.groups.length === 1; });
-      var backdrop = el('div', 'sheet-backdrop');
+      var backdrop = el('div', 'sheet-backdrop sp-kept-sheet');
       var sheet = el('div', 'sheet');
       sheet.setAttribute('role', 'dialog');
       sheet.setAttribute('aria-modal', 'true');
@@ -514,21 +519,28 @@
       sheet.appendChild(head);
 
       var tabs = el('div', 'sheet-tabs');
-      var body = el('div', 'sheet-body');
+      var body = el('div', 'sheet-groups');
+      var groupPanes = [];
       sheet.appendChild(tabs);
       sheet.appendChild(body);
       backdrop.appendChild(sheet);
 
       function close() {
         backdrop.classList.remove('open');
-        setTimeout(function () { backdrop.remove(); }, 220);
+        setTimeout(function () { if (!backdrop.classList.contains('open')) backdrop.style.display = 'none'; }, 220);
         document.removeEventListener('keydown', onKey);
+      }
+      function open() {
+        backdrop.style.display = '';
+        sheet.style.transform = '';
+        document.addEventListener('keydown', onKey);
+        requestAnimationFrame(function () { requestAnimationFrame(function () { backdrop.classList.add('open'); }); });
       }
       function onKey(e) { if (e.key === 'Escape') close(); }
       closeBtn.addEventListener('click', close);
       backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(); });
       swipeToClose(sheet, close);
-      document.addEventListener('keydown', onKey);
+      kept = { open: open };
 
       if (!groups.length) body.appendChild(el('p', 'hint', T.noLights));
 
@@ -541,7 +553,11 @@
         var group = groups[index];
         var groupName = group.kind === 'outdoor' ? (group.name || T.outdoor) : group.name;
         var planFloorId = group.kind === 'floor' ? group.id : group.floorId;
-        body.replaceChildren();
+        groupPanes.forEach(function (pane, i) { if (pane) pane.hidden = i !== index; });
+        if (groupPanes[index]) return;
+        var pane = el('div', 'sheet-body');
+        groupPanes[index] = pane;
+        body.appendChild(pane);
 
         var plan = el('div', 'sheet-plan');
         if (planFloorId) {
@@ -564,7 +580,7 @@
         } else {
           plan.hidden = true;
         }
-        body.appendChild(plan);
+        pane.appendChild(plan);
 
         var side = el('div', 'sheet-side');
         var roomsCard = el('div', 'card rooms-card');
@@ -604,7 +620,7 @@
           actions.appendChild(b);
         });
         side.appendChild(actions);
-        body.appendChild(side);
+        pane.appendChild(side);
       }
 
       groups.forEach(function (group, i) {
@@ -618,7 +634,7 @@
       });
 
       document.body.appendChild(backdrop);
-      requestAnimationFrame(function () { backdrop.classList.add('open'); });
+      open();
       if (groups.length) showGroup(0);
     }
 

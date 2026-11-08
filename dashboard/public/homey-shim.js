@@ -33,6 +33,22 @@
 
   var listeners = {}; // event -> [callbacks]
   var source = null;
+  var UPDATE_EVENT = 'widget:' + clientId + ':deviceUpdate';
+
+  // An embedded floor plan uses the dashboard page's stream instead of its
+  // own: browsers allow few connections per host, and every open stream holds
+  // one. Its subscriptions go through the page, so they are restored with it.
+  var host = null;
+  if (window.parent !== window) {
+    try { if (window.parent.Homey && window.parent.Homey.__shared) host = window.parent.Homey.__shared; } catch (e) { host = null; }
+  }
+  var hostOffs = [];
+  window.addEventListener('pagehide', function () { hostOffs.forEach(function (off) { off(); }); hostOffs = []; });
+
+  // Everything this page subscribed to, to restore after a reconnect.
+  var subscribed = {}; // 'deviceId|capability' -> { deviceId, capability }
+  var hadError = false;
+  var hiddenAt = 0;
 
   function dispatch(eventName, payload) {
     (listeners[eventName] || []).slice().forEach(function (cb) {
@@ -43,19 +59,55 @@
   function openStream() {
     if (source) return;
     source = new EventSource('/events?clientId=' + encodeURIComponent(clientId));
+    source.onopen = function () {
+      if (hadError) resync();
+      hadError = false;
+    };
     source.addEventListener('deviceUpdate', function (e) {
       var payload = JSON.parse(e.data);
       dispatch('widget:' + clientId + ':deviceUpdate', payload);
     });
     // EventSource reconnects by itself; a 401 means the PIN is gone.
     source.onerror = function () {
+      hadError = true;
+      // A failed reconnect (server restarting, bad response) closes the
+      // stream for good; open a new one shortly.
+      if (source && source.readyState === 2) {
+        source = null;
+        setTimeout(openStream, 3000);
+      }
       fetch('/api/dashboards', { credentials: 'same-origin' }).then(function (r) {
         if (r.status === 401) location.href = '/login';
       }).catch(function () {});
     };
   }
 
+  // After the stream was down (panel asleep, wifi gone) the server may have
+  // dropped this page's subscriptions and updates were missed: subscribe
+  // again and replay the current values as updates. Only status is fetched.
+  function resync() {
+    var devices = Object.keys(subscribed).map(function (k) { return subscribed[k]; });
+    if (!devices.length) return;
+    api('POST', '/subscribeToDevices', { widgetId: clientId, devices: devices })
+      .then(function () { return api('POST', '/deviceValues', { devices: devices }); })
+      .then(function (values) {
+        (values || []).forEach(function (v) { dispatch(UPDATE_EVENT, v); });
+      })
+      .catch(function (error) { console.error('Status resync failed', error); });
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) { hiddenAt = Date.now(); return; }
+    if (!host && hiddenAt && Date.now() - hiddenAt > 60000) resync();
+    hiddenAt = 0;
+  });
+
   async function api(method, path, body) {
+    if (host && path === '/subscribeToDevices') {
+      return host.subscribe(body && body.devices);
+    }
+    if (!host && path === '/subscribeToDevices' && body && Array.isArray(body.devices)) {
+      body.devices.forEach(function (d) { subscribed[d.deviceId + '|' + d.capability] = { deviceId: d.deviceId, capability: d.capability }; });
+    }
     // The floor plan inside a dashboard is pinned to one floor; remember a
     // switch made inside it in memory only.
     if (path === '/selectedFloors') {
@@ -85,6 +137,7 @@
   window.Homey = {
     api: api,
     on: function (eventName, cb) {
+      if (host && eventName === UPDATE_EVENT) { hostOffs.push(host.onUpdate(cb)); return; }
       (listeners[eventName] = listeners[eventName] || []).push(cb);
       if (eventName.indexOf('widget:') === 0) openStream();
     },
@@ -106,8 +159,26 @@
       return Promise.resolve(clientId);
     },
     // Dashboard-only extras (not part of the Homey widget API).
-    clientId: clientId
+    clientId: clientId,
+    streamState: function () { return source ? ['connecting', 'open', 'closed'][source.readyState] : (host ? 'shared' : 'none'); }
   };
+
+  if (!host) {
+    window.Homey.__shared = {
+      onUpdate: function (cb) {
+        (listeners[UPDATE_EVENT] = listeners[UPDATE_EVENT] || []).push(cb);
+        openStream();
+        return function () {
+          var list = listeners[UPDATE_EVENT] || [];
+          var at = list.indexOf(cb);
+          if (at >= 0) list.splice(at, 1);
+        };
+      },
+      subscribe: function (devices) {
+        return api('POST', '/subscribeToDevices', { widgetId: clientId, devices: devices || [] });
+      }
+    };
+  }
 
   // Homey's runtime calls onHomeyReady once the widget scripts are loaded;
   // the server injects a call to this after the widget's own scripts.

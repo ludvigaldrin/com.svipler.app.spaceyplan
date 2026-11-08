@@ -12,7 +12,7 @@
       lighting: 'Lighting', lightsOn: function (n) { return n === 1 ? '1 light on' : n + ' lights on'; },
       allOff: 'All lights off', weather: 'Weather', indoor: 'Indoors', rooms: 'Rooms', outdoor: 'Outdoors',
       outdoorLights: 'Outdoor lighting', turnAllOff: 'All off', turnAllOn: 'All on', close: 'Close',
-      noLights: 'No lights found. Lights are found through the rooms of devices placed on the floor plan.',
+      noLights: 'No lights on this plan. Lights are devices of the class Light, or sockets set to a connected light in Homey, placed on the plan.',
       ofOn: function (on, all) { return on + ' of ' + all + ' on'; },
       failed: function (n) { return n === 1 ? '1 light did not respond' : n + ' lights did not respond'; },
       unavailable: 'Unavailable', missing: 'Missing device', chooseSensor: 'Choose temperature sensors in the editor.',
@@ -30,7 +30,7 @@
       lighting: 'Belysning', lightsOn: function (n) { return n === 1 ? '1 lampa på' : n + ' lampor på'; },
       allOff: 'Alla lampor släckta', weather: 'Väder ute', indoor: 'Inomhus', rooms: 'Rum', outdoor: 'Ute',
       outdoorLights: 'Utebelysning', turnAllOff: 'Släck allt', turnAllOn: 'Tänd allt', close: 'Stäng',
-      noLights: 'Inga lampor hittades. Lampor hittas via rummen för enheter som är placerade på planritningen.',
+      noLights: 'Inga lampor på planen. Lampor är enheter av klassen Lampa, eller uttag där Homey anger att en lampa är ansluten, placerade på planen.',
       ofOn: function (on, all) { return on + ' av ' + all + ' på'; },
       failed: function (n) { return n === 1 ? '1 lampa svarade inte' : n + ' lampor svarade inte'; },
       unavailable: 'Ej tillgänglig', missing: 'Enhet saknas', chooseSensor: 'Välj temperaturgivare i editorn.',
@@ -339,7 +339,7 @@
     }
 
     ctx.api('POST', '/lighting', {
-      floorIds: block.floorIds || [], outdoorZoneIds: block.outdoorZoneIds || [], outdoorFloorId: block.outdoorFloorId || null
+      floorIds: block.floorIds || []
     }).then(function (data) {
       model = data;
       data.groups.forEach(function (g) { g.rooms.forEach(function (r) { r.lights.forEach(function (l) { lightsById[l.id] = l; }); }); });
@@ -502,7 +502,7 @@
     function openSheet() {
       if (!model) return;
       if (kept) { kept.open(); return; }
-      var groups = model.groups.filter(function (g) { return g.kind === 'outdoor' || g.rooms.length || model.groups.length === 1; });
+      var groups = model.groups;
       var backdrop = el('div', 'sheet-backdrop sp-kept-sheet');
       var sheet = el('div', 'sheet');
       sheet.setAttribute('role', 'dialog');
@@ -551,8 +551,8 @@
           if (i === index && t.scrollIntoView) t.scrollIntoView({ block: 'nearest', inline: 'center' });
         });
         var group = groups[index];
-        var groupName = group.kind === 'outdoor' ? (group.name || T.outdoor) : group.name;
-        var planFloorId = group.kind === 'floor' ? group.id : group.floorId;
+        var groupName = group.name;
+        var planFloorId = group.id;
         groupPanes.forEach(function (pane, i) { if (pane) pane.hidden = i !== index; });
         if (groupPanes[index]) return;
         var pane = el('div', 'sheet-body');
@@ -584,20 +584,11 @@
 
         var side = el('div', 'sheet-side');
         var roomsCard = el('div', 'card rooms-card');
-        roomsCard.appendChild(el('h3', null, (group.kind === 'outdoor' ? T.outdoorLights : T.rooms + ' – ' + groupName)));
+        roomsCard.appendChild(el('h3', null, T.rooms + ' – ' + groupName));
         var status = el('div', 'sheet-status error');
         status.hidden = true;
         if (!group.rooms.length) roomsCard.appendChild(el('p', 'hint', T.noLights));
         group.rooms.forEach(function (room) { roomsCard.appendChild(roomRow(room, status)); });
-        // Outdoor lights also appear on the first floor's list, like a room.
-        if (group.kind === 'floor' && index === 0) {
-          var outdoor = model.groups.find(function (g) { return g.kind === 'outdoor'; });
-          if (outdoor && outdoor.rooms.length) {
-            var merged = { zoneId: 'outdoor', icon: 'garden', lights: [] };
-            outdoor.rooms.forEach(function (r) { merged.lights = merged.lights.concat(r.lights); });
-            roomsCard.appendChild(roomRow(merged, status, T.outdoorLights));
-          }
-        }
         roomsCard.appendChild(status);
         side.appendChild(roomsCard);
 
@@ -626,9 +617,9 @@
       groups.forEach(function (group, i) {
         var tab = el('button', 'sheet-tab');
         tab.type = 'button';
-        var icon = group.kind === 'outdoor' ? (group.floorId ? 'garage' : 'park') : (i === 0 ? 'home' : 'stairs');
+        var icon = /garage/i.test(group.name) ? 'garage' : (/ute|outdoor|trädgård|garden/i.test(group.name) ? 'park' : (i === 0 ? 'home' : 'stairs'));
         tab.appendChild(ctx.symbol(icon));
-        tab.appendChild(el('span', null, group.kind === 'outdoor' ? (group.name || T.outdoor) : group.name));
+        tab.appendChild(el('span', null, group.name));
         tab.addEventListener('click', function () { showGroup(i); });
         tabs.appendChild(tab);
       });

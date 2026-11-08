@@ -48,11 +48,11 @@ HA handshake). **Not yet run on a real Homey / Shelly.**
 
 - Weather from Open-Meteo with Homey's own location (2026-11-08): free, no key,
   no weather device needed. Cached 10 min server side.
-- Lighting per floor (2026-11-08, revised same day at Ludvig's request): a floor
-  lists only the `light`-class devices placed on its plan, grouped by zone. The
-  earlier rule (zone goes to the floor with most placed devices, then all its
-  lights) showed rooms and lamps that are not on the plan. Outdoor zones are
-  picked per block and list all their lights in their own tab.
+- Lighting (2026-11-08, revised twice that day at Ludvig's request): the block
+  lists floors in a chosen order (`floorIds`, empty = all); each floor tab shows
+  only the lights placed on its plan, grouped by zone. No outdoor tab/zones
+  (dropped: the Garage floor covers it). A light is class `light` or a socket
+  with virtualClass `light` (Homey's "connected device" setting).
 - Keep, don't refetch (2026-11-08, Ludvig): pages are rendered once and kept
   hidden; lighting and music sheets are kept hidden with their floor plans.
   Only status is live: SSE updates, and after the stream reconnects or the
@@ -76,7 +76,8 @@ HA handshake). **Not yet run on a real Homey / Shelly.**
   color-mix, `:has()` and `inset` in dashboard CSS.
 - 2026-11-08: `homey.geolocation` returned no position on the real Homey (no
   permission); weather reads it via `api.geolocation.getOptionLocation()`.
-- 2026-11-08: outdoor lamps here are sockets, so outdoor zones count sockets as lights.
+- 2026-11-08: Lampa Bosses and the Lampa Utomhus lamps are sockets without a
+  connected-device class, so they are not lights until set to Light in Homey.
 - 2026-10-13: renderers need an `<img>` icon to create a tap target, so devices
   without an icon get a built-in fallback glyph. They also need
   `widgets/spacey-plan/public/styles.css` (`.icon-wrapper`).

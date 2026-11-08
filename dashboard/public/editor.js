@@ -31,7 +31,7 @@
     hero: ['Header image', 'landscape', 'A photo of your home across the top, with clock, date and the weather.'],
     weather: ['Weather', 'partly_cloudy_day', 'Outdoor weather for Homey\'s location: temperature, wind, rain, sunrise and sunset.'],
     climate: ['Indoor climate', 'thermostat', 'Temperature of one main room in large type, with other rooms listed beside it.'],
-    lighting: ['Lighting', 'lightbulb', 'How many lights are on. Tap to open floor plans with every room\'s lights and outdoor lighting.'],
+    lighting: ['Lighting', 'lightbulb', 'How many lights are on. Tap to open the chosen floor plans with the lights placed on them.'],
     music: ['Music', 'music_note', 'Now playing with album art, play controls, volume per room and for all linked rooms.']
   };
 
@@ -334,9 +334,8 @@
       body.appendChild(h('div', { class: 'pv pv-wide' + (main ? '' : ' dim') }, [icon('thermostat'),
         (main ? main.name : 'No main sensor') + ((block.items || []).length ? ' + ' + block.items.length + ' more' : '')]));
     } else if (block.type === 'lighting') {
-      var floors = (block.floorIds || []).length ? block.floorIds.map(floorName).filter(Boolean).join(', ') : 'All floors';
-      var outdoor = (block.outdoorZoneIds || []).length ? ' · outdoor: ' + block.outdoorZoneIds.map(zoneName).join(', ') : '';
-      body.appendChild(h('div', { class: 'pv pv-wide' }, [icon('lightbulb'), floors + outdoor]));
+      var floors = (block.floorIds || []).length ? block.floorIds.map(floorName).filter(Boolean).join(' → ') : 'All floors';
+      body.appendChild(h('div', { class: 'pv pv-wide' }, [icon('lightbulb'), floors]));
     } else if (block.type === 'music') {
       var picked = (block.deviceIds || []).map(function (id) { var d = data.devices.find(function (x) { return x.id === id; }); return d ? d.name : null; }).filter(Boolean);
       body.appendChild(h('div', { class: 'pv pv-wide' }, [icon('music_note'), picked.length ? picked.join(', ') : 'All speakers']));
@@ -473,7 +472,7 @@
     if (type === 'link') block.label = 'Next page';
     if (type === 'hero') { block.height = 380; block.focusY = 60; }
     if (type === 'climate') block.items = [];
-    if (type === 'lighting') { block.floorIds = []; block.outdoorZoneIds = []; }
+    if (type === 'lighting') block.floorIds = [];
     if (type === 'music') block.deviceIds = [];
     page.blocks.push(block);
     sel.blockId = block.id;
@@ -626,19 +625,36 @@
 
     if (block.type === 'lighting') {
       f.push(field('Title (empty = "Lighting")', bound(block, 'title', null, refresh)));
-      f.push(h('div', { class: 'side-label', text: 'Floors (none ticked = all)' }));
-      block.floorIds = block.floorIds || [];
-      f.push(h('div', { class: 'check-grid' }, data.floors.map(function (fl) {
-        return checkInList(block.floorIds, fl.id, fl.name);
-      })));
-      f.push(field('Outdoor tab shows the plan of', select([['', 'No plan (header photo)']].concat(data.floors.map(function (fl) { return [fl.id, fl.name]; })),
-        block.outdoorFloorId || '', function (v) { block.outdoorFloorId = v || undefined; markDirty(); renderCenter(); })));
-      f.push(h('div', { class: 'side-label', text: 'Outdoor rooms' }));
-      block.outdoorZoneIds = block.outdoorZoneIds || [];
-      f.push(h('div', { class: 'check-grid' }, data.zones.map(function (z) {
-        return checkInList(block.outdoorZoneIds, z.id, z.name);
-      })));
-      f.push(h('p', { class: 'hint', text: 'A floor lists the lights placed on its plan, grouped by room. Outdoor rooms (with their sub-rooms) get their own tab. Lights are devices of the class Light.' }));
+      f.push(h('div', { class: 'side-label', text: 'Floors, in tab order (none = all)' }));
+      block.floorIds = (block.floorIds || []).filter(function (id) { return data.floors.some(function (fl) { return fl.id === id; }); });
+      delete block.outdoorZoneIds;
+      delete block.outdoorFloorId;
+      block.floorIds.forEach(function (id, i) {
+        var fl = data.floors.find(function (x) { return x.id === id; });
+        var move = function (to) {
+          block.floorIds.splice(i, 1);
+          block.floorIds.splice(to, 0, id);
+          markDirty(); render();
+        };
+        f.push(h('div', { class: 'item-row' }, [
+          h('strong', { text: fl.name }),
+          h('button', { class: 'btn small', text: '↑', title: 'Earlier', disabled: i === 0, onclick: function () { move(i - 1); } }),
+          h('button', { class: 'btn small', text: '↓', title: 'Later', disabled: i === block.floorIds.length - 1, onclick: function () { move(i + 1); } }),
+          h('button', { class: 'btn small danger', text: '×', title: 'Remove', onclick: function () { block.floorIds.splice(i, 1); markDirty(); render(); } })
+        ]));
+      });
+      var rest = data.floors.filter(function (fl) { return block.floorIds.indexOf(fl.id) < 0; });
+      if (rest.length) {
+        var floorPicker = h('select', null, [h('option', { value: '', text: '+ Add a floor…' })].concat(
+          rest.map(function (fl) { return h('option', { value: fl.id, text: fl.name }); })));
+        floorPicker.addEventListener('change', function () {
+          if (!floorPicker.value) return;
+          block.floorIds.push(floorPicker.value);
+          markDirty(); render();
+        });
+        f.push(floorPicker);
+      }
+      f.push(h('p', { class: 'hint', text: 'Each floor is a tab with its plan and the lights placed on it, grouped by room. Lights are devices of the class Light, or sockets whose connected device is set to Light in Homey.' }));
     }
 
     if (block.type === 'music') {

@@ -48,9 +48,11 @@ HA handshake). **Not yet run on a real Homey / Shelly.**
 
 - Weather from Open-Meteo with Homey's own location (2026-11-08): free, no key,
   no weather device needed. Cached 10 min server side.
-- Lighting rooms per floor (2026-11-08): a zone belongs to the floor where most
-  of its placed devices sit; all `light`-class devices in that zone are listed,
-  placed or not. Outdoor zones are picked per block and get their own tab.
+- Lighting per floor (2026-11-08, revised same day at Ludvig's request): a floor
+  lists only the `light`-class devices placed on its plan, grouped by zone. The
+  earlier rule (zone goes to the floor with most placed devices, then all its
+  lights) showed rooms and lamps that are not on the plan. Outdoor zones are
+  picked per block and list all their lights in their own tab.
 - Music "all linked" volume (2026-11-08): rooms in the same `sonos_group`, else
   every playing room; scaled proportionally so their balance is kept, like Sonos.
 - Cards in one row stretch to equal height (`.page > .card`), by request.

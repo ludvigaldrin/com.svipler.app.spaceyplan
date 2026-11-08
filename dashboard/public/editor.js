@@ -638,7 +638,7 @@
       f.push(h('div', { class: 'check-grid' }, data.zones.map(function (z) {
         return checkInList(block.outdoorZoneIds, z.id, z.name);
       })));
-      f.push(h('p', { class: 'hint', text: 'A floor lists the rooms of the devices placed on its plan, with every light in those rooms. Outdoor rooms (with their sub-rooms) get their own tab. Lights are devices of the class Light.' }));
+      f.push(h('p', { class: 'hint', text: 'A floor lists the lights placed on its plan, grouped by room. Outdoor rooms (with their sub-rooms) get their own tab. Lights are devices of the class Light.' }));
     }
 
     if (block.type === 'music') {

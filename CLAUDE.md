@@ -24,7 +24,8 @@ HA handshake). **Not yet run on a real Homey / Shelly.**
 - Home blocks (2026-11-08): `hero`, `weather`, `climate`, `lighting` in
   `dashboard/public/home-blocks.js`, data in `lib/HomeData.js`. Dashboard
   `style: 'evening'` = dark/gold look with bottom nav; `language` auto|en|sv.
-  Verified only against a fake backend (scratch script, not in repo).
+  Installed and running on the real Homey (2026-11-08); dashboard `hemma`
+  at http://192.168.4.229:7580/?d=hemma. Light toggling verified only on the fake backend.
 
 ## Decisions and why
 - PIN instead of URL token (2026-10-13): a long token is too awkward to type on a wall panel.
@@ -41,6 +42,9 @@ HA handshake). **Not yet run on a real Homey / Shelly.**
   as `dash_*.jpg` and served at `/media/`.
 
 ## Findings
+- 2026-11-08: `homey.geolocation` returned no position on the real Homey (no
+  permission); weather reads it via `api.geolocation.getOptionLocation()`.
+- 2026-11-08: outdoor lamps here are sockets, so outdoor zones count sockets as lights.
 - 2026-10-13: renderers need an `<img>` icon to create a tap target, so devices
   without an icon get a built-in fallback glyph. They also need
   `widgets/spacey-plan/public/styles.css` (`.icon-wrapper`).

@@ -27,6 +27,12 @@ HA handshake). **Not yet run on a real Homey / Shelly.**
   Installed and running on the real Homey (2026-11-08); dashboard `hemma`
   at http://192.168.4.229:7580/?d=hemma. Light toggling verified only on the fake backend.
 
+- Music block (2026-11-08): `dashboard/public/music.js` + `music.css`, data in
+  `lib/Music.js`; album art proxied at `/albumart/<deviceId>` (204 when none).
+  The same player replaces the speaker renderer's volume popup on the dashboard.
+  Added to `hemma` below Belysning. Shown with real Sonos data (nothing playing);
+  playback control and real album art verified only on the fake backend.
+
 ## Decisions and why
 - Device popups (2026-11-08): on the dashboard server `dashboard/public/device-popup.js`
   replaces `showDeviceModal` of the onoff, dim, measure and sensor renderers with one
@@ -42,6 +48,9 @@ HA handshake). **Not yet run on a real Homey / Shelly.**
 - Lighting rooms per floor (2026-11-08): a zone belongs to the floor where most
   of its placed devices sit; all `light`-class devices in that zone are listed,
   placed or not. Outdoor zones are picked per block and get their own tab.
+- Music "all linked" volume (2026-11-08): rooms in the same `sonos_group`, else
+  every playing room; scaled proportionally so their balance is kept, like Sonos.
+- Cards in one row stretch to equal height (`.page > .card`), by request.
 - Hero images are uploaded from the editor (resized to 2000 px JPEG) to userdata
   as `dash_*.jpg` and served at `/media/`.
 

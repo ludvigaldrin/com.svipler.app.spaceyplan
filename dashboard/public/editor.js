@@ -31,7 +31,8 @@
     hero: ['Header image', 'landscape', 'A photo of your home across the top, with clock, date and the weather.'],
     weather: ['Weather', 'partly_cloudy_day', 'Outdoor weather for Homey\'s location: temperature, wind, rain, sunrise and sunset.'],
     climate: ['Indoor climate', 'thermostat', 'Temperature of one main room in large type, with other rooms listed beside it.'],
-    lighting: ['Lighting', 'lightbulb', 'How many lights are on. Tap to open floor plans with every room\'s lights and outdoor lighting.']
+    lighting: ['Lighting', 'lightbulb', 'How many lights are on. Tap to open floor plans with every room\'s lights and outdoor lighting.'],
+    music: ['Music', 'music_note', 'Now playing with album art, play controls, volume per room and for all linked rooms.']
   };
 
   function uid(prefix) { return prefix + Math.random().toString(36).slice(2, 9); }
@@ -336,6 +337,9 @@
       var floors = (block.floorIds || []).length ? block.floorIds.map(floorName).filter(Boolean).join(', ') : 'All floors';
       var outdoor = (block.outdoorZoneIds || []).length ? ' · outdoor: ' + block.outdoorZoneIds.map(zoneName).join(', ') : '';
       body.appendChild(h('div', { class: 'pv pv-wide' }, [icon('lightbulb'), floors + outdoor]));
+    } else if (block.type === 'music') {
+      var picked = (block.deviceIds || []).map(function (id) { var d = data.devices.find(function (x) { return x.id === id; }); return d ? d.name : null; }).filter(Boolean);
+      body.appendChild(h('div', { class: 'pv pv-wide' }, [icon('music_note'), picked.length ? picked.join(', ') : 'All speakers']));
     } else {
       return null;
     }
@@ -470,6 +474,7 @@
     if (type === 'hero') { block.height = 380; block.focusY = 60; }
     if (type === 'climate') block.items = [];
     if (type === 'lighting') { block.floorIds = []; block.outdoorZoneIds = []; }
+    if (type === 'music') block.deviceIds = [];
     page.blocks.push(block);
     sel.blockId = block.id;
     sel.picking = false;
@@ -634,6 +639,17 @@
         f.push(checkInList(block.outdoorZoneIds, z.id, z.name));
       });
       f.push(h('p', { class: 'hint', text: 'A floor lists the rooms of the devices placed on its plan, with every light in those rooms. Outdoor rooms (with their sub-rooms) get their own tab. Lights are devices of the class Light.' }));
+    }
+
+    if (block.type === 'music') {
+      f.push(field('Title (empty = "Music")', bound(block, 'title', null, refresh)));
+      f.push(field('Subtitle', bound(block, 'subtitle', null, refresh)));
+      f.push(h('div', { class: 'side-label', text: 'Speakers (none ticked = all)' }));
+      block.deviceIds = block.deviceIds || [];
+      data.devices.filter(function (d) { return d.class === 'speaker'; }).forEach(function (d) {
+        f.push(checkInList(block.deviceIds, d.id, d.name));
+      });
+      f.push(h('p', { class: 'hint', text: 'Starts on the room that is playing. "All linked" moves every room in the same Sonos group, or every playing room, keeping their balance.' }));
     }
 
     if (block.type === 'heading') f.push(field('Text', bound(block, 'text', null, refresh)));

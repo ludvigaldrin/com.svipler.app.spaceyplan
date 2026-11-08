@@ -13,11 +13,12 @@
   var POPUP_RENDERERS = ['onoff', 'dim', 'measure', 'sensor'];
 
   // The outermost same-origin window that has the popup (the dashboard page).
-  function outermostHost() {
+  function outermostHost(name) {
+    name = name || 'SpaceyDevicePopup';
     var found = null;
     var w = window;
     for (var i = 0; i < 5; i++) {
-      try { if (w.SpaceyDevicePopup) found = w.SpaceyDevicePopup; } catch (e) { break; }
+      try { if (w[name]) found = w[name]; } catch (e) { break; }
       if (w.parent === w) break;
       w = w.parent;
     }
@@ -30,6 +31,19 @@
     var renderers = window.capabilityRenderers || {};
     Object.keys(renderers).forEach(function (key) {
       var renderer = renderers[key];
+      // Speakers: the music player card (dashboard/public/music.js), when the
+      // dashboard page has it; otherwise the widget's own volume popup stays.
+      if (renderer && renderer.id === 'speaker' && typeof renderer.showVolumeModal === 'function' && !renderer.__spPopup) {
+        var original = renderer.showVolumeModal;
+        renderer.__spPopup = true;
+        renderer.showVolumeModal = function (deviceEl) {
+          var music = outermostHost('SpaceyMusicPopup');
+          var homeyId = deviceEl.getAttribute('data-homey-id');
+          if (!music || !homeyId) return original.call(this, deviceEl);
+          music.open(homeyId);
+        };
+        return;
+      }
       if (!renderer || POPUP_RENDERERS.indexOf(renderer.id) < 0 || typeof renderer.showDeviceModal !== 'function' || renderer.__spPopup) return;
       renderer.__spPopup = true;
       renderer.showDeviceModal = function (deviceEl) {

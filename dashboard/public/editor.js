@@ -628,16 +628,16 @@
       f.push(field('Title (empty = "Lighting")', bound(block, 'title', null, refresh)));
       f.push(h('div', { class: 'side-label', text: 'Floors (none ticked = all)' }));
       block.floorIds = block.floorIds || [];
-      data.floors.forEach(function (fl) {
-        f.push(checkInList(block.floorIds, fl.id, fl.name));
-      });
+      f.push(h('div', { class: 'check-grid' }, data.floors.map(function (fl) {
+        return checkInList(block.floorIds, fl.id, fl.name);
+      })));
       f.push(field('Outdoor tab shows the plan of', select([['', 'No plan (header photo)']].concat(data.floors.map(function (fl) { return [fl.id, fl.name]; })),
         block.outdoorFloorId || '', function (v) { block.outdoorFloorId = v || undefined; markDirty(); renderCenter(); })));
       f.push(h('div', { class: 'side-label', text: 'Outdoor rooms' }));
       block.outdoorZoneIds = block.outdoorZoneIds || [];
-      data.zones.forEach(function (z) {
-        f.push(checkInList(block.outdoorZoneIds, z.id, z.name));
-      });
+      f.push(h('div', { class: 'check-grid' }, data.zones.map(function (z) {
+        return checkInList(block.outdoorZoneIds, z.id, z.name);
+      })));
       f.push(h('p', { class: 'hint', text: 'A floor lists the rooms of the devices placed on its plan, with every light in those rooms. Outdoor rooms (with their sub-rooms) get their own tab. Lights are devices of the class Light.' }));
     }
 
@@ -646,9 +646,9 @@
       f.push(field('Subtitle', bound(block, 'subtitle', null, refresh)));
       f.push(h('div', { class: 'side-label', text: 'Speakers (none ticked = all)' }));
       block.deviceIds = block.deviceIds || [];
-      data.devices.filter(function (d) { return d.class === 'speaker'; }).forEach(function (d) {
-        f.push(checkInList(block.deviceIds, d.id, d.name));
-      });
+      f.push(h('div', { class: 'check-grid' }, data.devices.filter(function (d) { return d.class === 'speaker'; }).map(function (d) {
+        return checkInList(block.deviceIds, d.id, d.name);
+      })));
       f.push(h('p', { class: 'hint', text: 'Starts on the room that is playing. "All linked" moves every room in the same Sonos group, or every playing room, keeping their balance.' }));
     }
 

@@ -223,6 +223,7 @@
     root.appendChild(art);
     root.appendChild(main);
     if (opts.showRooms !== false && speakers.length > 1) root.appendChild(rooms);
+    else root.classList.add('mx-no-rooms');
 
     // actions
     bPlay.addEventListener('click', function () {
@@ -364,35 +365,135 @@
     return player;
   }
 
-  // ---- the `music` block ----
+  // ---- the `music` block: a summary card that opens a sheet ----
+
+  function pickLead(speakers, focusId) {
+    var byId = {};
+    speakers.forEach(function (s) { byId[s.id] = s; });
+    var playing = speakers.filter(function (s) { return s.playing; });
+    if (focusId && focusId !== 'all' && byId[focusId] && (byId[focusId].playing || !playing.length)) return byId[focusId];
+    return playing[0] || byId[focusId] || speakers[0] || null;
+  }
 
   function block(blockConfig, ctx) {
     var T = TEXT[lang()];
-    var card = ctx.el('section', 'card music-card');
-    var head = ctx.el('div', 'card-head');
-    head.appendChild(ctx.symbol('graphic_eq', 'card-head-icon'));
-    head.appendChild(ctx.el('span', null, blockConfig.title || T.music));
-    head.appendChild(ctx.el('span', 'music-sep'));
-    head.appendChild(ctx.el('span', 'music-sub', blockConfig.subtitle || T.subtitle));
-    card.appendChild(head);
-    card.insertAdjacentHTML('beforeend',
-      '<svg class="music-wave" viewBox="0 0 400 60" preserveAspectRatio="none" aria-hidden="true">' +
-      '<path d="M0 50 C 80 50, 120 20, 200 26 S 320 48, 400 10" fill="none" stroke="currentColor" stroke-width="2"/></svg>');
-    var body = ctx.el('div', 'music-body');
-    card.appendChild(body);
+    var key = 'spMusicFocus:' + blockConfig.id;
+    function savedFocus() { try { return localStorage.getItem(key); } catch (e) { return null; } }
+    function saveFocus(id) { try { localStorage.setItem(key, id); } catch (e) { /* not remembered */ } }
+
+    var card = ctx.el('div', 'card lighting-card music-summary');
+    card.setAttribute('role', 'button');
+    card.tabIndex = 0;
+    var thumb = h('div', 'mx-art mx-thumb');
+    var thumbImg = h('img');
+    thumbImg.alt = '';
+    thumb.appendChild(symbol('music_note', 'mx-art-fallback'));
+    thumb.appendChild(thumbImg);
+    thumbImg.addEventListener('load', function () { thumb.classList.add('has-art'); });
+    thumbImg.addEventListener('error', function () { thumb.classList.remove('has-art'); });
+    var text = ctx.el('div', 'lighting-text');
+    var title = ctx.el('div', 'lighting-title', blockConfig.title || T.music);
+    var line = ctx.el('div', 'lighting-count music-line', '…');
+    text.appendChild(title); text.appendChild(line);
+    var play = button('mx-btn mx-play mx-play-mini', 'play_arrow', 'Play');
+    card.appendChild(thumb);
+    card.appendChild(text);
+    card.appendChild(play);
+    card.appendChild(ctx.symbol('chevron_right', 'lighting-chevron'));
+
+    var speakers = null;
+    var artKey = null;
+    function paint() {
+      var s = speakers && pickLead(speakers, savedFocus());
+      if (!s) return;
+      var playingRooms = speakers.filter(function (o) { return o.playing; });
+      var hasTrack = !!(s.track || s.artist);
+      line.textContent = playingRooms.length && hasTrack
+        ? [s.track, s.artist].filter(Boolean).join(' · ') + (playingRooms.length > 1 ? '  ·  ' + T.playingIn(playingRooms.length) : '')
+        : (playingRooms.length ? T.playingIn(playingRooms.length) : T.nothing);
+      card.classList.toggle('any-on', playingRooms.length > 0);
+      play.firstChild.textContent = s.playing ? 'pause' : 'play_arrow';
+      var k = s.id + '|' + (s.art || '') + '|' + (s.track || '');
+      if (k !== artKey) {
+        artKey = k;
+        thumb.classList.remove('has-art');
+        if (s.art && hasTrack) thumbImg.src = '/albumart/' + encodeURIComponent(s.id) + '?v=' + encodeURIComponent(s.art + (s.track || ''));
+        else thumbImg.removeAttribute('src');
+      }
+    }
 
     api('POST', '/speakers', { deviceIds: blockConfig.deviceIds || [] }).then(function (data) {
-      if (!data.speakers.length) { body.appendChild(ctx.el('p', 'hint', T.noSpeakers)); return; }
-      var key = 'spMusicFocus:' + blockConfig.id;
-      var saved = null;
-      try { saved = localStorage.getItem(key); } catch (e) { /* private mode: start on the playing room */ }
-      createPlayer(body, data.speakers, {
-        focus: saved,
-        onFocus: function (id) { try { localStorage.setItem(key, id); } catch (e) { /* not remembered */ } }
+      speakers = data.speakers;
+      if (!speakers.length) { line.textContent = T.noSpeakers; play.hidden = true; return; }
+      speakers.forEach(function (s) { s.receivedAt = Date.now(); });
+      players.push({
+        alive: function () { return card.isConnected; },
+        update: function (deviceId, capability, value) {
+          var s = speakers.filter(function (o) { return o.id === deviceId; })[0];
+          if (!s) return;
+          s[FIELD[capability]] = value;
+          if (capability === 'speaker_position' || capability === 'speaker_playing') s.receivedAt = Date.now();
+          paint();
+        }
       });
+      listen();
+      subscribe(speakers);
+      paint();
     }).catch(function (error) {
-      body.appendChild(ctx.el('p', 'hint error', 'Music unavailable: ' + error.message));
+      card.classList.add('failed');
+      line.textContent = 'Music unavailable: ' + error.message;
     });
+
+    play.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var s = speakers && pickLead(speakers, savedFocus());
+      if (!s) return;
+      var next = !s.playing;
+      s.playing = next;
+      s.receivedAt = Date.now();
+      paint();
+      api('POST', '/speaker', { deviceId: s.id, capability: 'speaker_playing', value: next }).catch(function (error) {
+        line.textContent = T.failed + error.message;
+      });
+    });
+
+    function openSheet() {
+      if (!speakers || !speakers.length) return;
+      var backdrop = h('div', 'sheet-backdrop');
+      var sheet = h('div', 'sheet music-sheet');
+      sheet.setAttribute('role', 'dialog');
+      sheet.setAttribute('aria-modal', 'true');
+      sheet.appendChild(h('div', 'sheet-handle'));
+      var head = h('div', 'sheet-head');
+      head.appendChild(symbol('graphic_eq', 'sheet-icon'));
+      var h2 = h('h2', null, blockConfig.title || T.music);
+      h2.appendChild(h('span', 'music-sub', '  ' + (blockConfig.subtitle || T.subtitle)));
+      head.appendChild(h2);
+      var closeBtn = button('sheet-close', 'close', T.close);
+      head.appendChild(closeBtn);
+      sheet.appendChild(head);
+      var body = h('div', 'music-body');
+      sheet.appendChild(body);
+      backdrop.appendChild(sheet);
+
+      function close() {
+        backdrop.classList.remove('open');
+        setTimeout(function () { backdrop.remove(); }, 220);
+        document.removeEventListener('keydown', onKey);
+        paint();
+      }
+      function onKey(e) { if (e.key === 'Escape') close(); }
+      closeBtn.addEventListener('click', close);
+      backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(); });
+      document.addEventListener('keydown', onKey);
+      if (window.SpaceySheet) window.SpaceySheet.swipeToClose(sheet, close);
+
+      createPlayer(body, speakers, { focus: savedFocus(), onFocus: function (id) { saveFocus(id); paint(); } });
+      document.body.appendChild(backdrop);
+      requestAnimationFrame(function () { backdrop.classList.add('open'); });
+    }
+    card.addEventListener('click', openSheet);
+    card.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSheet(); } });
     return card;
   }
 

@@ -162,6 +162,24 @@
       ctx.every(10 * 60000, paint);
     }
     top.appendChild(right);
+
+    // Evening style: the photo and the top bar stay put while the cards
+    // scroll over the photo; the bar darkens once cards slide under it.
+    if (ctx.dashboard.style === 'evening') {
+      var slot = el('div', 'hero-slot');
+      slot.style.height = height + 'px';
+      section.classList.add('hero-fixed');
+      top.classList.add('hero-bar');
+      slot.appendChild(section);
+      slot.appendChild(top);
+      var onScroll = function () {
+        if (!slot.isConnected) { window.removeEventListener('scroll', onScroll); return; }
+        top.classList.toggle('scrolled', window.scrollY > height - 70 - top.offsetHeight);
+      };
+      window.addEventListener('scroll', onScroll, { passive: true });
+      requestAnimationFrame(onScroll);
+      return slot;
+    }
     section.appendChild(top);
     return section;
   }
@@ -509,6 +527,7 @@
       function onKey(e) { if (e.key === 'Escape') close(); }
       closeBtn.addEventListener('click', close);
       backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(); });
+      swipeToClose(sheet, close);
       document.addEventListener('keydown', onKey);
 
       if (!groups.length) body.appendChild(el('p', 'hint', T.noLights));
@@ -606,6 +625,54 @@
     card.addEventListener('click', openSheet);
     return card;
   }
+
+  // Drag a bottom sheet down to close it: from the handle or header, or from
+  // anywhere while the sheet is scrolled to the top. Sliders and the floor
+  // plan (an iframe) keep their own gestures.
+  function swipeToClose(sheet, close) {
+    var startY = null, startX = 0, dy = 0, dragging = false, startTime = 0;
+    function grabbable(target) {
+      if (target.closest('input, select, textarea, .sheet-tabs')) return false;
+      if (target.closest('.sheet-handle, .sheet-head')) return true;
+      return sheet.scrollTop <= 0;
+    }
+    sheet.addEventListener('touchstart', function (e) {
+      if (e.touches.length !== 1 || !grabbable(e.target)) { startY = null; return; }
+      startY = e.touches[0].clientY; startX = e.touches[0].clientX;
+      dy = 0; dragging = false; startTime = Date.now();
+    }, { passive: true });
+    sheet.addEventListener('touchmove', function (e) {
+      if (startY === null) return;
+      var y = e.touches[0].clientY - startY;
+      var x = e.touches[0].clientX - startX;
+      if (!dragging) {
+        if (Math.abs(y) < 8 && Math.abs(x) < 8) return;
+        if (y <= 0 || Math.abs(x) > Math.abs(y)) { startY = null; return; }
+        dragging = true;
+        sheet.style.transition = 'none';
+      }
+      dy = Math.max(0, y);
+      sheet.style.transform = 'translateY(' + dy + 'px)';
+      if (e.cancelable) e.preventDefault();
+    }, { passive: false });
+    function end() {
+      if (startY === null) return;
+      startY = null;
+      if (!dragging) return;
+      dragging = false;
+      sheet.style.transition = '';
+      var fast = dy > 40 && dy / Math.max(1, Date.now() - startTime) > 0.5;
+      if (dy > Math.min(140, sheet.offsetHeight / 4) || fast) {
+        sheet.style.transform = 'translateY(100%)';
+        close();
+      } else {
+        sheet.style.transform = '';
+      }
+    }
+    sheet.addEventListener('touchend', end);
+    sheet.addEventListener('touchcancel', end);
+  }
+  window.SpaceySheet = { swipeToClose: swipeToClose };
 
   window.SpaceyHomeBlocks = {
     hero: hero,

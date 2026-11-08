@@ -233,3 +233,12 @@
 .speaker-modal .speaker-track-label, .speaker-value-label, .thermostat-value-display, .measure-value-label { color: #d9d1c6 !important; background: transparent !important; }
 .speaker-modal .material-symbols-outlined, .thermostat-modal .material-symbols-outlined, .cover-modal .material-symbols-outlined,
 .enum-modal .material-symbols-outlined { color: #e8b25c !important; }
+
+/* Floor plan icons are ~13 px on a scaled plan, and the icon <img> is the only
+   tap target. Invisible padding gives every device a ~45 px target on touch
+   screens without changing how the plan looks. */
+.floor-plan-container .icon-wrapper > img {
+  box-sizing: content-box !important;
+  padding: 16px !important;
+  margin: -16px !important;
+}

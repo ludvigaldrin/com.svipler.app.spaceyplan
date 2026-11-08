@@ -32,6 +32,9 @@ HA handshake). **Not yet run on a real Homey / Shelly.**
   The same player replaces the speaker renderer's volume popup on the dashboard.
   Added to `hemma` below Belysning. Shown with real Sonos data (nothing playing);
   playback control and real album art verified only on the fake backend.
+  2026-11-08: music moved to a summary card that opens a sheet like Lighting;
+  sheets close by swiping down; in `evening` the header photo and top bar are
+  fixed and the cards scroll over the photo.
 
 ## Decisions and why
 - Device popups (2026-11-08): on the dashboard server `dashboard/public/device-popup.js`
@@ -55,6 +58,14 @@ HA handshake). **Not yet run on a real Homey / Shelly.**
   as `dash_*.jpg` and served at `/media/`.
 
 ## Findings
+- 2026-11-08: floor plan device icons are ~13 px in the lighting sheet and the
+  `<img>` is the only tap target, so taps on a touch panel missed. Dashboard-only
+  CSS (device-popup.css) pads the img to ~45 px. Lamps drawn into the plan image
+  itself are not devices; the real icons sit beside them.
+- 2026-11-08: glows missing on the Shelly Wall Display; likely cause (unverified
+  on the device) `color-mix()` (Chrome 111+) in the glows of the Shelly Wall
+  Display; dashboard CSS uses `rgba(var(--accent-rgb), a)` instead. Avoid
+  color-mix, `:has()` and `inset` in dashboard CSS.
 - 2026-11-08: `homey.geolocation` returned no position on the real Homey (no
   permission); weather reads it via `api.geolocation.getOptionLocation()`.
 - 2026-11-08: outdoor lamps here are sockets, so outdoor zones count sockets as lights.

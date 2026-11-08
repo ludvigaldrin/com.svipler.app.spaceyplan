@@ -17,12 +17,13 @@
   gap: 22px;
   align-items: center;
 }
-.mx-player.mx-compact, .mx-player:not(:has(.mx-rooms)) { grid-template-columns: 150px minmax(0, 1fr); }
+.mx-player.mx-compact, .mx-player.mx-no-rooms { grid-template-columns: 150px minmax(0, 1fr); }
 
 .mx-art {
   position: relative;
   width: 100%;
   aspect-ratio: 1;
+  min-height: 96px;
   border-radius: 16px;
   overflow: hidden;
   background: linear-gradient(135deg, rgba(232, 178, 92, 0.25), rgba(80, 60, 40, 0.35));
@@ -30,7 +31,7 @@
   display: grid;
   place-items: center;
 }
-.mx-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.3s; }
+.mx-art img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.3s; }
 .mx-art.has-art img { opacity: 1; }
 .mx-art-fallback { font-size: 56px; color: var(--accent); opacity: 0.8; }
 .mx-art.has-art .mx-art-fallback { visibility: hidden; }
@@ -140,3 +141,25 @@
 
 /* equal heights: cards side by side in one row match the tallest */
 .page > .card { align-self: stretch; }
+
+/* summary card on the page (opens the sheet) */
+.music-summary { cursor: pointer; }
+.mx-thumb { width: 56px; min-height: 0; flex: 0 0 56px; border-radius: 12px; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35); }
+.mx-thumb .mx-art-fallback { font-size: 30px; }
+.music-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.music-summary.any-on .music-line { color: var(--accent); }
+.mx-play-mini { flex: 0 0 auto; width: 48px; height: 48px; }
+.mx-play-mini .material-symbols-outlined { font-size: 28px; }
+.music-summary:not(.any-on) .mx-play-mini { background: rgba(255, 255, 255, 0.08); color: var(--text); box-shadow: none; }
+
+/* the sheet */
+.music-sheet .sheet-head h2 .music-sub { font-size: 1rem; margin-left: 10px; }
+.music-sheet .music-body { margin-top: 22px; }
+.music-sheet .mx-player { grid-template-columns: 220px minmax(0, 1fr) minmax(220px, 280px); gap: 28px; }
+@media (max-width: 760px) {
+  .music-sheet .mx-player { grid-template-columns: 110px minmax(0, 1fr); gap: 16px; }
+}
+@media (max-width: 460px) {
+  .music-sheet .mx-player { grid-template-columns: 1fr; }
+  .music-sheet .mx-player .mx-art { width: min(240px, 70vw); }
+}

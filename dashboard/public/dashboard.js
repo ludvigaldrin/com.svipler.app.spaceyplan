@@ -31,6 +31,7 @@
     menu: document.getElementById('menu'),
     page: document.getElementById('page'),
     dots: document.getElementById('dots'),
+    bottomNav: document.getElementById('bottomNav'),
     saver: document.getElementById('saver'),
     saverClock: document.getElementById('saverClock')
   };
@@ -51,8 +52,8 @@
     return node;
   }
 
-  function symbol(name) {
-    return el('span', 'material-symbols-outlined', name);
+  function symbol(name, className) {
+    return el('span', 'material-symbols-outlined' + (className ? ' ' + className : ''), name);
   }
 
   function message(text, detail) {
@@ -72,7 +73,38 @@
     rendererManager.registerRenderer(renderer);
   });
 
+  // Per-page hooks for the home blocks (home-blocks.js); reset on page change.
+  var pageHooks = { updates: [], timers: [] };
+
+  function resetPageHooks() {
+    pageHooks.timers.forEach(clearInterval);
+    pageHooks = { updates: [], timers: [] };
+  }
+
+  function makeContext() {
+    var hooks = pageHooks;
+    return {
+      el: el,
+      symbol: symbol,
+      api: window.Homey.api,
+      dashboard: state.dashboard,
+      every: function (ms, fn) { hooks.timers.push(setInterval(fn, ms)); },
+      onDeviceUpdate: function (fn) { hooks.updates.push(fn); },
+      subscribe: function (devices) {
+        if (!devices.length) return;
+        window.Homey.api('POST', '/subscribeToDevices', { widgetId: window.Homey.clientId, devices: devices })
+          .catch(function (error) {
+            var note = el('p', 'hint error', 'Live updates unavailable: ' + error.message);
+            els.page.appendChild(note);
+          });
+      }
+    };
+  }
+
   window.Homey.on('widget:' + window.Homey.clientId + ':deviceUpdate', function (data) {
+    pageHooks.updates.forEach(function (fn) {
+      try { fn(data); } catch (e) { console.error('Block update failed', e); }
+    });
     statusTiles.forEach(function (entry) {
       if (entry.deviceId === data.deviceId && entry.caps.indexOf(data.capability) >= 0) {
         entry.values[data.capability] = data.value;
@@ -95,6 +127,14 @@
     else root.removeAttribute('data-theme');
     if (dashboard.accent) root.style.setProperty('--accent', dashboard.accent);
     else root.style.removeProperty('--accent');
+    // The evening style is always dark, with a gold accent unless one is set.
+    var evening = dashboard.style === 'evening';
+    root.classList.toggle('style-evening', evening);
+    if (evening) root.setAttribute('data-theme', 'dark');
+  }
+
+  function isEvening() {
+    return !!state.dashboard && state.dashboard.style === 'evening';
   }
 
   // ---- blocks ----
@@ -327,6 +367,10 @@
     }
   };
 
+  Object.keys(window.SpaceyHomeBlocks || {}).forEach(function (type) {
+    blockRenderers[type] = function (block) { return window.SpaceyHomeBlocks[type](block, makeContext()); };
+  });
+
   // ---- pages ----
 
   async function showPage(index) {
@@ -339,6 +383,7 @@
     store(KEY_PAGE + state.dashboard.id, pages[state.pageIndex].id);
 
     var token = ++state.renderToken;
+    resetPageHooks();
     var page = pages[state.pageIndex];
     els.title.hidden = true;
     els.page.replaceChildren();
@@ -366,7 +411,28 @@
   // Page switcher: only shown when the dashboard has more than one page.
   function renderDots() {
     els.dots.replaceChildren(); els.dots.hidden = true;
+    els.bottomNav.replaceChildren(); els.bottomNav.hidden = true;
     var pages = state.dashboard.pages;
+    if (isEvening()) {
+      pages.forEach(function (page, i) {
+        var item = el('button', 'nav-item' + (i === state.pageIndex ? ' active' : ''));
+        item.appendChild(symbol(page.icon || (i === 0 ? 'home' : 'grid_view')));
+        item.appendChild(el('span', null, page.name));
+        item.addEventListener('click', function () { showPage(i); });
+        els.bottomNav.appendChild(item);
+      });
+      var more = el('button', 'nav-item');
+      more.appendChild(symbol('settings'));
+      var sv = state.dashboard.language === 'sv' || (!state.dashboard.language && /^(sv|nb|no|da)/i.test(navigator.language || ''));
+      more.appendChild(el('span', null, sv ? 'Meny' : 'Menu'));
+      more.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (els.menu.hidden) openMenu(); else closeMenu();
+      });
+      els.bottomNav.appendChild(more);
+      els.bottomNav.hidden = false;
+      return;
+    }
     els.dots.hidden = pages.length < 2;
     if (pages.length < 2) return;
     pages.forEach(function (page, i) {

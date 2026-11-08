@@ -27,7 +27,11 @@
     devices: ['Devices', 'devices', 'Hand-picked devices in the order you want.'],
     heading: ['Heading', 'title', 'Plain text that splits a long page into sections.'],
     spacer: ['Spacer', 'height', 'Empty space between blocks.'],
-    link: ['Page link', 'arrow_forward', 'A button that goes to another page of this dashboard.']
+    link: ['Page link', 'arrow_forward', 'A button that goes to another page of this dashboard.'],
+    hero: ['Header image', 'landscape', 'A photo of your home across the top, with clock, date and the weather.'],
+    weather: ['Weather', 'partly_cloudy_day', 'Outdoor weather for Homey\'s location: temperature, wind, rain, sunrise and sunset.'],
+    climate: ['Indoor climate', 'thermostat', 'Temperature of one main room in large type, with other rooms listed beside it.'],
+    lighting: ['Lighting', 'lightbulb', 'How many lights are on. Tap to open floor plans with every room\'s lights and outdoor lighting.']
   };
 
   function uid(prefix) { return prefix + Math.random().toString(36).slice(2, 9); }
@@ -84,7 +88,7 @@
   function bound(obj, key, attrs, after) {
     var input = h('input', Object.assign({ value: obj[key] === undefined ? '' : obj[key] }, attrs || {}));
     input.addEventListener('input', function () {
-      obj[key] = input.type === 'number' ? (input.value === '' ? undefined : Number(input.value)) : input.value;
+      obj[key] = (input.type === 'number' || input.type === 'range') ? (input.value === '' ? undefined : Number(input.value)) : input.value;
       markDirty();
       if (after) after();
     });
@@ -175,6 +179,10 @@
           field('Name', bound(dashboard, 'name', null, renderLeftLabelsOnly)),
           field('Theme', select([['', 'Follow device'], ['light', 'Light'], ['dark', 'Dark']],
             dashboard.theme || '', function (v) { dashboard.theme = v || undefined; markDirty(); })),
+          field('Style', select([['standard', 'Standard'], ['evening', 'Evening (dark with gold)']],
+            dashboard.style || 'standard', function (v) { dashboard.style = v === 'standard' ? undefined : v; markDirty(); })),
+          field('Language', select([['auto', 'Follow device'], ['en', 'English'], ['sv', 'Svenska']],
+            dashboard.language || 'auto', function (v) { dashboard.language = v === 'auto' ? undefined : v; markDirty(); })),
           field('Accent', (function () {
             var input = h('input', { type: 'color', value: dashboard.accent || '#3b82f6' });
             input.addEventListener('input', function () { dashboard.accent = input.value; markDirty(); });
@@ -310,6 +318,24 @@
       body.appendChild(h('div', { class: 'pv pv-wide' }, [icon('arrow_forward'), (block.label || 'Link') + (block.pageId ? ' · goes to ' + pageName(block.pageId) : '')]));
     } else if (block.type === 'spacer') {
       body.appendChild(h('div', { class: 'pv pv-wide dim', text: (block.height || 0) + ' px of space' }));
+    } else if (block.type === 'hero') {
+      if (block.imageId) {
+        var heroImg = h('img', { class: 'pv-hero', src: '/media/' + encodeURIComponent(block.imageId), alt: '' });
+        heroImg.style.objectPosition = '50% ' + (block.focusY === undefined ? 60 : block.focusY) + '%';
+        body.appendChild(heroImg);
+      } else {
+        body.appendChild(h('div', { class: 'pv pv-wide dim', text: 'No image yet' }));
+      }
+    } else if (block.type === 'weather') {
+      body.appendChild(h('div', { class: 'pv pv-wide' }, [icon('partly_cloudy_day'), 'Weather at Homey\'s location']));
+    } else if (block.type === 'climate') {
+      var main = data.devices.find(function (d) { return d.id === block.mainDeviceId; });
+      body.appendChild(h('div', { class: 'pv pv-wide' + (main ? '' : ' dim') }, [icon('thermostat'),
+        (main ? main.name : 'No main sensor') + ((block.items || []).length ? ' + ' + block.items.length + ' more' : '')]));
+    } else if (block.type === 'lighting') {
+      var floors = (block.floorIds || []).length ? block.floorIds.map(floorName).filter(Boolean).join(', ') : 'All floors';
+      var outdoor = (block.outdoorZoneIds || []).length ? ' · outdoor: ' + block.outdoorZoneIds.map(zoneName).join(', ') : '';
+      body.appendChild(h('div', { class: 'pv pv-wide' }, [icon('lightbulb'), floors + outdoor]));
     } else {
       return null;
     }
@@ -351,6 +377,7 @@
         var activeItem = els.left.querySelectorAll('.side-item.active')[1];
         if (activeItem) activeItem.lastChild.textContent = page.name;
       }),
+      bound(page, 'icon', { class: 'page-icon', placeholder: 'Menu icon', title: 'Icon in the bottom menu of the Evening style (Material Symbols name, e.g. home, grid_view)' }),
       h('span', { class: 'page-count', text: page.blocks.length + (page.blocks.length === 1 ? ' block' : ' blocks') }),
       h('div', { class: 'page-tools' }, [
         h('button', { class: 'btn small', text: '←', title: 'Move page earlier', disabled: index === 0, onclick: function () { move(dashboard.pages, index, -1); } }),
@@ -440,6 +467,9 @@
     if (type === 'heading') block.text = 'Heading';
     if (type === 'spacer') block.height = 24;
     if (type === 'link') block.label = 'Next page';
+    if (type === 'hero') { block.height = 380; block.focusY = 60; }
+    if (type === 'climate') block.items = [];
+    if (type === 'lighting') { block.floorIds = []; block.outdoorZoneIds = []; }
     page.blocks.push(block);
     sel.blockId = block.id;
     sel.picking = false;
@@ -526,6 +556,84 @@
       f.push(h('p', { class: 'hint', text: 'Device placement and rules are edited in the Spacey Plan settings in Homey.' }));
     }
 
+    if (block.type === 'hero') {
+      var upload = h('input', { type: 'file', accept: 'image/*' });
+      var uploadStatus = h('span', { class: 'hint' });
+      upload.addEventListener('change', function () {
+        var file = upload.files && upload.files[0];
+        if (!file) return;
+        uploadStatus.textContent = 'Uploading…';
+        uploadStatus.className = 'hint';
+        shrinkImage(file, 2000).then(function (dataUrl) {
+          return api('POST', '/dashboardImages', { dataUrl: dataUrl });
+        }).then(function (result) {
+          block.imageId = result.imageId;
+          uploadStatus.textContent = 'Uploaded. Save to keep it.';
+          markDirty(); renderCenter();
+        }).catch(function (error) {
+          uploadStatus.textContent = 'Upload failed: ' + error.message;
+          uploadStatus.className = 'hint error';
+        });
+      });
+      f.push(field('Image', upload));
+      f.push(uploadStatus);
+      f.push(field('Name shown top left (empty = dashboard name)', bound(block, 'title', null, refresh)));
+      f.push(field('Height (px)', bound(block, 'height', { type: 'number', min: 160, max: 900 }, refresh)));
+      f.push(field('Image position (0 = top, 100 = bottom)', bound(block, 'focusY', { type: 'range', min: 0, max: 100 }, refresh)));
+      f.push(h('label', { class: 'check' }, [(function () {
+        var box = h('input', { type: 'checkbox', checked: block.showWeather !== false });
+        box.addEventListener('change', function () { block.showWeather = box.checked ? undefined : false; markDirty(); });
+        return box;
+      })(), 'Show the weather next to the clock']));
+    }
+
+    if (block.type === 'weather') {
+      f.push(field('Title (empty = "Weather")', bound(block, 'title', null, refresh)));
+      f.push(h('p', { class: 'hint', text: 'Uses the location set in Homey. Data from Open-Meteo, refreshed every 10 minutes.' }));
+    }
+
+    if (block.type === 'climate') {
+      var tempDevices = data.devices.filter(function (d) {
+        return d.capabilities.indexOf('measure_temperature') >= 0 || d.capabilities.indexOf('measure_combined') >= 0;
+      });
+      f.push(field('Title (empty = "Indoors")', bound(block, 'title', null, refresh)));
+      f.push(field('Main sensor (large)', select([['', 'None']].concat(tempDevices.map(function (d) { return [d.id, d.name]; })),
+        block.mainDeviceId || '', function (v) { block.mainDeviceId = v || undefined; markDirty(); renderCenter(); })));
+      f.push(h('div', { class: 'side-label', text: 'Other rooms' }));
+      block.items = block.items || [];
+      block.items.forEach(function (item, i) {
+        var device = data.devices.find(function (d) { return d.id === item.homeyId; });
+        f.push(h('div', { class: 'item-row' }, [
+          h('strong', { text: device ? device.name : 'Missing device' }),
+          h('button', { class: 'btn small danger', text: '×', title: 'Remove', onclick: function () { block.items.splice(i, 1); markDirty(); render(); } })
+        ]));
+      });
+      var tempPicker = h('select', null, [h('option', { value: '', text: '+ Add a sensor…' })].concat(
+        tempDevices.map(function (d) { return h('option', { value: d.id, text: d.name }); })));
+      tempPicker.addEventListener('change', function () {
+        if (!tempPicker.value) return;
+        block.items.push({ id: uid('i_'), homeyId: tempPicker.value });
+        markDirty(); render();
+      });
+      f.push(tempPicker);
+      f.push(h('p', { class: 'hint', text: 'Each sensor is shown with the name of its room.' }));
+    }
+
+    if (block.type === 'lighting') {
+      f.push(field('Title (empty = "Lighting")', bound(block, 'title', null, refresh)));
+      f.push(h('div', { class: 'side-label', text: 'Floors (none ticked = all)' }));
+      block.floorIds = block.floorIds || [];
+      data.floors.forEach(function (fl) {
+        f.push(checkInList(block.floorIds, fl.id, fl.name));
+      });
+      f.push(h('div', { class: 'side-label', text: 'Outdoor rooms' }));
+      block.outdoorZoneIds = block.outdoorZoneIds || [];
+      data.zones.forEach(function (z) {
+        f.push(checkInList(block.outdoorZoneIds, z.id, z.name));
+      });
+      f.push(h('p', { class: 'hint', text: 'A floor lists the rooms of the devices placed on its plan, with every light in those rooms. Outdoor rooms (with their sub-rooms) get their own tab. Lights are devices of the class Light.' }));
+    }
+
     if (block.type === 'heading') f.push(field('Text', bound(block, 'text', null, refresh)));
     if (block.type === 'spacer') f.push(field('Height (px)', bound(block, 'height', { type: 'number', min: 0 }, refresh)));
 
@@ -604,6 +712,40 @@
     }
 
     return f;
+  }
+
+  function checkInList(list, id, label) {
+    var box = h('input', { type: 'checkbox', checked: list.indexOf(id) >= 0 });
+    box.addEventListener('change', function () {
+      var at = list.indexOf(id);
+      if (box.checked && at < 0) list.push(id);
+      if (!box.checked && at >= 0) list.splice(at, 1);
+      markDirty(); renderCenter();
+    });
+    return h('label', { class: 'check' }, [box, label]);
+  }
+
+  // Scales a photo down to `maxSide` px and encodes it as JPEG, so uploads
+  // stay small enough for the request limit and for wall panels.
+  function shrinkImage(file, maxSide) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onerror = function () { reject(new Error('Could not read the file')); };
+      reader.onload = function () {
+        var img = new Image();
+        img.onerror = function () { reject(new Error('Not an image the browser can read')); };
+        img.onload = function () {
+          var scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+          var canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.naturalWidth * scale);
+          canvas.height = Math.round(img.naturalHeight * scale);
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.86));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   function render() {

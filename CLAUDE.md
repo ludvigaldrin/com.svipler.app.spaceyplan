@@ -21,12 +21,24 @@ HA handshake). **Not yet run on a real Homey / Shelly.**
   default rules; keep both in step.
 - Flow: trigger card `spaceyplan_button` (autocomplete of dashboard buttons).
 - HA shim: `lib/HaShim.js`, adapted from WallDisplay (MIT).
+- Home blocks (2026-11-08): `hero`, `weather`, `climate`, `lighting` in
+  `dashboard/public/home-blocks.js`, data in `lib/HomeData.js`. Dashboard
+  `style: 'evening'` = dark/gold look with bottom nav; `language` auto|en|sv.
+  Verified only against a fake backend (scratch script, not in repo).
 
 ## Decisions and why
 - PIN instead of URL token (2026-10-13): a long token is too awkward to type on a wall panel.
 - Device chooses its dashboard and room, saved in the browser's localStorage.
 - Pages are chained with `link` blocks; one dashboard holds several pages.
 - Per-block `visibleOn` is `all|small|large` (screen width 700 px), not per-dashboard: a block lives in one dashboard, so size is the useful axis (2026-10-14).
+
+- Weather from Open-Meteo with Homey's own location (2026-11-08): free, no key,
+  no weather device needed. Cached 10 min server side.
+- Lighting rooms per floor (2026-11-08): a zone belongs to the floor where most
+  of its placed devices sit; all `light`-class devices in that zone are listed,
+  placed or not. Outdoor zones are picked per block and get their own tab.
+- Hero images are uploaded from the editor (resized to 2000 px JPEG) to userdata
+  as `dash_*.jpg` and served at `/media/`.
 
 ## Findings
 - 2026-10-13: renderers need an `<img>` icon to create a tap target, so devices

@@ -148,5 +148,8 @@
   },
   "0.3.0": {
     "en": "Prepared for new version with full Dashboard support and also Lawn mower: status vocabulary of the MOVA/Dreame app translated for display (currently German; happy to switch to English or make it language-dependent), blue highlight while active, red on error (forum #272)"
+  },
+  "0.3.1": {
+    "en": "Fixes the details window opening twice on long press of lights/switches."
   }
 }

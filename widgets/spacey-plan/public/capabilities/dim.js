@@ -149,6 +149,13 @@ const dimRenderer = {
     // Helper function to attach events to an icon
     attachIconEvents(icon, deviceEl) {
         if (!icon) return;
+
+        // The same icon can be handed to us more than once (applyInitialRules
+        // builds a rule icon and attaches events, then initializeInteractions
+        // attaches again). Duplicate listeners would each start their own
+        // long-press timer and open the details window twice.
+        if (icon.dataset.eventsAttached === 'true') return;
+        icon.dataset.eventsAttached = 'true';
         
         // Touch/Mouse event variables
         let touchStartTime = 0;

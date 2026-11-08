@@ -31,7 +31,7 @@
     hero: ['Header image', 'landscape', 'A photo of your home across the top, with clock, date and the weather.'],
     weather: ['Weather', 'partly_cloudy_day', 'Outdoor weather for Homey\'s location: temperature, wind, rain, sunrise and sunset.'],
     climate: ['Indoor climate', 'thermostat', 'Temperature of one main room in large type, with other rooms listed beside it.'],
-    lighting: ['Lighting', 'lightbulb', 'How many lights are on. Tap to open the chosen floor plans with the lights placed on them.'],
+    lighting: ['Floors', 'home', 'A summary card that opens the floor plans with everything placed on them per room: lights, doors, motion and climate, with filters.'],
     quick: ['Quick actions', 'bolt', 'A row of equal buttons that turn chosen lights or devices on and off. Long press opens the device.'],
     music: ['Music', 'music_note', 'Now playing with album art, play controls, volume per room and for all linked rooms.']
   };
@@ -336,7 +336,8 @@
         (main ? main.name : 'No main sensor') + ((block.items || []).length ? ' + ' + block.items.length + ' more' : '')]));
     } else if (block.type === 'lighting') {
       var floors = (block.floorIds || []).length ? block.floorIds.map(floorName).filter(Boolean).join(' → ') : 'All floors';
-      body.appendChild(h('div', { class: 'pv pv-wide' }, [icon('lightbulb'), floors]));
+      var views = { light: 'Lighting', all: 'Everything', security: 'Security', climate: 'Climate' };
+      body.appendChild(h('div', { class: 'pv pv-wide' }, [icon('home'), (views[block.startFilter] || 'Lighting') + ' · ' + floors]));
     } else if (block.type === 'quick') {
       var names = (block.items || []).map(function (i) { var d = data.devices.find(function (x) { return x.id === i.homeyId; }); return i.label || (d ? d.name : 'Missing device'); });
       body.appendChild(h('div', { class: 'pv pv-wide' + (names.length ? '' : ' dim') }, [icon('bolt'), names.length ? names.join(' · ') : 'No devices yet']));
@@ -629,7 +630,9 @@
     }
 
     if (block.type === 'lighting') {
-      f.push(field('Title (empty = "Lighting")', bound(block, 'title', null, refresh)));
+      f.push(field('Opens with', select([['light', 'Lighting'], ['all', 'Everything'], ['security', 'Security'], ['climate', 'Climate']],
+        block.startFilter || 'light', function (v) { block.startFilter = v; markDirty(); renderCenter(); })));
+      f.push(field('Title (empty = name of that view)', bound(block, 'title', null, refresh)));
       f.push(h('div', { class: 'side-label', text: 'Floors, in tab order (none = all)' }));
       block.floorIds = (block.floorIds || []).filter(function (id) { return data.floors.some(function (fl) { return fl.id === id; }); });
       delete block.outdoorZoneIds;
@@ -659,7 +662,7 @@
         });
         f.push(floorPicker);
       }
-      f.push(h('p', { class: 'hint', text: 'Each floor is a tab with its plan and the lights placed on it, grouped by room. Lights are devices of the class Light, or sockets whose connected device is set to Light in Homey.' }));
+      f.push(h('p', { class: 'hint', text: 'Each floor is a tab with its plan and what is placed on it, per room. The sheet has filters for everything, lighting, security and climate. Lights are devices of the class Light, or sockets whose connected device is set to Light in Homey.' }));
     }
 
     if (block.type === 'quick') {

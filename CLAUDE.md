@@ -48,11 +48,15 @@ HA handshake). **Not yet run on a real Homey / Shelly.**
 
 - Weather from Open-Meteo with Homey's own location (2026-11-08): free, no key,
   no weather device needed. Cached 10 min server side.
-- Lighting (2026-11-08, revised twice that day at Ludvig's request): the block
-  lists floors in a chosen order (`floorIds`, empty = all); each floor tab shows
-  only the lights placed on its plan, grouped by zone. No outdoor tab/zones
-  (dropped: the Garage floor covers it). A light is class `light` or a socket
-  with virtualClass `light` (Homey's "connected device" setting).
+- Floors view (2026-11-08, Ludvig): block type stays `lighting` (no migration),
+  shown as "Floors" in the editor. Each floor tab lists, per zone, what is placed
+  on its plan: lights (class `light` or socket with virtualClass `light`) with
+  slider/switch, plus other devices' status (motion, contact, alarms,
+  temperature/humidity, onoff). Sheet filters: Allt / Belysning / Säkerhet /
+  Klimat, shown only when the plans hold such devices. `startFilter` picks the
+  view the card summarises and opens with (`hemma` uses `all` = "Hemmet").
+  "Tänd/Släck allt" touches lights only, never sockets like Garageporten.
+  Motion: "Rörelse nu" while active, "för N min sedan" for 30 min, no alerts.
 - Quick actions block `quick` (2026-11-08): equal buttons for chosen on/off
   devices above Belysning on `hemma` (Spottar Hall Nedre, Spottar Tv-rum).
   Tap toggles onoff (or dim 0/1), long press opens the device popup.

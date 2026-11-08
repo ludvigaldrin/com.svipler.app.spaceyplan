@@ -723,3 +723,38 @@ html, body {
 .quick-btn.unavailable, .quick-btn.failed { opacity: 0.5; }
 :root.style-evening .quick-btn { background: linear-gradient(180deg, rgba(48, 43, 37, 0.8), rgba(30, 27, 24, 0.82)); }
 @media (max-width: 460px) { .quick-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } }
+
+/* floors view: filters, status badges, device rows */
+.sheet-filters { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin: -8px 0 18px; }
+.filter-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: transparent; color: var(--muted);
+  font: inherit; font-size: 0.9rem; cursor: pointer;
+}
+.filter-chip .material-symbols-outlined { font-size: 18px; }
+.filter-chip.active { border-color: var(--accent); background: rgba(var(--accent-rgb), 0.16); color: var(--accent); }
+.room-row.room-row-status { grid-template-columns: minmax(0, 1fr) auto; }
+.room-badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.room-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 9px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06); color: var(--muted);
+  font-size: 0.82rem; white-space: nowrap;
+}
+.room-badge .material-symbols-outlined { font-size: 17px; }
+.room-badge.motion { color: var(--accent); background: rgba(var(--accent-rgb), 0.14); animation: room-pulse 1.6s ease-in-out infinite; }
+.room-badge.alert { color: #f2a65a; background: rgba(242, 166, 90, 0.16); }
+@keyframes room-pulse { 50% { opacity: 0.55; } }
+.room.alert .room-sub { color: #f2a65a; }
+.room.motion .room-sub { color: var(--accent); }
+.room-name.static { cursor: default; }
+.device-row { grid-template-columns: minmax(0, 1fr) auto auto; }
+.device-value { font-size: 0.85rem; color: var(--muted); text-align: right; white-space: nowrap; }
+.lighting-card.alert { border-color: rgba(242, 166, 90, 0.7); box-shadow: 0 0 0 1px rgba(242, 166, 90, 0.3); }
+.lighting-card.alert .lighting-count { color: #f2a65a; }
+.room-mini { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.room-mini:empty { display: none; }
+.room-mini .room-badge { padding: 1px 7px; font-size: 0.72rem; }
+.room-mini .room-badge .material-symbols-outlined { font-size: 14px; }

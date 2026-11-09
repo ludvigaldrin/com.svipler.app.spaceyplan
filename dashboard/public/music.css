@@ -58,6 +58,7 @@
   -webkit-tap-highlight-color: transparent;
 }
 .mx-btn .material-symbols-outlined { font-size: 30px; }
+.mx-btn { flex: 0 0 auto; }
 .mx-btn:active { transform: scale(0.94); }
 .mx-btn:disabled { opacity: 0.35; cursor: default; }
 .mx-small .material-symbols-outlined { font-size: 22px; }
@@ -66,7 +67,17 @@
 .mx-play { width: 60px; height: 60px; background: var(--accent); color: #1d1812; box-shadow: 0 6px 20px rgba(232, 178, 92, 0.35); }
 .mx-play .material-symbols-outlined { font-size: 34px; font-variation-settings: 'FILL' 1; }
 
-.mx-volume { display: grid; grid-template-columns: 36px 104px minmax(0, 1fr) 46px; align-items: center; gap: 8px; }
+.mx-volume {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 46px;
+  grid-template-areas: "icon label pct" "icon range pct";
+  align-items: center;
+  column-gap: 8px; row-gap: 2px;
+}
+.mx-volume > .mx-icon { grid-area: icon; }
+.mx-volume > .mx-vol-label { grid-area: label; font-size: 0.78rem; }
+.mx-volume > .mx-range { grid-area: range; }
+.mx-volume > .mx-vol-pct { grid-area: pct; }
 .mx-volume[hidden] { display: none; }
 .mx-icon { width: 36px; height: 36px; }
 .mx-icon .material-symbols-outlined { font-size: 22px; color: var(--muted); }
@@ -136,7 +147,6 @@
   .mx-player, .mx-player.mx-compact, .mx-pop .mx-player { grid-template-columns: 1fr; }
   .mx-player .mx-art { width: 160px; justify-self: center; }
   .mx-transport { gap: 8px; }
-  .mx-volume { grid-template-columns: 32px 76px minmax(0, 1fr) 40px; gap: 6px; }
 }
 
 /* equal heights: cards side by side in one row match the tallest */
@@ -156,6 +166,12 @@
 .music-sheet .sheet-head h2 .music-sub { font-size: 1rem; margin-left: 10px; }
 .music-sheet .music-body { margin-top: 22px; }
 .music-sheet .mx-player { grid-template-columns: 220px minmax(0, 1fr) minmax(220px, 280px); gap: 28px; }
+/* tablets (~800 px): art + controls, rooms on their own row below */
+@media (max-width: 1023px) {
+  .music-sheet .mx-player { grid-template-columns: 180px minmax(0, 1fr); gap: 22px; }
+  .music-sheet .mx-player .mx-art { align-self: start; }
+  .music-sheet .mx-rooms { grid-column: 1 / -1; padding-left: 0; padding-top: 14px; border-left: 0; border-top: 1px solid var(--line); }
+}
 @media (max-width: 760px) {
   .music-sheet .mx-player { grid-template-columns: 110px minmax(0, 1fr); gap: 16px; }
 }

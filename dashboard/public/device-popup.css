@@ -154,7 +154,7 @@
 
 /* ---------- the widget's other popups, restyled ---------- */
 
-.device-modal, .enum-modal, .speaker-modal, .thermostat-modal, .cover-modal, .lock-confirm-modal > div {
+.device-modal, .enum-modal, .speaker-modal, .thermostat-modal, .cover-modal, .lock-confirm-modal {
   border: 1px solid rgba(255, 228, 190, 0.12) !important;
   border-radius: 24px !important;
   background: linear-gradient(180deg, #2b2621, #1b1815) !important;
@@ -166,7 +166,7 @@
 }
 .device-modal *:not(.material-symbols-outlined), .enum-modal *:not(.material-symbols-outlined),
 .speaker-modal *:not(.material-symbols-outlined), .thermostat-modal *:not(.material-symbols-outlined),
-.cover-modal *:not(.material-symbols-outlined), .lock-confirm-modal > div *:not(.material-symbols-outlined) {
+.cover-modal *:not(.material-symbols-outlined), .lock-confirm-modal *:not(.material-symbols-outlined) {
   color: inherit;
   font-family: inherit !important;
   border-color: rgba(255, 228, 190, 0.12);
@@ -242,3 +242,10 @@
   padding: 16px !important;
   margin: -16px !important;
 }
+
+/* lock confirmation: one dark card, buttons side by side */
+.lock-confirm-modal { text-align: center; }
+.lock-confirm-modal p { color: rgba(243, 238, 231, 0.7) !important; margin: 6px 0 16px !important; font-size: 1rem !important; }
+.lock-confirm-buttons { display: flex !important; gap: 10px !important; background: none !important; border: 0 !important; padding: 0 !important; box-shadow: none !important; }
+.lock-confirm-buttons button { flex: 1 1 0 !important; min-height: 46px !important; font-size: 1rem !important; }
+.lock-confirm-modal .lock-confirm-unlock { border-color: #e8b25c !important; background: rgba(232, 178, 92, 0.2) !important; color: #e8b25c !important; }

@@ -127,6 +127,8 @@ input[type="color"] { padding: 2px; height: 38px; width: 56px; }
 .seg button.on { border-color: var(--accent); background: var(--accent); color: #fff; }
 .item-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px; border-radius: 10px; background: var(--card); }
 .item-row input, .item-row select { flex: 1 1 100px; }
+.item-row > strong { flex: 1 1 0; min-width: 0; font-size: 0.9rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-row > .btn.small { flex: 0 0 auto; min-width: 30px; }
 .hint { color: var(--muted); font-size: 0.82rem; margin: 0; }
 .empty { padding: 32px 8px; text-align: center; color: var(--muted); }
 

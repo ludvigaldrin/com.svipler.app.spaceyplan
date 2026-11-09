@@ -609,17 +609,21 @@
       f.push(field('Title (empty = "Indoors")', bound(block, 'title', null, refresh)));
       f.push(field('Main sensor (large)', select([['', 'None']].concat(tempDevices.map(function (d) { return [d.id, d.name]; })),
         block.mainDeviceId || '', function (v) { block.mainDeviceId = v || undefined; markDirty(); renderCenter(); })));
-      f.push(h('div', { class: 'side-label', text: 'Other rooms' }));
+      f.push(h('div', { class: 'side-label', text: 'Sensors, in order' }));
       block.items = block.items || [];
       block.items.forEach(function (item, i) {
         var device = data.devices.find(function (d) { return d.id === item.homeyId; });
+        var moveSensor = function (to) { block.items.splice(to, 0, block.items.splice(i, 1)[0]); markDirty(); render(); };
         f.push(h('div', { class: 'item-row' }, [
           h('strong', { text: device ? device.name : 'Missing device' }),
+          h('button', { class: 'btn small', text: '↑', title: 'Earlier', disabled: i === 0, onclick: function () { moveSensor(i - 1); } }),
+          h('button', { class: 'btn small', text: '↓', title: 'Later', disabled: i === block.items.length - 1, onclick: function () { moveSensor(i + 1); } }),
           h('button', { class: 'btn small danger', text: '×', title: 'Remove', onclick: function () { block.items.splice(i, 1); markDirty(); render(); } })
         ]));
       });
+      var unpicked = tempDevices.filter(function (d) { return !block.items.some(function (it) { return it.homeyId === d.id; }); });
       var tempPicker = h('select', null, [h('option', { value: '', text: '+ Add a sensor…' })].concat(
-        tempDevices.map(function (d) { return h('option', { value: d.id, text: d.name }); })));
+        unpicked.map(function (d) { return h('option', { value: d.id, text: d.name }); })));
       tempPicker.addEventListener('change', function () {
         if (!tempPicker.value) return;
         block.items.push({ id: uid('i_'), homeyId: tempPicker.value });

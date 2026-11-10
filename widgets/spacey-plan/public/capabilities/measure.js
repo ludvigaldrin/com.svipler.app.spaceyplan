@@ -276,6 +276,8 @@ const measureRenderer = {
                 Homey.api('POST', '/error', { message: `Error fetching values: ${JSON.stringify(error)}` });
             }
 
+            if (deviceData.measureType === 'combined') this.refreshCombinedLabel(deviceEl);
+
             // Subscribe to updates for all capabilities
             if (subscribeDevices.length > 0) {
                 await Homey.api('POST', `/subscribeToDevices`, {
@@ -383,6 +385,19 @@ const measureRenderer = {
     // Formats the always-visible label shown below the icon on the floor
     // plan, e.g. "26.1°C", "56%", "1024W". Falls back to "…" while a value
     // hasn't loaded yet.
+    // Label of a temperature + humidity device: "21.5° · 45%", or whichever
+    // of the two has a reading.
+    refreshCombinedLabel(deviceEl) {
+        const label = deviceEl.querySelector('.measure-value-label');
+        if (!label) return;
+        const t = parseFloat(deviceEl.getAttribute('data-temperature'));
+        const hum = parseFloat(deviceEl.getAttribute('data-humidity'));
+        const parts = [];
+        if (!Number.isNaN(t)) parts.push(`${t.toFixed(1)}°`);
+        if (!Number.isNaN(hum)) parts.push(`${Math.round(hum)}%`);
+        if (parts.length) label.textContent = parts.join(' · ');
+    },
+
     formatMeasureLabel(value, measureType, unit) {
         if (value === undefined || value === null || value === '') {
             return '…';
@@ -588,6 +603,9 @@ const measureRenderer = {
                     }
                 }
             }
+
+            // A temperature + humidity device shows both readings
+            if (isCombinedDevice) this.refreshCombinedLabel(deviceEl);
 
             // Ensure settings button exists
             this.ensureSettingsButton();

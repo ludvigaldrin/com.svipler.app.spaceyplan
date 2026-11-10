@@ -77,10 +77,16 @@ HA handshake). **Not yet run on a real Homey / Shelly.**
   `<img>` is the only tap target, so taps on a touch panel missed. Dashboard-only
   CSS (device-popup.css) pads the img to ~45 px. Lamps drawn into the plan image
   itself are not devices; the real icons sit beside them.
-- 2026-11-08: glows missing on the Shelly Wall Display; likely cause (unverified
-  on the device) `color-mix()` (Chrome 111+) in the glows of the Shelly Wall
-  Display; dashboard CSS uses `rgba(var(--accent-rgb), a)` instead. Avoid
-  color-mix, `:has()` and `inset` in dashboard CSS.
+- 2026-11-08: glows missing on the Shelly Wall Display; first guess was
+  `color-mix()` in dashboard CSS (replaced by `rgba(var(--accent-rgb), a)`; avoid
+  color-mix, `:has()` and `inset`). 2026-11-10: plan icons still have no glow on
+  the Shelly, so that was not (all of) it. Floor plan frames now POST rendering
+  diagnostics to `/diag` 10 s after load (in memory, last 20; GET `/diag` with the
+  PIN cookie reads them). Note: the default `allColor` rule has showCloud false
+  and icon colour #333332, so a device without its own rule has no glow anywhere.
+- 2026-11-10: device-popup.css had made `.measure-value-label` transparent (meant
+  for popups), so plan readings were unreadable on light plans. Now a dark pill.
+  Combined temperature + humidity devices show both ("21.5° · 45%") in the widget too.
 - 2026-11-08: `homey.geolocation` returned no position on the real Homey (no
   permission); weather reads it via `api.geolocation.getOptionLocation()`.
 - 2026-11-08: Lampa Bosses and the Lampa Utomhus lamps are sockets without a

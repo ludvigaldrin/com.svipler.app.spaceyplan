@@ -203,3 +203,46 @@
     document.head.appendChild(style);
   } catch (e) { /* cross-origin parent: leave as is */ }
 })();
+
+// Rendering diagnostics: 10 s after a floor plan frame loads, report how the
+// browser applied the icon colours (glow) to a few devices. Read at GET /diag.
+(function () {
+  if (window.parent === window) return;
+  setTimeout(function () {
+    try {
+      var supports = function (p, v) { try { return !!(window.CSS && CSS.supports(p, v)); } catch (e) { return 'error'; } };
+      var devices = Array.prototype.slice.call(document.querySelectorAll('[data-homey-id]'), 0, 6).map(function (el) {
+        var wrap = el.querySelector('.icon-wrapper');
+        var icon = wrap && wrap.querySelector('img, .material-symbols-outlined');
+        var cs = getComputedStyle(el);
+        return {
+          name: el.getAttribute('data-name'),
+          capability: el.getAttribute('data-capability'),
+          state: el.getAttribute('data-state'),
+          inline: (el.getAttribute('style') || '').replace(/\s+/g, ' ').slice(0, 400),
+          computedBg: cs.backgroundColor,
+          computedShadow: cs.boxShadow,
+          opacity: cs.opacity,
+          wrapInline: wrap ? (wrap.getAttribute('style') || '') : null,
+          wrapBg: wrap ? getComputedStyle(wrap).backgroundColor : null,
+          iconFilter: icon ? getComputedStyle(icon).filter : null,
+          iconInlineFilter: icon ? icon.style.filter : null,
+          rules: (function () { try { return (JSON.parse(el.getAttribute('data-device') || '{}').rules || []).map(function (r) { return { type: r.type, config: r.config }; }); } catch (e) { return 'unparsable'; } })()
+        };
+      });
+      var body = JSON.stringify({
+        href: location.href,
+        screen: innerWidth + 'x' + innerHeight + ' @' + devicePixelRatio,
+        hex8: supports('color', '#00000080'),
+        filterDropShadow: supports('filter', 'drop-shadow(0 0 4px red)'),
+        cssSupports: !!(window.CSS && CSS.supports),
+        bgSetterPatched: (function () { var d = Object.getOwnPropertyDescriptor(CSSStyleDeclaration.prototype, 'backgroundColor'); return !!(d && d.set && String(d.set).indexOf('fix') >= 0); })(),
+        devices: devices
+      });
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', '/diag');
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.send(body);
+    } catch (e) { /* diagnostics only */ }
+  }, 10000);
+})();

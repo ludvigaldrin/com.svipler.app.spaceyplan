@@ -27,6 +27,10 @@
 
   // ---- patch the widget renderers (in this window) ----
 
+  // Material Symbols "speaker" (Apache 2.0), filled.
+  var SPEAKER_ICON = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">' +
+    '<path d="M17 2H7c-1.1 0-2 .9-2 2v16c0 1.1.9 1.99 2 1.99L17 22c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-5 2c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm0 16c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>');
+
   function patch() {
     var renderers = window.capabilityRenderers || {};
     Object.keys(renderers).forEach(function (key) {
@@ -36,6 +40,16 @@
       if (renderer && renderer.id === 'speaker' && typeof renderer.showVolumeModal === 'function' && !renderer.__spPopup) {
         var original = renderer.showVolumeModal;
         renderer.__spPopup = true;
+        // Speaker apps (Sonos) ship thin line drawings of the model at 960 px,
+        // which vanish at the plan's ~14 px. Use a solid speaker glyph instead,
+        // unless an icon was picked for the device in the app's settings.
+        var create = renderer.createDeviceElement;
+        renderer.createDeviceElement = function (device) {
+          var el = create.apply(this, arguments);
+          var img = el && el.querySelector('.icon-wrapper img');
+          if (img && device && !device.iconOverride) img.src = SPEAKER_ICON;
+          return el;
+        };
         renderer.showVolumeModal = function (deviceEl) {
           var music = outermostHost('SpaceyMusicPopup');
           var homeyId = deviceEl.getAttribute('data-homey-id');

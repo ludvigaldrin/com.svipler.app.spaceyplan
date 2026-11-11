@@ -92,6 +92,9 @@ HA handshake). **Not yet run on a real Homey / Shelly.**
   #rrggbbaa to rgba() (only where unsupported; `?colorfix=1` forces it).
   Proxy verified in desktop Chrome; on the Shelly unverified until next /diag.
   The plan's "26%"/"10%" labels are Sonos volumes (speaker-value-label).
+- 2026-11-11: Sonos device icons are thin line drawings of the model (960 px
+  SVG) and vanish at the plan's ~14 px, also in the Homey widget. The dashboard
+  (device-popup.js) swaps speakers without an iconOverride to a solid speaker glyph.
 - 2026-11-10: device-popup.css had made `.measure-value-label` transparent (meant
   for popups), so plan readings were unreadable on light plans. Now a dark pill.
   Combined temperature + humidity devices show both ("21.5° · 45%") in the widget too.

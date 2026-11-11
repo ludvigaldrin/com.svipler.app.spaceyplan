@@ -370,6 +370,7 @@
     }
   };
 
+  if (window.SpaceyCameras) blockRenderers.camera = function (block) { return window.SpaceyCameras.block(block, makeContext()); };
   if (window.SpaceyMusic) blockRenderers.music = function (block) { return window.SpaceyMusic.block(block, makeContext()); };
   Object.keys(window.SpaceyHomeBlocks || {}).forEach(function (type) {
     blockRenderers[type] = function (block) { return window.SpaceyHomeBlocks[type](block, makeContext()); };

@@ -1,0 +1,89 @@
+/* Camera block and sheet (cameras.js). No color-mix/:has()/inset: wall displays. */
+
+.camera-card .card-head .material-symbols-outlined { color: var(--accent); }
+.cam-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.cam-tile {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  aspect-ratio: 16 / 9;
+  min-height: 100px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.35));
+  color: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.cam-tile:active { transform: scale(0.98); }
+.cam-tile img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.3s; }
+.cam-tile.has-image img { opacity: 1; }
+.cam-fallback { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -60%); font-size: 40px; color: var(--accent); opacity: 0.7; }
+.cam-tile.has-image .cam-fallback { visibility: hidden; }
+.cam-caption {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  padding: 22px 12px 9px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.72));
+}
+.cam-name { font-weight: 600; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cam-meta { font-size: 0.75rem; opacity: 0.8; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cam-tile.failed .cam-meta { color: #f08a7a; opacity: 1; }
+.cam-tile.unavailable { opacity: 0.5; }
+.cam-live-badge {
+  position: absolute; top: 9px; left: 9px;
+  padding: 2px 8px; border-radius: 6px;
+  background: #d9443a; color: #fff;
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em;
+}
+
+/* the sheet */
+.cam-sheet .cam-view {
+  position: relative;
+  margin-top: 16px;
+  height: min(70vh, 720px);
+  border-radius: 18px;
+  overflow: hidden;
+  background: #000;
+  display: grid;
+  place-items: center;
+}
+.cam-view-img, .cam-view-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; }
+.cam-view-img { opacity: 0; transition: opacity 0.25s; }
+.cam-view.has-image .cam-view-img { opacity: 1; }
+.cam-view-video { display: none; }
+.cam-view.is-live .cam-view-video { display: block; }
+.cam-view.is-live .cam-view-img { display: none; }
+.cam-view.has-image .cam-fallback, .cam-view.playing .cam-fallback { visibility: hidden; }
+.cam-status {
+  position: absolute; left: 12px; bottom: 12px;
+  padding: 4px 10px; border-radius: 8px;
+  background: rgba(0, 0, 0, 0.6); color: #fff;
+  font-size: 0.8rem; font-variant-numeric: tabular-nums;
+}
+.cam-status:empty { display: none; }
+.cam-status.error { color: #f08a7a; }
+.cam-view.playing .cam-status { background: #d9443a; font-weight: 700; letter-spacing: 0.06em; }
+.cam-sound {
+  position: absolute; right: 12px; bottom: 12px;
+  width: 44px; height: 44px; padding: 0;
+  border: 0; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6); color: #fff;
+  display: grid; place-items: center; cursor: pointer;
+}
+.cam-sound[hidden] { display: none; }
+.cam-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+
+@media (max-width: 460px) {
+  .cam-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .cam-sheet .cam-view { height: 60vh; }
+}

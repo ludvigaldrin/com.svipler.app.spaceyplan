@@ -68,6 +68,15 @@ HA handshake). **Not yet run on a real Homey / Shelly.**
   Floor plan iframes share the page's SSE stream (few connections per host).
 - Music "all linked" volume (2026-11-08): rooms in the same `sonos_group`, else
   every playing room; scaled proportionally so their balance is kept, like Sonos.
+- Camera block `camera` (2026-11-11): `dashboard/public/cameras.js`, data in
+  `lib/Cameras.js`. Snapshots proxied at `/camerasnap/<deviceId>`; live video
+  only for WebRTC videos (Google Nest), negotiated via Homey's private
+  ManagerVideos (`/api/manager/videos/video/:id/offer` -> {answerSdp, streamId},
+  keep-alive every 2 min). RTSP (Reolink) cannot play in a browser, so those
+  cameras poll snapshots (10 s on the card, 2 s in the sheet). Other cameras
+  (Verisure) refetch only when the image's lastUpdated changes, to spare their
+  cloud API. The stream stops when the sheet closes or the panel hides.
+  Verified on the real Homey in desktop Chrome (2026-11-11); not yet on the Shelly.
 - Cards in one row stretch to equal height (`.page > .card`), by request.
 - Hero images are uploaded from the editor (resized to 2000 px JPEG) to userdata
   as `dash_*.jpg` and served at `/media/`.

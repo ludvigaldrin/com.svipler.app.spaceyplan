@@ -33,7 +33,8 @@
     climate: ['Indoor climate', 'thermostat', 'Temperature of one main room in large type, with other rooms listed beside it.'],
     lighting: ['Floors', 'home', 'A summary card that opens the floor plans with everything placed on them per room: lights, doors, motion and climate, with filters.'],
     quick: ['Quick actions', 'bolt', 'A row of equal buttons that turn chosen lights or devices on and off. Long press opens the device.'],
-    music: ['Music', 'music_note', 'Now playing with album art, play controls, volume per room and for all linked rooms.']
+    music: ['Music', 'music_note', 'Now playing with album art, play controls, volume per room and for all linked rooms.'],
+    camera: ['Cameras', 'videocam', 'A tile per camera with its latest picture. Tap for a large view, live where the camera supports it (Google Nest).']
   };
 
   function uid(prefix) { return prefix + Math.random().toString(36).slice(2, 9); }
@@ -344,6 +345,9 @@
     } else if (block.type === 'music') {
       var picked = (block.deviceIds || []).map(function (id) { var d = data.devices.find(function (x) { return x.id === id; }); return d ? d.name : null; }).filter(Boolean);
       body.appendChild(h('div', { class: 'pv pv-wide' }, [icon('music_note'), picked.length ? picked.join(', ') : 'All speakers']));
+    } else if (block.type === 'camera') {
+      var cams = (block.deviceIds || []).map(function (id) { var d = data.devices.find(function (x) { return x.id === id; }); return d ? d.name : null; }).filter(Boolean);
+      body.appendChild(h('div', { class: 'pv pv-wide' }, [icon('videocam'), cams.length ? cams.join(' · ') : 'All cameras']));
     } else {
       return null;
     }
@@ -479,6 +483,7 @@
     if (type === 'climate') block.items = [];
     if (type === 'lighting') block.floorIds = [];
     if (type === 'music') block.deviceIds = [];
+    if (type === 'camera') block.deviceIds = [];
     if (type === 'quick') block.items = [];
     page.blocks.push(block);
     sel.blockId = block.id;
@@ -696,6 +701,36 @@
       });
       f.push(quickPicker);
       f.push(h('p', { class: 'hint', text: 'Lights and other on/off devices. Tap toggles, long press opens the device.' }));
+    }
+
+    if (block.type === 'camera') {
+      f.push(field('Title (empty = "Cameras")', bound(block, 'title', null, refresh)));
+      f.push(h('div', { class: 'side-label', text: 'Cameras, in order (none = all)' }));
+      block.deviceIds = (block.deviceIds || []).slice();
+      block.deviceIds.forEach(function (id, i) {
+        var device = data.devices.find(function (d) { return d.id === id; });
+        var moveCam = function (to) { block.deviceIds.splice(to, 0, block.deviceIds.splice(i, 1)[0]); markDirty(); render(); };
+        f.push(h('div', { class: 'item-row' }, [
+          h('strong', { text: device ? device.name : 'Missing device' }),
+          h('button', { class: 'btn small', text: '↑', title: 'Earlier', disabled: i === 0, onclick: function () { moveCam(i - 1); } }),
+          h('button', { class: 'btn small', text: '↓', title: 'Later', disabled: i === block.deviceIds.length - 1, onclick: function () { moveCam(i + 1); } }),
+          h('button', { class: 'btn small danger', text: '×', title: 'Remove', onclick: function () { block.deviceIds.splice(i, 1); markDirty(); render(); } })
+        ]));
+      });
+      var camDevices = data.devices.filter(function (d) {
+        return (d.class === 'camera' || d.class === 'doorbell') && block.deviceIds.indexOf(d.id) < 0;
+      });
+      if (camDevices.length) {
+        var camPicker = h('select', null, [h('option', { value: '', text: '+ Add a camera…' })].concat(
+          camDevices.map(function (d) { return h('option', { value: d.id, text: d.name }); })));
+        camPicker.addEventListener('change', function () {
+          if (!camPicker.value) return;
+          block.deviceIds.push(camPicker.value);
+          markDirty(); render();
+        });
+        f.push(camPicker);
+      }
+      f.push(h('p', { class: 'hint', text: 'Cameras with local video (Reolink) refresh every 10 s on the card and every 2 s when opened. Others show their latest picture. Google Nest opens live.' }));
     }
 
     if (block.type === 'music') {

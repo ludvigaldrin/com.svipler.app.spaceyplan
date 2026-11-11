@@ -236,7 +236,7 @@
         hex8: supports('color', '#00000080'),
         filterDropShadow: supports('filter', 'drop-shadow(0 0 4px red)'),
         cssSupports: !!(window.CSS && CSS.supports),
-        bgSetterPatched: (function () { var d = Object.getOwnPropertyDescriptor(CSSStyleDeclaration.prototype, 'backgroundColor'); return !!(d && d.set && String(d.set).indexOf('fix') >= 0); })(),
+        colorFix: !!window.__spaceyColorFix,
         devices: devices
       });
       var xhr = new XMLHttpRequest();

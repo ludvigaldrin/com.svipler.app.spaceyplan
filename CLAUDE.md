@@ -84,6 +84,14 @@ HA handshake). **Not yet run on a real Homey / Shelly.**
   diagnostics to `/diag` 10 s after load (in memory, last 20; GET `/diag` with the
   PIN cookie reads them). Note: the default `allColor` rule has showCloud false
   and icon colour #333332, so a device without its own rule has no glow anywhere.
+- 2026-11-11: /diag from the Shelly (Android 11 WebView, Chrome 131) showed
+  `CSS.supports('color', '#00000080')` false and every glow computed as
+  transparent: it rejects #rrggbbaa. The old colors.js polyfill never engaged
+  because current Chrome has no per-property accessors on CSSStyleDeclaration.
+  colors.js now wraps `HTMLElement.prototype.style` in a Proxy that rewrites
+  #rrggbbaa to rgba() (only where unsupported; `?colorfix=1` forces it).
+  Proxy verified in desktop Chrome; on the Shelly unverified until next /diag.
+  The plan's "26%"/"10%" labels are Sonos volumes (speaker-value-label).
 - 2026-11-10: device-popup.css had made `.measure-value-label` transparent (meant
   for popups), so plan readings were unreadable on light plans. Now a dark pill.
   Combined temperature + humidity devices show both ("21.5° · 45%") in the widget too.

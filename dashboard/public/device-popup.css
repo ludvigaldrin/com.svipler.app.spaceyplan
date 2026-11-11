@@ -230,7 +230,7 @@
 .speaker-slider-thumb, .thermostat-slider-thumb, .cover-slider-thumb { background: #fff !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5) !important; }
 .speaker-transport-buttons button.active { background: rgba(232, 178, 92, 0.25) !important; border-color: #e8b25c !important; }
 .speaker-flow-button, .cover-flow-button { background: rgba(232, 178, 92, 0.18) !important; border: 1px solid #e8b25c !important; color: #fff !important; }
-.speaker-modal .speaker-track-label, .speaker-value-label, .thermostat-value-display { color: #d9d1c6 !important; background: transparent !important; }
+.speaker-modal .speaker-track-label, .thermostat-value-display { color: #d9d1c6 !important; background: transparent !important; }
 .speaker-modal .material-symbols-outlined, .thermostat-modal .material-symbols-outlined, .cover-modal .material-symbols-outlined,
 .enum-modal .material-symbols-outlined { color: #e8b25c !important; }
 
@@ -252,7 +252,7 @@
 
 /* Readings on the plan: a dark pill with light text reads on both light and
    dark plan images (the earlier rule above made it transparent by mistake). */
-.measure-value-label {
+.measure-value-label, .speaker-value-label {
   background: rgba(24, 20, 16, 0.86) !important;
   color: #fff !important;
   font-size: 11px !important;

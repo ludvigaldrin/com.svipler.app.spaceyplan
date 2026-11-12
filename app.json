@@ -152,6 +152,10 @@
           "method": "GET",
           "path": "/floorImage/:imageId"
         },
+        "getCameraSnapshot": {
+          "method": "GET",
+          "path": "/cameras/:deviceId/snapshot"
+        },
         "clearImageCache": {
           "method": "POST",
           "path": "/clearImageCache"

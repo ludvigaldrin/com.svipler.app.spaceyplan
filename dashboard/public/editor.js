@@ -192,6 +192,7 @@
             return input;
           })()),
           field('Screensaver (min, 0 = off)', bound(dashboard, 'screensaverMinutes', { type: 'number', min: 0 })),
+          field('Back to start after (s, 0 = off)', bound(dashboard, 'returnHomeSeconds', { type: 'number', min: 0, max: 3600, placeholder: '30' })),
           h('label', { class: 'check' }, [(function () {
             var box = h('input', { type: 'checkbox', checked: !!dashboard.showClock });
             box.addEventListener('change', function () { dashboard.showClock = box.checked; markDirty(); renderLeft(); });

@@ -77,6 +77,19 @@ HA handshake). **Not yet run on a real Homey / Shelly.**
   (Verisure) refetch only when the image's lastUpdated changes, to spare their
   cloud API. The stream stops when the sheet closes or the panel hides.
   Verified on the real Homey in desktop Chrome (2026-11-11); not yet on the Shelly.
+- Camera marker on floor plans (2026-11-12): capability `camera` (settings
+  offers "Camera (Picture)" for class camera/doorbell devices with images or
+  video, also those without capabilities, e.g. Nest and Verisure). Renderer
+  `capabilities/camera.js` inherits the sensor renderer; tap shows the latest
+  picture via widget route `GET /cameras/:deviceId/snapshot` (data URL). On the
+  dashboard device-popup.js opens the camera sheet instead (live for Nest).
+  Verified on the fake backend only.
+- Back to start (2026-11-12, Ludvig): after `returnHomeSeconds` (default 30,
+  0 = off, dashboard setting) without touches the dashboard closes sheets and
+  popups (also in plan frames, by clicking their overlays), scrolls up and shows
+  page 1. Frames report touches to the top window (homey-shim.js), which now
+  also keeps the screensaver from starting while someone uses a plan.
+  Verified on the fake backend only.
 - Cards in one row stretch to equal height (`.page > .card`), by request.
 - Hero images are uploaded from the editor (resized to 2000 px JPEG) to userdata
   as `dash_*.jpg` and served at `/media/`.

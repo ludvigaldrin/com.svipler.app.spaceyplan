@@ -4,6 +4,16 @@ function isMeasureCapability(cap) {
     return typeof cap === 'string' && (cap.indexOf('measure_') === 0 || cap.indexOf('meter_') === 0);
 }
 
+// Cameras and doorbells with a picture or video can be placed as a camera
+// marker (tap shows the picture). Many have no capabilities at all.
+function isCameraDevice(device) {
+    const cls = device.virtualClass || device.class;
+    if (cls !== 'camera' && cls !== 'doorbell') return false;
+    const hasImage = (device.images || []).some(i => i && i.imageObj && i.imageObj.url);
+    const videos = Array.isArray(device.video) ? device.video : (Array.isArray(device.videos) ? device.videos : []);
+    return hasImage || videos.length > 0;
+}
+
 const deviceManager = {
     Homey: null,
     currentFloorId: null,
@@ -139,6 +149,8 @@ const deviceManager = {
                 );
                 displayCapabilities.push('measure_combined', 'measure_temperature', 'measure_humidity');
             }
+
+            if (isCameraDevice(device)) displayCapabilities.unshift('camera');
             
             // Get unsupported capabilities
             const unsupported = deviceCapabilities.filter(cap =>
@@ -148,7 +160,7 @@ const deviceManager = {
             );
 
             // Skip devices with no capabilities at all
-            if (deviceCapabilities.length === 0) return '';
+            if (deviceCapabilities.length === 0 && !isCameraDevice(device)) return '';
             
             // Don't skip devices with no supported capabilities
             // if (supported.length === 0) return '';
@@ -272,6 +284,7 @@ const deviceManager = {
 
     getCapabilityDisplayName(capabilityId) {
         const displayNames = {
+            'camera': 'Camera (Picture)',
             'dim': 'Dim (with On/Off)',
             'onoff': 'On/Off',
             'alarm_contact': 'Sensor (Contact)',
@@ -370,6 +383,10 @@ const deviceManager = {
             return floor.devices.some(d => d.id === `${deviceId}-measure-${capability}`);
         }
 
+        if (capability === 'camera') {
+            return floor.devices.some(d => d.id === `${deviceId}-camera`);
+        }
+
         // For onoff and dim, check the respective IDs
         if (capability === 'onoff') {
             // Check for both onoff and dim (since dim includes onoff)
@@ -441,6 +458,8 @@ const deviceManager = {
 
         if (capability === 'dim') {
             deviceId = `${device.id}-dim`;
+        } else if (capability === 'camera') {
+            deviceId = `${device.id}-camera`;
         } else if (capability === 'onoff') {
             deviceId = `${device.id}-onoff`;
         } else if (capability.indexOf('alarm_') === 0) {
@@ -730,6 +749,21 @@ const deviceManager = {
                     iconColor: '#333332',
                     showCloud: false,
                     cloudColor: '#FFFFFF'
+                }
+            });
+        }
+
+        // Cameras: white icon on a blue glow, so they stand out on the plan
+        if (capability === 'camera') {
+            newDevice.rules.push({
+                id: generateUUID(),
+                name: 'All - Color Select',
+                type: 'allColor',
+                config: {
+                    showIcon: true,
+                    iconColor: '#ffffff',
+                    showCloud: true,
+                    cloudColor: '#2f80ed'
                 }
             });
         }

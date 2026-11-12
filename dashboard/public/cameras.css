@@ -87,3 +87,11 @@
   .cam-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
   .cam-sheet .cam-view { height: 60vh; }
 }
+
+/* Failed to open a camera from a floor plan marker */
+.cam-error-note {
+  position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 3000;
+  max-width: calc(100vw - 32px); padding: 10px 16px; border-radius: 12px;
+  background: rgba(120, 24, 24, .95); color: #fff; font-size: .9rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .4);
+}

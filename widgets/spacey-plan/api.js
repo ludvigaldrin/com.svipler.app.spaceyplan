@@ -20,4 +20,5 @@ module.exports = {
   unsubscribeWidget: handlers.unsubscribeWidget,
   proxyImage: handlers.proxyImage,
   getFloorImage: handlers.getFloorImage,
+  getCameraSnapshot: handlers.getCameraSnapshot,
 };

@@ -58,6 +58,19 @@
         };
         return;
       }
+      // Cameras: the camera sheet (dashboard/public/cameras.js), live where the
+      // camera supports it. The renderer inherits from sensor, so check own flag.
+      if (renderer && renderer.id === 'camera' && !Object.prototype.hasOwnProperty.call(renderer, '__spPopup')) {
+        var showPicture = renderer.showDeviceModal;
+        renderer.__spPopup = true;
+        renderer.showDeviceModal = function (deviceEl) {
+          var cameras = outermostHost('SpaceyCameras');
+          var homeyId = deviceEl.getAttribute('data-homey-id');
+          if (!cameras || !cameras.openDevice || !homeyId) return showPicture.call(this, deviceEl);
+          cameras.openDevice(homeyId);
+        };
+        return;
+      }
       if (!renderer || POPUP_RENDERERS.indexOf(renderer.id) < 0 || typeof renderer.showDeviceModal !== 'function' || renderer.__spPopup) return;
       renderer.__spPopup = true;
       renderer.showDeviceModal = function (deviceEl) {

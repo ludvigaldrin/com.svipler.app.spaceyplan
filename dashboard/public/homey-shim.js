@@ -204,6 +204,18 @@
   } catch (e) { /* cross-origin parent: leave as is */ }
 })();
 
+// Touches in a floor plan frame count as activity for the dashboard page
+// (screensaver and back-to-start timers, see dashboard.js).
+(function () {
+  if (window.parent === window) return;
+  var report = function () {
+    try { if (window.top.__spActivity) window.top.__spActivity(); } catch (e) { /* other origin */ }
+  };
+  ['touchstart', 'mousedown', 'keydown', 'wheel'].forEach(function (name) {
+    document.addEventListener(name, report, { passive: true, capture: true });
+  });
+})();
+
 // Rendering diagnostics: 10 s after a floor plan frame loads, report how the
 // browser applied the icon colours (glow) to a few devices. Read at GET /diag.
 (function () {

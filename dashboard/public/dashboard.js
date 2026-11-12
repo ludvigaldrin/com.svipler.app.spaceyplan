@@ -605,6 +605,7 @@
     applyLook(dashboard);
     applyHeader(dashboard);
     resetSaverTimer();
+    resetHomeTimer();
 
     invalidatePages();
     var savedPage = store(KEY_PAGE + dashboard.id);
@@ -695,8 +696,49 @@
     setTimeout(tickClock, 15000);
   }
 
-  ['touchstart', 'mousedown', 'keydown'].forEach(function (name) {
-    document.addEventListener(name, resetSaverTimer, { passive: true });
+  // ---- back to start ----
+  // A while after the last touch, close sheets and popups (also those in the
+  // floor plan frames), scroll up and show the first page. Dashboard setting
+  // `returnHomeSeconds`, default 30, 0 = off.
+
+  var homeTimer = null;
+  function returnHomeSeconds() {
+    var value = state.dashboard && state.dashboard.returnHomeSeconds;
+    if (value === undefined || value === null || value === '') return 30;
+    return Math.max(0, parseInt(value, 10) || 0);
+  }
+  function resetHomeTimer() {
+    clearTimeout(homeTimer);
+    var seconds = returnHomeSeconds();
+    if (seconds) homeTimer = setTimeout(goHome, seconds * 1000);
+  }
+  // Every overlay closes on a click on itself (outside its card).
+  function closeOverlays(doc) {
+    var view = doc.defaultView || window;
+    doc.querySelectorAll('.sheet-backdrop.open, .sp-pop-overlay, .device-modal-overlay, .lock-confirm-overlay').forEach(function (node) {
+      node.dispatchEvent(new view.MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+  }
+  function goHome() {
+    if (!state.dashboard) return;
+    closeMenu();
+    closeOverlays(document);
+    document.querySelectorAll('iframe').forEach(function (frame) {
+      try { if (frame.contentDocument) closeOverlays(frame.contentDocument); } catch (e) { /* other origin */ }
+    });
+    document.querySelectorAll('.sheet').forEach(function (sheet) { sheet.scrollTop = 0; });
+    if (state.pageIndex !== 0) showPage(0);
+    window.scrollTo(0, 0);
+  }
+
+  function activity() {
+    resetSaverTimer();
+    resetHomeTimer();
+  }
+  // Touches inside the floor plan frames report here (homey-shim.js).
+  window.__spActivity = activity;
+  ['touchstart', 'mousedown', 'keydown', 'wheel'].forEach(function (name) {
+    document.addEventListener(name, activity, { passive: true, capture: true });
   });
 
   // ---- start ----

@@ -332,5 +332,17 @@
     return card;
   }
 
-  window.SpaceyCameras = { block: block };
+  // A camera marker on a floor plan: the sheet for that one camera.
+  function openDevice(deviceId) {
+    api('POST', '/cameras', { deviceIds: [deviceId] }).then(function (cams) {
+      if (!cams.length) throw new Error('camera not found');
+      openSheet(cams, deviceId, cams[0].name);
+    }).catch(function (error) {
+      var note = h('div', 'cam-error-note', TEXT[lang()].failed + ': ' + error.message);
+      document.body.appendChild(note);
+      setTimeout(function () { note.remove(); }, 5000);
+    });
+  }
+
+  window.SpaceyCameras = { block: block, openDevice: openDevice };
 })();

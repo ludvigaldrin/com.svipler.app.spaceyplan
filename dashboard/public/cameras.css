@@ -1,11 +1,12 @@
 /* Camera block and sheet (cameras.js). No color-mix/:has()/inset: wall displays. */
 
-.camera-card .card-head .material-symbols-outlined { color: var(--accent); }
+.camera-card .lighting-icon { color: var(--accent); }
+.cam-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cam-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 12px;
-  margin-top: 14px;
+  margin-top: 18px;
 }
 .cam-tile {
   position: relative;
@@ -46,6 +47,9 @@
   font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em;
 }
 
+/* the list sheet: larger tiles than a card would hold */
+.cam-list-sheet .cam-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+
 /* the sheet */
 .cam-sheet .cam-view {
   position: relative;
@@ -84,7 +88,7 @@
 .cam-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 
 @media (max-width: 460px) {
-  .cam-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .cam-grid, .cam-list-sheet .cam-grid { grid-template-columns: 1fr; gap: 10px; }
   .cam-sheet .cam-view { height: 60vh; }
 }
 

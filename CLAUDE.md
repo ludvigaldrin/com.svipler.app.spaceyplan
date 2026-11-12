@@ -77,6 +77,9 @@ HA handshake). **Not yet run on a real Homey / Shelly.**
   (Verisure) refetch only when the image's lastUpdated changes, to spare their
   cloud API. The stream stops when the sheet closes or the panel hides.
   Verified on the real Homey in desktop Chrome (2026-11-11); not yet on the Shelly.
+  2026-11-12 (Ludvig): the block is a compact summary card (camera names); the
+  tiles are in a sheet and pictures are fetched/polled only while it is open.
+  One camera opens its large view directly. Verified on the fake backend only.
 - Camera marker on floor plans (2026-11-12): capability `camera` (settings
   offers "Camera (Picture)" for class camera/doorbell devices with images or
   video, also those without capabilities, e.g. Nest and Verisure). Renderer

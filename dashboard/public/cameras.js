@@ -1,5 +1,5 @@
-// Camera block for the External Dashboard: a card with one tile per camera,
-// tap a tile for a large view in a sheet. Data from lib/Cameras.js.
+// Camera block for the External Dashboard: a compact card that opens a sheet
+// with one tile per camera (one camera: its large view); tap a tile for a large view. Data from lib/Cameras.js.
 // - Live: cameras with a WebRTC video (Google Nest) stream in the sheet.
 // - Snapshots: cameras with local RTSP video (Reolink) are polled, since
 //   their snapshot is taken on request; other cameras (Verisure) are only
@@ -254,23 +254,75 @@
     requestAnimationFrame(function () { requestAnimationFrame(function () { backdrop.classList.add('open'); }); });
   }
 
-  // ---- the `camera` block ----
+  // ---- the `camera` block: a compact summary card; the tiles live in a
+  // sheet, so pictures are only fetched while it is open ----
 
   function block(blockConfig, ctx) {
     var T = TEXT[lang()];
     var title = blockConfig.title || T.cameras;
-    var card = ctx.el('div', 'card camera-card');
-    var head = ctx.el('div', 'card-head');
-    head.appendChild(ctx.symbol('videocam'));
-    head.appendChild(ctx.el('span', null, title));
-    card.appendChild(head);
-    var grid = h('div', 'cam-grid');
-    card.appendChild(grid);
-    var visible = function () { return card.isConnected && card.offsetParent !== null && !document.hidden; };
+    var card = ctx.el('div', 'card lighting-card camera-card');
+    card.setAttribute('role', 'button');
+    card.tabIndex = 0;
+    card.appendChild(ctx.symbol('videocam', 'lighting-icon'));
+    var text = ctx.el('div', 'lighting-text');
+    text.appendChild(ctx.el('div', 'lighting-title', title));
+    var line = ctx.el('div', 'lighting-count cam-line', '…');
+    text.appendChild(line);
+    card.appendChild(text);
+    card.appendChild(ctx.symbol('chevron_right', 'lighting-chevron'));
 
-    api('POST', '/cameras', { deviceIds: blockConfig.deviceIds || [] }).then(function (cams) {
-      if (!cams.length) { grid.appendChild(h('p', 'hint', T.none)); return; }
-      var tiles = cams.map(function (cam) {
+    var cams = null;
+    var tiles = [];
+    var backdrop = null;
+    var visible = function () { return !!backdrop && backdrop.classList.contains('open') && !document.hidden; };
+
+    api('POST', '/cameras', { deviceIds: blockConfig.deviceIds || [] }).then(function (list) {
+      cams = list;
+      if (!cams.length) { line.textContent = T.none; return; }
+      line.textContent = cams.map(function (c) { return c.name; }).join(' · ');
+    }).catch(function (error) {
+      card.classList.add('failed');
+      line.textContent = 'Cameras unavailable: ' + error.message;
+    });
+
+    function load(t) {
+      loadSnapshot(t.cam, t.img, function (ok, why) {
+        if (ok) t.tile.classList.add('has-image');
+        if (!ok && why === 'error') { t.tile.classList.add('failed'); t.meta.textContent = T.failed; }
+        else t.tile.classList.remove('failed');
+        paintMeta(t);
+      });
+    }
+    function paintMeta(t) {
+      if (!t.cam.snapshot || t.tile.classList.contains('failed')) return;
+      if (polled(t.cam)) { t.meta.textContent = clock(new Date()).slice(0, 5); return; }
+      if (!t.cam.snapshotUpdated) return;
+      var when = new Date(t.cam.snapshotUpdated);
+      t.meta.textContent = T.ago(Math.floor((Date.now() - when.getTime()) / 60000)) ||
+        when.toLocaleDateString(lang() === 'sv' ? 'sv-SE' : 'en-GB', { day: 'numeric', month: 'short' });
+    }
+    // Pictures may be old after the sheet was closed: fetch them on open.
+    function refreshAll() {
+      tiles.forEach(function (t) { if (t.cam.snapshot) { t.shown = t.cam.snapshotUpdated; load(t); } });
+    }
+
+    function buildSheet() {
+      backdrop = h('div', 'sheet-backdrop sp-kept-sheet');
+      var sheet = h('div', 'sheet cam-list-sheet');
+      sheet.setAttribute('role', 'dialog');
+      sheet.setAttribute('aria-modal', 'true');
+      sheet.appendChild(h('div', 'sheet-handle'));
+      var head = h('div', 'sheet-head');
+      head.appendChild(symbol('videocam', 'sheet-icon'));
+      head.appendChild(h('h2', null, title));
+      var closeBtn = button('sheet-close', 'close', T.close);
+      head.appendChild(closeBtn);
+      sheet.appendChild(head);
+      var grid = h('div', 'cam-grid');
+      sheet.appendChild(grid);
+      backdrop.appendChild(sheet);
+
+      tiles = cams.map(function (cam) {
         var tile = h('button', 'cam-tile' + (cam.live ? ' is-live' : ''));
         tile.type = 'button';
         var img = h('img'); img.alt = '';
@@ -288,26 +340,24 @@
         return { cam: cam, tile: tile, img: img, meta: meta, shown: null };
       });
 
-      function load(t) {
-        loadSnapshot(t.cam, t.img, function (ok, why) {
-          if (ok) t.tile.classList.add('has-image');
-          if (!ok && why === 'error') { t.tile.classList.add('failed'); t.meta.textContent = T.failed; }
-          else t.tile.classList.remove('failed');
-          paintMeta(t);
-        });
+      function close() {
+        backdrop.classList.remove('open');
+        setTimeout(function () { if (!backdrop.classList.contains('open')) backdrop.style.display = 'none'; }, 220);
+        document.removeEventListener('keydown', onKey);
       }
-      function paintMeta(t) {
-        if (!t.cam.snapshot || t.tile.classList.contains('failed')) return;
-        if (polled(t.cam)) { t.meta.textContent = clock(new Date()).slice(0, 5); return; }
-        if (!t.cam.snapshotUpdated) return;
-        var when = new Date(t.cam.snapshotUpdated);
-        t.meta.textContent = T.ago(Math.floor((Date.now() - when.getTime()) / 60000)) ||
-          when.toLocaleDateString(lang() === 'sv' ? 'sv-SE' : 'en-GB', { day: 'numeric', month: 'short' });
-      }
+      function onKey(e) { if (e.key === 'Escape' && !document.querySelector('.cam-sheet')) close(); }
+      backdrop.__open = function () {
+        backdrop.style.display = '';
+        sheet.style.transform = '';
+        document.addEventListener('keydown', onKey);
+        refreshAll();
+        requestAnimationFrame(function () { requestAnimationFrame(function () { backdrop.classList.add('open'); }); });
+      };
+      closeBtn.addEventListener('click', close);
+      backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(); });
+      if (window.SpaceySheet) window.SpaceySheet.swipeToClose(sheet, close);
+      document.body.appendChild(backdrop);
 
-      tiles.forEach(function (t) {
-        if (t.cam.snapshot) { t.shown = t.cam.snapshotUpdated; load(t); }
-      });
       ctx.every(POLL_TILE_MS, function () {
         if (!visible()) return;
         tiles.forEach(function (t) { if (polled(t.cam)) load(t); });
@@ -325,10 +375,17 @@
           });
         }).catch(function () { /* tiles keep their picture */ });
       });
-    }).catch(function (error) {
-      card.classList.add('failed');
-      grid.appendChild(h('p', 'hint error', 'Cameras unavailable: ' + error.message));
-    });
+    }
+
+    function open() {
+      if (!cams || !cams.length) return;
+      // One camera: straight to its large view.
+      if (cams.length === 1) { openSheet(cams, cams[0].id, title); return; }
+      if (!backdrop) buildSheet();
+      backdrop.__open();
+    }
+    card.addEventListener('click', open);
+    card.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
     return card;
   }
 

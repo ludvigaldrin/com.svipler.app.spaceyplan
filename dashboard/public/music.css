@@ -130,8 +130,10 @@
 @keyframes mx-eq { from { opacity: 0.5; } to { opacity: 1; } }
 
 /* popup */
-.sp-pop.mx-pop { width: min(560px, calc(100vw - 24px)); }
-.mx-pop-head { display: flex; align-items: center; gap: 10px; padding: 4px 48px 12px 0; font-size: 1.15rem; font-weight: 600; }
+.sp-pop.mx-pop { position: relative; width: min(560px, calc(100vw - 24px)); }
+/* the close button sits in the corner, level with the room name */
+.mx-pop > .sp-pop-close { position: absolute; top: 15px; right: 20px; }
+.mx-pop-head { display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 0 52px 12px 0; font-size: 1.15rem; font-weight: 600; }
 .mx-pop-head .material-symbols-outlined { color: var(--accent); }
 .mx-pop-body { padding-top: 4px; }
 .mx-pop .mx-player { grid-template-columns: 130px minmax(0, 1fr); }

@@ -154,5 +154,8 @@
   },
   "0.4.0": {
     "en": "New dashboard possibilities to use Homey as an external dashboard. Also updated design and layouts of cards and buttons. We still have the dashboard widget as well like normal. More infomration about building you can find on the community page."
+  },
+  "0.4.1": {
+    "en": "Minor fixes"
   }
 }

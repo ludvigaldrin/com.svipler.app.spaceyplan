@@ -1,12 +1,14 @@
-/* Device popups on the External Dashboard (top page and floor plan iframes).
-   The widget renderers style their own popups inline; the overrides below
-   need !important to win. Not loaded by the Homey widget itself. */
+/* Device popups for the floor plan widget (Homey app) and the External
+   Dashboard (top page and floor plan iframes). The renderers style their own
+   popups inline; the overrides below need !important to win. */
 
 .sp-pop-overlay, .device-modal-overlay, .enum-modal-overlay, .speaker-modal-overlay,
 .thermostat-modal-overlay, .cover-modal-overlay {
   background: rgba(6, 5, 4, 0.6) !important;
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
+  /* above the plan's devices, labels and menus (z-index up to 10001) */
+  z-index: 20000 !important;
 }
 
 /* ---------- new popup (lights, plugs) ---------- */
@@ -152,7 +154,30 @@
   .sp-pop-colour .sp-pop-row { width: 100%; }
 }
 
-/* ---------- the widget's other popups, restyled ---------- */
+/* Short frames (the widget on a Homey dashboard is often 300-500 px high):
+   the same card, tighter, so most of it fits without scrolling. */
+@media (max-height: 560px) {
+  .sp-pop-overlay { padding: 8px; }
+  .sp-pop { max-height: calc(100vh - 16px); padding: 14px 16px 16px; border-radius: 20px; }
+  .sp-pop-head { margin-bottom: 12px; gap: 12px; }
+  .sp-pop-icon { width: 40px; height: 40px; border-radius: 12px; }
+  .sp-pop-icon img { width: 24px; height: 24px; }
+  .sp-pop-title { font-size: 1.1rem; }
+  .sp-pop-close { width: 36px; height: 36px; }
+  .sp-pop-power { padding: 10px 14px; }
+  .sp-pop-controls { gap: 12px; margin-top: 12px; }
+  .sp-pop-colour { grid-template-columns: 120px minmax(0, 1fr); gap: 14px; }
+  .sp-wheel { width: 120px; height: 120px; }
+  .sp-swatch { width: 34px; height: 34px; }
+  .sp-pop-swatches { gap: 10px; }
+  .sp-pop-readings { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+  .sp-reading { padding: 10px 12px; }
+  .device-modal, .enum-modal, .speaker-modal, .thermostat-modal, .cover-modal, .lock-confirm-modal {
+    max-height: calc(100vh - 16px) !important; overflow-y: auto !important; padding: 14px 16px !important;
+  }
+}
+
+/* ---------- the renderers' other popups, restyled ---------- */
 
 .device-modal, .enum-modal, .speaker-modal, .thermostat-modal, .cover-modal, .lock-confirm-modal {
   border: 1px solid rgba(255, 228, 190, 0.12) !important;

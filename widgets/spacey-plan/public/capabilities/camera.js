@@ -68,6 +68,7 @@
             title.style.cssText = 'margin:0;font-size:18px;color:#333;';
             title.textContent = name;
             const closeButton = document.createElement('button');
+            closeButton.className = 'close-button';
             closeButton.setAttribute('aria-label', 'Close');
             closeButton.style.cssText = 'background:none;border:none;font-size:24px;color:#333;cursor:pointer;padding:5px;';
             closeButton.textContent = '×';

@@ -1,10 +1,12 @@
-// Device popup for the External Dashboard. Replaces the widget's own popup
-// for on/off and dimmable devices (lights, plugs, TVs) with one card: power,
-// brightness, colour or white, colour temperature and quick colours. It opens
-// in the top dashboard window, so a popup from a floor plan (an iframe) covers
-// the whole screen. Other device types keep their own popups, restyled by
-// device-popup.css. Loaded only by the dashboard server: the widget inside the
-// Homey app is unchanged.
+// Device popup for the floor plan widget and the External Dashboard. Replaces
+// the renderers' own popup for on/off and dimmable devices (lights, plugs, TVs)
+// and sensors with one card: power, brightness, colour or white, colour
+// temperature and quick colours, or the readings. Other device types keep their
+// own popups, restyled by device-popup.css.
+// - In the Homey app the widget draws it inside its own frame.
+// - On the dashboard it opens in the top dashboard window, so a popup from a
+//   floor plan (an iframe) covers the whole screen; speakers and cameras open
+//   the dashboard's music player and camera sheet.
 (function () {
   'use strict';
 
@@ -122,14 +124,36 @@
 
   function symbol(name, className) { return h('span', 'material-symbols-outlined' + (className ? ' ' + className : ''), name); }
 
-  async function api(method, path, body) {
-    var options = { method: method, credentials: 'same-origin', headers: {} };
-    if (body !== undefined) { options.headers['Content-Type'] = 'application/json'; options.body = JSON.stringify(body); }
-    var response = await fetch('/api' + path, options);
-    if (response.status === 401) { location.href = '/login'; throw new Error('PIN required'); }
-    var data = await response.json();
-    if (!response.ok) throw new Error((data && data.error) || ('HTTP ' + response.status));
-    return data;
+  // The Homey object: Homey's widget runtime in the app (script.js keeps it in
+  // a global `let Homey`, not on window), homey-shim.js on the dashboard. Both
+  // expose the routes in widget.compose.json.
+  function homey() {
+    try { if (typeof Homey !== 'undefined' && Homey) return Homey; } catch (e) { /* not set yet */ }
+    return window.Homey || null;
+  }
+  function api(method, path, body) {
+    var H = homey();
+    if (!H || !H.api) return Promise.reject(new Error('Homey API not ready'));
+    return Promise.resolve(H.api(method, path, body));
+  }
+
+  // The id the plan's updates arrive under: the dashboard's client id, or the
+  // widget instance in the Homey app.
+  var widgetIdPromise = null;
+  function widgetId() {
+    if (!widgetIdPromise) {
+      var H = homey();
+      widgetIdPromise = H && H.clientId
+        ? Promise.resolve(H.clientId)
+        : Promise.resolve(H && H.getWidgetInstanceId && H.getWidgetInstanceId());
+    }
+    return widgetIdPromise;
+  }
+  function subscribe(devices) {
+    return widgetId().then(function (id) {
+      if (!id) { widgetIdPromise = null; throw new Error('no widget id'); }
+      return api('POST', '/subscribeToDevices', { widgetId: id, devices: devices });
+    });
   }
 
   function hsl(hue, sat) { return 'hsl(' + Math.round(hue * 360) + ', ' + Math.round(sat * 100) + '%, ' + Math.round(100 - sat * 50) + '%)'; }
@@ -138,11 +162,15 @@
   var listening = false;
 
   function listenForUpdates() {
-    if (listening || !window.Homey || !window.Homey.on) return;
+    var H = homey();
+    if (listening || !H || !H.on) return;
     listening = true;
-    window.Homey.on('widget:' + window.Homey.clientId + ':deviceUpdate', function (data) {
-      if (current && data && data.deviceId === current.homeyId) current.onUpdate(data.capability, data.value);
-    });
+    widgetId().then(function (id) {
+      if (!id) return;
+      H.on('widget:' + id + ':deviceUpdate', function (data) {
+        if (current && data && data.deviceId === current.homeyId) current.onUpdate(data.capability, data.value);
+      });
+    }).catch(function () { listening = false; });
   }
 
   function slider(className, value) {
@@ -284,11 +312,9 @@
       entry.cell.classList.toggle('alert', f.alert);
     }
     Object.keys(cells).forEach(function (k) { paint(cells[k]); });
-    if (window.Homey && window.Homey.api && detail.readings.length) {
-      window.Homey.api('POST', '/subscribeToDevices', {
-        widgetId: window.Homey.clientId,
-        devices: detail.readings.map(function (r) { return { deviceId: detail.id, capability: r.capability }; })
-      }).catch(function () { /* readings stay as loaded */ });
+    if (detail.readings.length) {
+      subscribe(detail.readings.map(function (r) { return { deviceId: detail.id, capability: r.capability }; }))
+        .catch(function () { /* readings stay as loaded */ });
     }
     current.onUpdate = function (capability, value) {
       var entry = cells[capability];
@@ -306,9 +332,8 @@
 
     // live on/off and brightness for this device
     var live = ['onoff', 'dim'].filter(has).map(function (cap) { return { deviceId: detail.id, capability: cap }; });
-    if (window.Homey && window.Homey.api && live.length) {
-      window.Homey.api('POST', '/subscribeToDevices', { widgetId: window.Homey.clientId, devices: live })
-        .catch(function () { /* the popup still works, just without live updates */ });
+    if (live.length) {
+      subscribe(live).catch(function () { /* the popup still works, just without live updates */ });
     }
 
     function send(capability, value) {

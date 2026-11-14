@@ -63,6 +63,14 @@
       "method": "GET",
       "path": "/cameras/:deviceId/snapshot"
     },
+    "getDeviceDetail": {
+      "method": "GET",
+      "path": "/deviceDetail/:deviceId"
+    },
+    "setDeviceCapability": {
+      "method": "POST",
+      "path": "/deviceCapability"
+    },
     "clearImageCache": {
       "method": "POST",
       "path": "/clearImageCache"

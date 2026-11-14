@@ -21,4 +21,6 @@ module.exports = {
   proxyImage: handlers.proxyImage,
   getFloorImage: handlers.getFloorImage,
   getCameraSnapshot: handlers.getCameraSnapshot,
+  getDeviceDetail: handlers.getDeviceDetail,
+  setDeviceCapability: handlers.setDeviceCapability,
 };

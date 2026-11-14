@@ -44,7 +44,13 @@
 
         handleDeviceUpdate() { /* no state */ },
 
+        // The sensor's tap handling calls this on mouseup and again on the
+        // click that follows (no double-tap guard like onoff has), which
+        // opened the picture twice with a mouse.
         handleClick(deviceEl) {
+            const now = Date.now();
+            if (now - (deviceEl.__spLastOpen || 0) < 600) return;
+            deviceEl.__spLastOpen = now;
             this.showDeviceModal(deviceEl);
         },
 
@@ -52,6 +58,7 @@
             const homeyId = deviceEl.getAttribute('data-homey-id') || deviceEl.getAttribute('data-device-id');
             const name = deviceEl.getAttribute('data-name') || '';
 
+            document.querySelectorAll('.camera-modal-overlay').forEach(el => el.remove());
             const overlay = document.createElement('div');
             overlay.className = 'device-modal-overlay camera-modal-overlay';
             overlay.style.cssText = 'position:fixed;inset:0;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);' +

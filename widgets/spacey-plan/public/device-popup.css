@@ -258,6 +258,10 @@
 .speaker-modal .speaker-track-label, .thermostat-value-display { color: #d9d1c6 !important; background: transparent !important; }
 .speaker-modal .material-symbols-outlined, .thermostat-modal .material-symbols-outlined, .cover-modal .material-symbols-outlined,
 .enum-modal .material-symbols-outlined { color: #e8b25c !important; }
+.speaker-modal .speaker-modal-close .material-symbols-outlined { color: #f3eee7 !important; font-size: 20px !important; }
+/* the speaker popup's title stays clear of its close button */
+.speaker-modal { position: relative !important; padding-top: 20px !important; }
+.speaker-modal-close { position: absolute !important; top: 14px !important; right: 14px !important; display: flex !important; align-items: center !important; justify-content: center !important; }
 
 /* Floor plan icons are ~13 px on a scaled plan, and the icon <img> is the only
    tap target. Invisible padding gives every device a ~45 px target on touch

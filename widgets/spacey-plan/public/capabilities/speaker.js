@@ -96,6 +96,7 @@ const speakerRenderer = {
                     z-index: 1000;
                 }
                 .speaker-modal {
+                    position: relative;
                     background: rgba(245, 245, 245, 0.97);
                     border-radius: 15px;
                     padding: 20px;
@@ -105,7 +106,7 @@ const speakerRenderer = {
                     font-family: inherit;
                 }
                 .speaker-modal h2 {
-                    margin: 0 0 4px 0;
+                    margin: 0 36px 4px 36px;
                     font-size: 16px;
                     color: #333;
                 }
@@ -176,13 +177,23 @@ const speakerRenderer = {
                     font-size: 20px;
                 }
                 .speaker-modal-close {
-                    padding: 9px 20px;
+                    position: absolute;
+                    top: 12px;
+                    right: 12px;
+                    width: 32px;
+                    height: 32px;
+                    padding: 0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
                     border: none;
-                    border-radius: 9px;
-                    font-size: 14px;
+                    border-radius: 50%;
                     cursor: pointer;
                     background: #dcdcdc;
                     color: #333;
+                }
+                .speaker-modal-close .material-symbols-outlined {
+                    font-size: 20px;
                 }
                 .speaker-flow-button {
                     width: 100%;
@@ -564,7 +575,7 @@ const speakerRenderer = {
                 ${flowRule.config.buttonLabel || 'Run Flow'}
             </button>
             ` : ''}
-            <button type="button" class="speaker-modal-close">Done</button>
+            <button type="button" class="speaker-modal-close" aria-label="Close"><span class="material-symbols-outlined">close</span></button>
         `;
 
         overlay.appendChild(modal);
